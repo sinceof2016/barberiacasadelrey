@@ -1,0 +1,84 @@
+@import "tailwindcss";
+
+@theme {
+  --color-surface: #fff8f5;
+  --color-surface-dim: #e7d7cd;
+  --color-surface-bright: #fff8f5;
+  --color-surface-container-lowest: #ffffff;
+  --color-surface-container-low: #fff1e9;
+  --color-surface-container: #fbebe1;
+  --color-surface-container-high: #f5e5db;
+  --color-surface-container-highest: #f0dfd5;
+  --color-on-surface: #221a14;
+  --color-on-surface-variant: #4f4539;
+  --color-inverse-surface: #382f28;
+  --color-inverse-on-surface: #feeee3;
+  --color-outline: #817567;
+  --color-outline-variant: #d3c4b4;
+  --color-surface-tint: #7c571c;
+  --color-primary: #7c571c;
+  --color-on-primary: #ffffff;
+  --color-primary-container: #c49756;
+  --color-on-primary-container: #4c3000;
+  --color-inverse-primary: #efbe79;
+  --color-secondary: #6f5a4b;
+  --color-on-secondary: #ffffff;
+  --color-secondary-container: #faddca;
+  --color-on-secondary-container: #756051;
+  --color-tertiary: #a0402b;
+  --color-tertiary-container: #f17e64;
+  --color-primary-fixed: #ffddb2;
+  --color-on-primary-fixed: #291800;
+
+  --font-serif: 'Playfair Display', Georgia, serif;
+  --font-sans: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+}
+
+@layer base {
+  body {
+    font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background-color: #fff8f5;
+    color: #221a14;
+    min-height: 100vh;
+    min-height: 100dvh;
+    overflow-x: hidden;
+  }
+
+  code, pre, .font-mono {
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+  }
+
+  h1, h2, h3, .font-royal, .font-serif {
+    font-family: 'Playfair Display', Georgia, serif;
+  }
+}
+
+/* Custom warm parchment scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #f5e5db;
+}
+::-webkit-scrollbar-thumb {
+  background: #d3c4b4;
+  border-radius: 3px;
+  border: 1px solid #e7d7cd;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #c49756;
+}
+
+/* Hide scrollbar for category pills on mobile */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+
+

@@ -1,0 +1,8 @@
+{
+  "name": "Barbería La Casa del Rey",
+  "description": "Sistema de reservas con acceso público, sincronización con Google Calendar, base de datos y reporte de clientes, control de usuarios (Administrador y Caja), registro de cortes y contabilidad para Barbería La Casa del Rey",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

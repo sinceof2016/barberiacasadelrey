@@ -1,0 +1,336 @@
+import React, { useState, useRef, useEffect } from 'react';
+import { Calendar, ChevronLeft, ChevronRight, ChevronDown, Clock, Check } from 'lucide-react';
+import { VintageWaxSeal, BarberPoleRibbon } from './VintageBarberIcons';
+import { getColombiaDateTime } from '../utils/colombiaTime';
+
+interface VintageDatePickerProps {
+  value: string; // YYYY-MM-DD
+  onChange: (date: string) => void;
+  minDate?: string; // YYYY-MM-DD
+  label?: string;
+  id?: string;
+}
+
+const MESES = [
+  'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+  'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
+];
+
+const DIAS_SEMANA = ['Lu', 'Ma', 'Mi', 'Ju', 'Vi', 'Sá', 'Do'];
+
+export const VintageDatePicker: React.FC<VintageDatePickerProps> = ({
+  value,
+  onChange,
+  minDate,
+  label = 'Fecha del Turno',
+  id = 'vintage-datepicker',
+}) => {
+  const [desplegado, setDesplegado] = useState<boolean>(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Parse initial date or default to current date
+  const parseFecha = (str?: string) => {
+    if (!str) return new Date();
+    const [y, m, d] = str.split('-').map(Number);
+    if (!y || !m || !d) return new Date();
+    return new Date(y, m - 1, d);
+  };
+
+  const fechaSeleccionada = parseFecha(value);
+  const [mesVista, setMesVista] = useState<number>(fechaSeleccionada.getMonth());
+  const [añoVista, setAñoVista] = useState<number>(fechaSeleccionada.getFullYear());
+
+  // Keep view in sync when value changes externally
+  useEffect(() => {
+    const f = parseFecha(value);
+    setMesVista(f.getMonth());
+    setAñoVista(f.getFullYear());
+  }, [value]);
+
+  // Click outside listener
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setDesplegado(false);
+      }
+    };
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setDesplegado(false);
+    };
+
+    if (desplegado) {
+      document.addEventListener('mousedown', handleClickOutside);
+      document.addEventListener('keydown', handleKeyDown);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [desplegado]);
+
+  const irMesAnterior = () => {
+    if (mesVista === 0) {
+      setMesVista(11);
+      setAñoVista(prev => prev - 1);
+    } else {
+      setMesVista(prev => prev - 1);
+    }
+  };
+
+  const irMesSiguiente = () => {
+    if (mesVista === 11) {
+      setMesVista(0);
+      setAñoVista(prev => prev + 1);
+    } else {
+      setMesVista(prev => prev + 1);
+    }
+  };
+
+  const formatFechaBonita = (str: string) => {
+    if (!str) return 'Selecciona una fecha';
+    const d = parseFecha(str);
+    return d.toLocaleDateString('es-CO', {
+      weekday: 'short',
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric'
+    });
+  };
+
+  const colNow = getColombiaDateTime();
+  const hoyStr = colNow.fecha;
+
+  const minFechaObj = minDate ? parseFecha(minDate) : parseFecha(hoyStr);
+  if (minFechaObj) {
+    minFechaObj.setHours(0, 0, 0, 0);
+  }
+
+  // Generate matrix of days for the month view
+  const primerDiaMes = new Date(añoVista, mesVista, 1);
+  const ultimoDiaMes = new Date(añoVista, mesVista + 1, 0);
+  const totalDias = ultimoDiaMes.getDate();
+
+  // Day of week for day 1 (0 = Sunday in JS, convert to 0 = Monday)
+  let diaInicioSemana = primerDiaMes.getDay() - 1;
+  if (diaInicioSemana === -1) diaInicioSemana = 6; // Sunday is 6
+
+  const diasCeldas: { dia: number; fechaStr: string; esValido: boolean; esHoy: boolean; esSeleccionado: boolean }[] = [];
+
+  for (let i = 1; i <= totalDias; i++) {
+    const celdaDate = new Date(añoVista, mesVista, i);
+    celdaDate.setHours(0, 0, 0, 0);
+    const mStr = (mesVista + 1).toString().padStart(2, '0');
+    const dStr = i.toString().padStart(2, '0');
+    const fechaStr = `${añoVista}-${mStr}-${dStr}`;
+
+    const esValido = !minFechaObj || celdaDate >= minFechaObj;
+    const esHoy = fechaStr === hoyStr;
+    const esSeleccionado = fechaStr === value;
+
+    diasCeldas.push({ dia: i, fechaStr, esValido, esHoy, esSeleccionado });
+  }
+
+  const seleccionarDia = (fechaStr: string) => {
+    onChange(fechaStr);
+    setDesplegado(false);
+  };
+
+  const seleccionarHoy = () => {
+    onChange(hoyStr);
+    setDesplegado(false);
+  };
+
+  const seleccionarMañana = () => {
+    const [y, m, d] = hoyStr.split('-').map(Number);
+    const mDate = new Date(y, m - 1, d + 1);
+    const mStr = (mDate.getMonth() + 1).toString().padStart(2, '0');
+    const diaStr = mDate.getDate().toString().padStart(2, '0');
+    onChange(`${mDate.getFullYear()}-${mStr}-${diaStr}`);
+    setDesplegado(false);
+  };
+
+  return (
+    <div ref={containerRef} className="relative font-mono">
+      {label && (
+        <label htmlFor={id} className="block text-[10px] font-bold uppercase tracking-wider text-[#C59B27] mb-1.5 flex items-center justify-between">
+          <span className="flex items-center gap-1.5">
+            <Calendar className="w-3.5 h-3.5 text-[#C59B27]" />
+            <span>{label}</span>
+          </span>
+          <span className="text-[9px] text-[#A8988B] font-normal lowercase tracking-normal">
+            (Haz clic para desplegar calendario)
+          </span>
+        </label>
+      )}
+
+      {/* Trigger Button that displays current selected date and unfolds the calendar */}
+      <div className="flex gap-1.5">
+        <button
+          type="button"
+          id={id}
+          onClick={() => setDesplegado(!desplegado)}
+          className={`w-full flex items-center justify-between py-2 px-3 rounded-lg text-xs transition-all border text-left ${
+            desplegado
+              ? 'bg-[#261B16] border-[#C59B27] text-[#FAF6EE] ring-1 ring-[#C59B27]/40 shadow-lg'
+              : 'bg-[#0E0A09] border-[#3D2E26] hover:border-[#8A6642] text-[#FAF6EE]'
+          }`}
+          aria-expanded={desplegado}
+          aria-haspopup="dialog"
+        >
+          <div className="flex items-center gap-2 min-w-0">
+            <div className="w-6 h-6 rounded bg-[#1C1411] border border-[#C59B27]/40 flex items-center justify-center text-[#C59B27] shrink-0">
+              <Calendar className="w-3.5 h-3.5" />
+            </div>
+            <div className="truncate">
+              <span className="font-bold text-[#FAF6EE] capitalize block text-xs">
+                {formatFechaBonita(value)}
+              </span>
+              <span className="text-[10px] text-[#A8988B] block font-mono">
+                {value}
+              </span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-1.5 shrink-0 pl-2">
+            <span className="text-[10px] uppercase font-bold text-[#E5B869] hidden sm:inline-block bg-[#1F1511] px-2 py-0.5 rounded border border-[#3D2E26]">
+              {desplegado ? 'Cerrar' : 'Desplegar'}
+            </span>
+            <ChevronDown className={`w-4 h-4 text-[#C59B27] transition-transform duration-200 ${desplegado ? 'rotate-180' : ''}`} />
+          </div>
+        </button>
+      </div>
+
+      {/* Hidden fallback native datepicker for standard device inputs */}
+      <input
+        type="date"
+        value={value}
+        min={minDate}
+        onChange={(e) => onChange(e.target.value)}
+        className="sr-only"
+        aria-hidden="true"
+        tabIndex={-1}
+      />
+
+      {/* Desplegable Vintage Calendar Popover */}
+      {desplegado && (
+        <div className="absolute top-full left-0 mt-2 z-50 w-full sm:w-80 bg-[#16100E] border border-[#C59B27]/60 rounded-xl shadow-2xl p-3.5 font-mono text-xs overflow-hidden backdrop-blur-md animate-in fade-in zoom-in-95 duration-150">
+          <BarberPoleRibbon className="h-1 -mx-3.5 -mt-3.5 mb-3" />
+
+          {/* Header Month / Year with Navigation */}
+          <div className="flex items-center justify-between pb-2 mb-2 border-b border-[#3D2E26]">
+            <button
+              type="button"
+              onClick={irMesAnterior}
+              className="p-1.5 rounded-lg bg-[#241914] hover:bg-[#3D2E26] text-[#FAF6EE] border border-[#3D2E26] transition-colors"
+              title="Mes Anterior"
+            >
+              <ChevronLeft className="w-4 h-4 text-[#C59B27]" />
+            </button>
+
+            <div className="text-center">
+              <span className="font-royal font-bold text-sm text-[#FAF6EE] tracking-wide block">
+                {MESES[mesVista]} {añoVista}
+              </span>
+              <span className="text-[9px] text-[#A8988B] uppercase tracking-widest">
+                Libro de Turnos
+              </span>
+            </div>
+
+            <button
+              type="button"
+              onClick={irMesSiguiente}
+              className="p-1.5 rounded-lg bg-[#241914] hover:bg-[#3D2E26] text-[#FAF6EE] border border-[#3D2E26] transition-colors"
+              title="Mes Siguiente"
+            >
+              <ChevronRight className="w-4 h-4 text-[#C59B27]" />
+            </button>
+          </div>
+
+          {/* Quick shortcuts */}
+          <div className="flex items-center gap-1.5 mb-2.5">
+            <button
+              type="button"
+              onClick={seleccionarHoy}
+              className="flex-1 py-1 px-2 rounded bg-[#201511] hover:bg-[#30211A] text-[10px] text-[#E5B869] border border-[#3D2E26] text-center font-bold transition-colors"
+            >
+              Hoy ({colNow.dia} {MESES[colNow.mes - 1]?.slice(0, 3) || ''})
+            </button>
+            <button
+              type="button"
+              onClick={seleccionarMañana}
+              className="flex-1 py-1 px-2 rounded bg-[#201511] hover:bg-[#30211A] text-[10px] text-[#FAF6EE] border border-[#3D2E26] text-center transition-colors"
+            >
+              Mañana
+            </button>
+          </div>
+
+          {/* Weekday headers */}
+          <div className="grid grid-cols-7 gap-1 text-center mb-1 text-[10px] font-bold text-[#8A796D]">
+            {DIAS_SEMANA.map(d => (
+              <div key={d} className="py-0.5">{d}</div>
+            ))}
+          </div>
+
+          {/* Days Grid */}
+          <div className="grid grid-cols-7 gap-1 text-center">
+            {/* Empty slots for month start offset */}
+            {Array.from({ length: diaInicioSemana }).map((_, idx) => (
+              <div key={`empty-${idx}`} className="p-1" />
+            ))}
+
+            {/* Actual day cells */}
+            {diasCeldas.map(celda => {
+              if (!celda.esValido) {
+                return (
+                  <button
+                    key={celda.fechaStr}
+                    type="button"
+                    disabled
+                    className="p-1.5 rounded-lg text-xs font-mono text-[#4A3B32] opacity-40 cursor-not-allowed bg-transparent"
+                  >
+                    {celda.dia}
+                  </button>
+                );
+              }
+
+              return (
+                <button
+                  key={celda.fechaStr}
+                  type="button"
+                  onClick={() => seleccionarDia(celda.fechaStr)}
+                  className={`p-1.5 rounded-lg text-xs font-mono font-bold transition-all relative ${
+                    celda.esSeleccionado
+                      ? 'bg-[#C59B27] text-[#14100E] shadow-md font-extrabold scale-105 ring-1 ring-[#FAF6EE]/50'
+                      : celda.esHoy
+                      ? 'bg-[#2A1E18] text-[#E5B869] border border-[#C59B27]/50 hover:bg-[#3A2A22]'
+                      : 'hover:bg-[#2A1E18] text-[#FAF6EE] border border-transparent hover:border-[#3D2E26]'
+                  }`}
+                >
+                  {celda.dia}
+                  {celda.esHoy && !celda.esSeleccionado && (
+                    <span className="absolute bottom-0.5 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-[#C59B27]" />
+                  )}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Bottom indicator */}
+          <div className="mt-3 pt-2 border-t border-[#2A1E18] flex items-center justify-between text-[10px] text-[#A8988B]">
+            <span className="flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#C59B27]" />
+              Hoy
+            </span>
+            <button
+              type="button"
+              onClick={() => setDesplegado(false)}
+              className="text-[#E5B869] hover:underline"
+            >
+              Cerrar calendario
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};

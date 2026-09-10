@@ -1,0 +1,318 @@
+export interface Sucursal {
+  id: string; // 'suc-chico' | 'suc-usaquen' | 'suc-chapinero'
+  nombre: string;
+  ciudad: string;
+  direccion: string;
+  telefono: string;
+  horario: string;
+  color: string;
+  descripcion: string;
+}
+
+export interface Servicio {
+  id: number;
+  nombre: string;
+  duracionMinutos: number;
+  precio: number;
+  descripcion?: string;
+}
+
+export interface Barbero {
+  id: number;
+  nombre: string;
+  especialidad: string;
+  avatar?: string;
+  sucursalId?: string;
+  sucursalNombre?: string;
+}
+
+export interface ParticipanteGrupal {
+  nombre: string;
+  servicioId: number;
+}
+
+export interface Cita {
+  idReserva: string;
+  tipo: 'Individual' | 'Grupal';
+  clienteNombre?: string;
+  clienteTelefono?: string;
+  clienteEmail?: string;
+  servicioId?: number;
+  barberoId?: number | string;
+  sucursalId?: string;
+  sucursalNombre?: string;
+  fecha: string;
+  hora: string;
+  estado: 'Confirmada' | 'En Espera' | 'Cancelada';
+  responsableNombre?: string;
+  responsableTelefono?: string;
+  responsableEmail?: string;
+  totalPersonas?: number;
+  detalles?: ParticipanteGrupal[];
+  creadoEn?: string;
+  googleCalendarEventId?: string;
+  googleCalendarHtmlLink?: string;
+}
+
+export interface GoogleCalendarEventItem {
+  id: string;
+  summary: string;
+  description?: string;
+  location?: string;
+  start: {
+    dateTime?: string;
+    date?: string;
+    timeZone?: string;
+  };
+  end: {
+    dateTime?: string;
+    date?: string;
+    timeZone?: string;
+  };
+  htmlLink?: string;
+  status?: string;
+}
+
+export interface HorarioSlot {
+  hora24: string;
+  hora12: string;
+  disponible: boolean;
+  motivoOcupado?: string;
+  barberoNombre?: string;
+  esPasado?: boolean;
+}
+
+export interface RelojColombiaInfo {
+  fecha: string;
+  hora12: string;
+  hora24: string;
+  horaCompleta: string;
+  zona: string;
+  totalMinutos: number;
+}
+
+export interface DisponibilidadResponse {
+  exito: boolean;
+  negocio: string;
+  fecha: string;
+  barberoId: string;
+  horariosDisponibles: string[];
+  slots?: HorarioSlot[];
+  relojColombia?: RelojColombiaInfo;
+}
+
+export interface PruebaResultado {
+  paso: string;
+  estado: 'ok' | 'error';
+  detalle: any;
+}
+
+export type MetodoPago = 'Efectivo' | 'Nequi / Daviplata' | 'Tarjeta / Datáfono';
+
+export interface CorteDiario {
+  id: string;
+  fecha: string;
+  hora: string;
+  barberoId: number;
+  barberoNombre: string;
+  servicioId: number;
+  servicioNombre: string;
+  clienteNombre: string;
+  precio: number;
+  propina: number;
+  porcentajeBarbero: number; // e.g. 50%
+  montoBarbero: number;
+  montoBarberia: number;
+  metodoPago: MetodoPago;
+  liquidadoAlBarbero: boolean;
+  sucursalId?: string;
+  sucursalNombre?: string;
+  citaIdReserva?: string;
+  notas?: string;
+  creadoEn: string;
+}
+
+export interface GastoDiario {
+  id: string;
+  fecha: string;
+  hora: string;
+  concepto: string;
+  categoria: 'Insumos / Cuchillas' | 'Aseo y Desinfección' | 'Cafetería / Bebidas' | 'Mantenimiento' | 'Otros';
+  monto: number;
+  metodoPago: 'Efectivo Caja' | 'Transferencia';
+  sucursalId?: string;
+  sucursalNombre?: string;
+  comprobante?: string;
+  creadoEn: string;
+}
+
+export interface LiquidacionBarbero {
+  barberoId: number;
+  barberoNombre: string;
+  cortesCount: number;
+  totalFacturado: number;
+  totalComision: number;
+  totalPropinas: number;
+  totalALiquidar: number;
+  totalYaLiquidado: number;
+  pendientePorPagar: number;
+  cortes: CorteDiario[];
+}
+
+export interface ResumenSucursalDivision {
+  sucursalId: string;
+  sucursalNombre: string;
+  totalServicios: number;
+  ingresosBrutos: number;
+  totalComisionesBarberos: number;
+  totalPropinas: number;
+  ingresosNetosBarberia: number;
+  totalGastos: number;
+  balanceNetoFinal: number;
+  saldoEsperadoEnGaveta: number;
+}
+
+export interface ResumenContable {
+  fecha: string;
+  sucursalId?: string; // 'todas' o id específico
+  sucursalNombre?: string;
+  totalServicios: number;
+  ingresosBrutos: number;
+  totalComisionesBarberos: number;
+  totalPropinas: number;
+  ingresosNetosBarberia: number;
+  totalGastos: number;
+  balanceNetoFinal: number;
+  desgloseMediosPago: {
+    efectivo: number;
+    transferencia: number;
+    tarjeta: number;
+  };
+  efectivoCaja: {
+    baseInicial: number;
+    entradasEfectivo: number;
+    salidasEfectivoGastos: number;
+    salidasEfectivoComisiones: number;
+    saldoEsperadoEnGaveta: number;
+  };
+  divisionPorSucursal?: ResumenSucursalDivision[];
+}
+
+export type RolUsuario = 'SuperAdmin' | 'Administrador' | 'Cajero';
+
+export interface Usuario {
+  id: string;
+  nombre: string;
+  email: string;
+  password?: string;
+  rol: RolUsuario;
+  sucursalAsignada?: string; // 'suc-chico' | 'suc-usaquen' | 'suc-chapinero' | 'todas'
+  creadoEn: string;
+  avatarUrl?: string;
+  puedeVerApi?: boolean;
+  activo?: boolean;
+}
+
+/**
+ * Determina si un usuario tiene permiso para visualizar y usar la sección de API REST.
+ * Requisito: Exclusivo para David Orjuela / SuperAdmin. Los administradores estándar no tienen acceso a la API.
+ */
+export function puedeUsuarioVerApi(usuario: Usuario | null | undefined): boolean {
+  if (!usuario) return false;
+  if (usuario.puedeVerApi === true) return true;
+  if (usuario.rol === 'SuperAdmin') return true;
+  const email = (usuario.email || '').toLowerCase().trim();
+  const nombre = (usuario.nombre || '').toLowerCase().trim();
+  if (
+    email.includes('orjuela') ||
+    email.includes('david') ||
+    nombre.includes('david') ||
+    nombre.includes('orjuela')
+  ) {
+    return true;
+  }
+  return false;
+}
+
+/**
+ * Determina si un usuario tiene facultades administrativas (Admin o SuperAdmin).
+ */
+export function esUsuarioAdmin(usuario: Usuario | null | undefined): boolean {
+  if (!usuario) return false;
+  return (
+    usuario.rol === 'Administrador' ||
+    usuario.rol === 'SuperAdmin' ||
+    puedeUsuarioVerApi(usuario)
+  );
+}
+
+/**
+ * Determina si el usuario actual corresponde a David Orjuela (acceso exclusivo a gestión de usuarios y API).
+ */
+export function esUsuarioDavid(usuario: Usuario | null | undefined): boolean {
+  return puedeUsuarioVerApi(usuario);
+}
+
+export interface ClienteReporteItem {
+  id: string;
+  nombre: string;
+  telefono: string;
+  email?: string;
+  totalReservas: number;
+  reservasIndividuales: number;
+  reservasGrupales: number;
+  totalPersonas: number;
+  citasConfirmadas: number;
+  citasCanceladas: number;
+  gastoEstimado: number;
+  primeraReserva: string;
+  ultimaReserva: string;
+  serviciosSolicitados: { servicioId: number; nombre: string; veces: number }[];
+  servicioFavorito: string;
+  barberoFavorito: string;
+  clasificacion: 'VIP' | 'Frecuente' | 'Nuevo';
+  folios: string[];
+  historialCitas: Cita[];
+}
+
+export interface ReporteClientesResumen {
+  totalClientes: number;
+  totalReservas: number;
+  totalGastoEstimado: number;
+  clientesConEmail: number;
+  clientesConTelefono: number;
+  clientesVIP: number;
+  clientesRecurrentes: number;
+  clientesNuevos: number;
+  promedioGastoCliente: number;
+}
+
+export interface ReporteClientesResponse {
+  exito: boolean;
+  generadoEn: string;
+  resumen: ReporteClientesResumen;
+  clientes: ClienteReporteItem[];
+}
+
+export type MetodoAperturaGaveta = 'webserial' | 'webusb' | 'escpos_red' | 'simulado';
+
+export interface ConfiguracionGaveta {
+  metodo: MetodoAperturaGaveta;
+  autoAbrirEnEfectivo: boolean;
+  pin: 0 | 1;
+  baudRate: number;
+  ipImpresora?: string;
+  puertoImpresora?: number;
+  sonidoSimulado: boolean;
+}
+
+export interface RegistroAperturaGaveta {
+  id: string;
+  fecha: string;
+  hora: string;
+  usuario?: string;
+  motivo: string;
+  metodo: MetodoAperturaGaveta;
+  exito: boolean;
+  mensaje: string;
+}

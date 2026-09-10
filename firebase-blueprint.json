@@ -1,0 +1,105 @@
+{
+  "entities": {
+    "Cita": {
+      "title": "Cita",
+      "description": "Reserva de turno en la barbería para cliente individual o grupal",
+      "type": "object",
+      "properties": {
+        "idReserva": { "type": "string", "maxLength": 50 },
+        "tipo": { "type": "string", "enum": ["Individual", "Grupal", "individual", "grupal"] },
+        "clienteNombre": { "type": "string", "maxLength": 120 },
+        "clienteTelefono": { "type": "string", "maxLength": 30 },
+        "clienteEmail": { "type": "string", "maxLength": 150 },
+        "responsableNombre": { "type": "string", "maxLength": 120 },
+        "responsableTelefono": { "type": "string", "maxLength": 30 },
+        "responsableEmail": { "type": "string", "maxLength": 150 },
+        "servicioId": { "type": "number" },
+        "servicio": { "type": "string", "maxLength": 120 },
+        "barberoId": { "type": "string", "maxLength": 50 },
+        "barberoNombre": { "type": "string", "maxLength": 100 },
+        "precio": { "type": "number" },
+        "fecha": { "type": "string", "maxLength": 20 },
+        "hora": { "type": "string", "maxLength": 20 },
+        "duracionMinutos": { "type": "number" },
+        "estado": { "type": "string", "enum": ["Confirmada", "En Espera", "Cancelada", "confirmada", "cancelada", "completada", "en_curso"] },
+        "totalPersonas": { "type": "number" },
+        "sucursalId": { "type": "string", "maxLength": 50 },
+        "sucursalNombre": { "type": "string", "maxLength": 100 },
+        "notas": { "type": "string", "maxLength": 500 },
+        "origen": { "type": "string", "maxLength": 50 },
+        "folio": { "type": "string", "maxLength": 30 },
+        "creadoEn": { "type": "string" },
+        "fechaGuardado": { "type": "string" }
+      },
+      "required": ["idReserva", "fecha", "hora", "estado"]
+    },
+    "Barbero": {
+      "title": "Barbero",
+      "description": "Perfil del barbero maestro de la barbería",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "nombre": { "type": "string", "maxLength": 100 },
+        "especialidad": { "type": "string", "maxLength": 120 },
+        "experienciaAnos": { "type": "number" },
+        "disponible": { "type": "boolean" },
+        "calificacion": { "type": "number" },
+        "fotoUrl": { "type": "string", "maxLength": 300 }
+      },
+      "required": ["id", "nombre", "especialidad", "disponible"]
+    },
+    "CorteDiario": {
+      "title": "CorteDiario",
+      "description": "Registro de corte o servicio cobrado para liquidación y arqueo",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "barberoId": { "type": "string" },
+        "barberoNombre": { "type": "string", "maxLength": 100 },
+        "clienteNombre": { "type": "string", "maxLength": 120 },
+        "servicio": { "type": "string", "maxLength": 120 },
+        "precio": { "type": "number" },
+        "porcentajeBarbero": { "type": "number" },
+        "pagoBarbero": { "type": "number" },
+        "pagoCasa": { "type": "number" },
+        "metodoPago": { "type": "string", "enum": ["Efectivo", "Nequi", "DaviPlata", "Tarjeta", "Transferencia"] },
+        "propina": { "type": "number" },
+        "fecha": { "type": "string", "maxLength": 20 },
+        "hora": { "type": "string", "maxLength": 20 },
+        "notas": { "type": "string", "maxLength": 300 }
+      },
+      "required": ["barberoId", "clienteNombre", "servicio", "precio", "metodoPago", "fecha"]
+    },
+    "CajaArqueo": {
+      "title": "CajaArqueo",
+      "description": "Registro de base inicial o arqueo diario de caja",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "fecha": { "type": "string", "maxLength": 20 },
+        "baseInicial": { "type": "number" },
+        "observaciones": { "type": "string", "maxLength": 500 },
+        "actualizadoPor": { "type": "string", "maxLength": 100 }
+      },
+      "required": ["fecha", "baseInicial"]
+    }
+  },
+  "firestore": {
+    "/citas/{citaId}": {
+      "schema": "Cita",
+      "description": "Colección de reservas de clientes individuales y grupales"
+    },
+    "/barberos/{barberoId}": {
+      "schema": "Barbero",
+      "description": "Colección de barberos del salón y disponibilidad"
+    },
+    "/cortes_diarios/{corteId}": {
+      "schema": "CorteDiario",
+      "description": "Colección de servicios realizados y comisiones registradas"
+    },
+    "/caja_arqueos/{fecha}": {
+      "schema": "CajaArqueo",
+      "description": "Colección de bases iniciales y cierres de caja por fecha"
+    }
+  }
+}
