@@ -9,6 +9,7 @@ interface VintageDatePickerProps {
   minDate?: string; // YYYY-MM-DD
   label?: string;
   id?: string;
+  align?: 'left' | 'right';
 }
 
 const MESES = [
@@ -24,6 +25,7 @@ export const VintageDatePicker: React.FC<VintageDatePickerProps> = ({
   minDate,
   label = 'Fecha del Turno',
   id = 'vintage-datepicker',
+  align = 'left',
 }) => {
   const [desplegado, setDesplegado] = useState<boolean>(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -100,7 +102,7 @@ export const VintageDatePicker: React.FC<VintageDatePickerProps> = ({
   const colNow = getColombiaDateTime();
   const hoyStr = colNow.fecha;
 
-  const minFechaObj = minDate ? parseFecha(minDate) : parseFecha(hoyStr);
+  const minFechaObj = minDate ? parseFecha(minDate) : null;
   if (minFechaObj) {
     minFechaObj.setHours(0, 0, 0, 0);
   }
@@ -150,15 +152,15 @@ export const VintageDatePicker: React.FC<VintageDatePickerProps> = ({
   };
 
   return (
-    <div ref={containerRef} className="relative font-mono">
+    <div ref={containerRef} className="relative font-sans">
       {label && (
-        <label htmlFor={id} className="block text-[10px] font-bold uppercase tracking-wider text-[#C59B27] mb-1.5 flex items-center justify-between">
-          <span className="flex items-center gap-1.5">
-            <Calendar className="w-3.5 h-3.5 text-[#C59B27]" />
+        <label htmlFor={id} className="block text-[10px] font-bold uppercase tracking-wider text-[#7C571C] mb-1 flex items-center justify-between">
+          <span className="flex items-center gap-1.5 font-mono">
+            <Calendar className="w-3.5 h-3.5 text-[#7C571C]" />
             <span>{label}</span>
           </span>
-          <span className="text-[9px] text-[#A8988B] font-normal lowercase tracking-normal">
-            (Haz clic para desplegar calendario)
+          <span className="text-[9px] text-[#6F5A4B] font-normal lowercase tracking-normal">
+            (clic para calendario)
           </span>
         </label>
       )}
@@ -169,38 +171,38 @@ export const VintageDatePicker: React.FC<VintageDatePickerProps> = ({
           type="button"
           id={id}
           onClick={() => setDesplegado(!desplegado)}
-          className={`w-full flex items-center justify-between py-2 px-3 rounded-lg text-xs transition-all border text-left ${
+          className={`w-full flex items-center justify-between py-2 px-3 rounded-xl text-xs transition-all border text-left cursor-pointer shadow-xs ${
             desplegado
-              ? 'bg-[#261B16] border-[#C59B27] text-[#FAF6EE] ring-1 ring-[#C59B27]/40 shadow-lg'
-              : 'bg-[#0E0A09] border-[#3D2E26] hover:border-[#8A6642] text-[#FAF6EE]'
+              ? 'bg-[#FFF8F5] border-[#7C571C] text-[#221A14] ring-2 ring-[#7C571C]/20 shadow-md'
+              : 'bg-[#FFF8F5] border-[#DFCBB5] hover:border-[#7C571C] text-[#221A14]'
           }`}
           aria-expanded={desplegado}
           aria-haspopup="dialog"
         >
           <div className="flex items-center gap-2 min-w-0">
-            <div className="w-6 h-6 rounded bg-[#1C1411] border border-[#C59B27]/40 flex items-center justify-center text-[#C59B27] shrink-0">
+            <div className="w-6 h-6 rounded-lg bg-[#FBEBE1] border border-[#DFCBB5] flex items-center justify-center text-[#7C571C] shrink-0">
               <Calendar className="w-3.5 h-3.5" />
             </div>
             <div className="truncate">
-              <span className="font-bold text-[#FAF6EE] capitalize block text-xs">
+              <span className="font-bold text-[#221A14] capitalize block text-xs">
                 {formatFechaBonita(value)}
               </span>
-              <span className="text-[10px] text-[#A8988B] block font-mono">
+              <span className="text-[10px] text-[#6F5A4B] block font-mono">
                 {value}
               </span>
             </div>
           </div>
 
           <div className="flex items-center gap-1.5 shrink-0 pl-2">
-            <span className="text-[10px] uppercase font-bold text-[#E5B869] hidden sm:inline-block bg-[#1F1511] px-2 py-0.5 rounded border border-[#3D2E26]">
+            <span className="text-[10px] uppercase font-bold text-[#7C571C] hidden sm:inline-block bg-[#FBEBE1] px-2 py-0.5 rounded-full border border-[#DFCBB5]">
               {desplegado ? 'Cerrar' : 'Desplegar'}
             </span>
-            <ChevronDown className={`w-4 h-4 text-[#C59B27] transition-transform duration-200 ${desplegado ? 'rotate-180' : ''}`} />
+            <ChevronDown className={`w-4 h-4 text-[#7C571C] transition-transform duration-200 ${desplegado ? 'rotate-180' : ''}`} />
           </div>
         </button>
       </div>
 
-      {/* Hidden fallback native datepicker for standard device inputs */}
+      {/* Hidden fallback native datepicker */}
       <input
         type="date"
         value={value}
@@ -213,25 +215,27 @@ export const VintageDatePicker: React.FC<VintageDatePickerProps> = ({
 
       {/* Desplegable Vintage Calendar Popover */}
       {desplegado && (
-        <div className="absolute top-full left-0 mt-2 z-50 w-full sm:w-80 bg-[#16100E] border border-[#C59B27]/60 rounded-xl shadow-2xl p-3.5 font-mono text-xs overflow-hidden backdrop-blur-md animate-in fade-in zoom-in-95 duration-150">
-          <BarberPoleRibbon className="h-1 -mx-3.5 -mt-3.5 mb-3" />
+        <div 
+          className={`absolute top-full ${align === 'right' ? 'right-0' : 'left-0'} mt-2 z-50 w-72 sm:w-80 bg-[#FFF8F5] border border-[#DFCBB5] rounded-2xl shadow-2xl p-4 font-mono text-xs overflow-hidden backdrop-blur-md animate-in fade-in zoom-in-95 duration-150 ring-1 ring-[#DFCBB5]`}
+        >
+          <BarberPoleRibbon className="h-1 -mx-4 -mt-4 mb-3" />
 
           {/* Header Month / Year with Navigation */}
-          <div className="flex items-center justify-between pb-2 mb-2 border-b border-[#3D2E26]">
+          <div className="flex items-center justify-between pb-2 mb-2 border-b border-[#DFCBB5]">
             <button
               type="button"
               onClick={irMesAnterior}
-              className="p-1.5 rounded-lg bg-[#241914] hover:bg-[#3D2E26] text-[#FAF6EE] border border-[#3D2E26] transition-colors"
+              className="p-1.5 rounded-lg bg-[#FBEBE1] hover:bg-[#F5E5DB] text-[#221A14] border border-[#DFCBB5] transition-colors cursor-pointer"
               title="Mes Anterior"
             >
-              <ChevronLeft className="w-4 h-4 text-[#C59B27]" />
+              <ChevronLeft className="w-4 h-4 text-[#7C571C]" />
             </button>
 
             <div className="text-center">
-              <span className="font-royal font-bold text-sm text-[#FAF6EE] tracking-wide block">
+              <span className="font-serif font-bold text-sm text-[#221A14] tracking-wide block">
                 {MESES[mesVista]} {añoVista}
               </span>
-              <span className="text-[9px] text-[#A8988B] uppercase tracking-widest">
+              <span className="text-[9px] text-[#6F5A4B] uppercase tracking-widest font-mono">
                 Libro de Turnos
               </span>
             </div>
@@ -239,10 +243,10 @@ export const VintageDatePicker: React.FC<VintageDatePickerProps> = ({
             <button
               type="button"
               onClick={irMesSiguiente}
-              className="p-1.5 rounded-lg bg-[#241914] hover:bg-[#3D2E26] text-[#FAF6EE] border border-[#3D2E26] transition-colors"
+              className="p-1.5 rounded-lg bg-[#FBEBE1] hover:bg-[#F5E5DB] text-[#221A14] border border-[#DFCBB5] transition-colors cursor-pointer"
               title="Mes Siguiente"
             >
-              <ChevronRight className="w-4 h-4 text-[#C59B27]" />
+              <ChevronRight className="w-4 h-4 text-[#7C571C]" />
             </button>
           </div>
 
@@ -251,21 +255,21 @@ export const VintageDatePicker: React.FC<VintageDatePickerProps> = ({
             <button
               type="button"
               onClick={seleccionarHoy}
-              className="flex-1 py-1 px-2 rounded bg-[#201511] hover:bg-[#30211A] text-[10px] text-[#E5B869] border border-[#3D2E26] text-center font-bold transition-colors"
+              className="flex-1 py-1 px-2 rounded-lg bg-[#FBEBE1] hover:bg-[#F5E5DB] text-[10px] text-[#7C571C] border border-[#DFCBB5] text-center font-bold transition-colors cursor-pointer"
             >
               Hoy ({colNow.dia} {MESES[colNow.mes - 1]?.slice(0, 3) || ''})
             </button>
             <button
               type="button"
               onClick={seleccionarMañana}
-              className="flex-1 py-1 px-2 rounded bg-[#201511] hover:bg-[#30211A] text-[10px] text-[#FAF6EE] border border-[#3D2E26] text-center transition-colors"
+              className="flex-1 py-1 px-2 rounded-lg bg-[#FBEBE1] hover:bg-[#F5E5DB] text-[10px] text-[#221A14] border border-[#DFCBB5] text-center transition-colors cursor-pointer font-bold"
             >
               Mañana
             </button>
           </div>
 
           {/* Weekday headers */}
-          <div className="grid grid-cols-7 gap-1 text-center mb-1 text-[10px] font-bold text-[#8A796D]">
+          <div className="grid grid-cols-7 gap-1 text-center mb-1 text-[10px] font-bold text-[#7C571C]">
             {DIAS_SEMANA.map(d => (
               <div key={d} className="py-0.5">{d}</div>
             ))}
@@ -286,7 +290,7 @@ export const VintageDatePicker: React.FC<VintageDatePickerProps> = ({
                     key={celda.fechaStr}
                     type="button"
                     disabled
-                    className="p-1.5 rounded-lg text-xs font-mono text-[#4A3B32] opacity-40 cursor-not-allowed bg-transparent"
+                    className="p-1.5 rounded-lg text-xs font-mono text-[#DFCBB5] opacity-40 cursor-not-allowed bg-transparent"
                   >
                     {celda.dia}
                   </button>
@@ -298,17 +302,17 @@ export const VintageDatePicker: React.FC<VintageDatePickerProps> = ({
                   key={celda.fechaStr}
                   type="button"
                   onClick={() => seleccionarDia(celda.fechaStr)}
-                  className={`p-1.5 rounded-lg text-xs font-mono font-bold transition-all relative ${
+                  className={`p-1.5 rounded-lg text-xs font-mono font-bold transition-all relative cursor-pointer ${
                     celda.esSeleccionado
-                      ? 'bg-[#C59B27] text-[#14100E] shadow-md font-extrabold scale-105 ring-1 ring-[#FAF6EE]/50'
+                      ? 'bg-[#7C571C] text-[#FFFFFF] shadow-md font-extrabold scale-105 ring-2 ring-[#7C571C]/30'
                       : celda.esHoy
-                      ? 'bg-[#2A1E18] text-[#E5B869] border border-[#C59B27]/50 hover:bg-[#3A2A22]'
-                      : 'hover:bg-[#2A1E18] text-[#FAF6EE] border border-transparent hover:border-[#3D2E26]'
+                      ? 'bg-[#FBEBE1] text-[#7C571C] border border-[#7C571C] hover:bg-[#F5E5DB]'
+                      : 'hover:bg-[#FBEBE1] text-[#221A14] border border-transparent hover:border-[#DFCBB5]'
                   }`}
                 >
                   {celda.dia}
                   {celda.esHoy && !celda.esSeleccionado && (
-                    <span className="absolute bottom-0.5 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-[#C59B27]" />
+                    <span className="absolute bottom-0.5 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-[#7C571C]" />
                   )}
                 </button>
               );
@@ -316,15 +320,15 @@ export const VintageDatePicker: React.FC<VintageDatePickerProps> = ({
           </div>
 
           {/* Bottom indicator */}
-          <div className="mt-3 pt-2 border-t border-[#2A1E18] flex items-center justify-between text-[10px] text-[#A8988B]">
-            <span className="flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#C59B27]" />
-              Hoy
+          <div className="mt-3 pt-2 border-t border-[#DFCBB5] flex items-center justify-between text-[10px] text-[#6F5A4B]">
+            <span className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-[#7C571C]" />
+              <span className="font-bold text-[#221A14]">Hoy</span>
             </span>
             <button
               type="button"
               onClick={() => setDesplegado(false)}
-              className="text-[#E5B869] hover:underline"
+              className="text-[#7C571C] font-bold hover:underline cursor-pointer"
             >
               Cerrar calendario
             </button>

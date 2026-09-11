@@ -8,7 +8,7 @@ import {
   User,
   Auth
 } from 'firebase/auth';
-import firebaseConfig from '../../firebase-applet-config.json';
+import { firebaseConfig } from './firebaseConfig';
 
 // Initialize Firebase App instance safely (singleton)
 const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);

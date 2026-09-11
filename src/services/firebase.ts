@@ -12,7 +12,7 @@ import {
   query, 
   orderBy 
 } from 'firebase/firestore';
-import firebaseConfig from '../../firebase-applet-config.json';
+import { firebaseConfig } from './firebaseConfig';
 import { Cita, Barbero, CorteDiario } from '../types';
 
 // Initialize Firebase App

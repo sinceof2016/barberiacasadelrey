@@ -5,20 +5,18 @@ import { TabType } from './Navbar';
 interface BottomNavProps {
   activeTab: TabType;
   setActiveTab: (tab: TabType) => void;
-  onOpenLookup: () => void;
 }
 
 export const BottomNav: React.FC<BottomNavProps> = ({
   activeTab,
   setActiveTab,
-  onOpenLookup,
 }) => {
   return (
     <nav 
       id="heritage-bottom-nav"
       className="fixed bottom-0 left-0 right-0 z-50 pb-[env(safe-area-inset-bottom,0px)] bg-[#FBEBE1]/95 backdrop-blur-xl border-t border-[#DFCBB5] shadow-[0_-2px_12px_rgba(44,29,17,0.08)]"
     >
-      <div className="max-w-md mx-auto grid grid-cols-4 h-16 items-center px-4">
+      <div className="max-w-md mx-auto grid grid-cols-3 h-16 items-center px-4">
         {/* Tab 1: Servicios */}
         <button
           id="bottom-tab-servicios"
@@ -63,19 +61,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
           )}
         </button>
 
-        {/* Tab 3: Mis Citas */}
-        <button
-          id="bottom-tab-miscitas"
-          onClick={onOpenLookup}
-          className="flex flex-col items-center justify-center text-[#6F5A4B] hover:text-[#221A14] transition-all cursor-pointer"
-        >
-          <Ticket className="w-5 h-5" />
-          <span className="text-[10px] tracking-wider uppercase font-medium mt-1">
-            Mis Citas
-          </span>
-        </button>
-
-        {/* Tab 4: Barberos */}
+        {/* Tab 3: Barberos */}
         <button
           id="bottom-tab-barberos"
           onClick={() => {

@@ -41,6 +41,14 @@ import {
   localActualizarBaseCaja,
   localLoginUsuario,
   localGetUsuarios,
+  localCrearUsuario,
+  localActualizarUsuario,
+  localEliminarUsuario,
+  localActualizarSucursal,
+  localActualizarServicio,
+  localEliminarServicio,
+  localActualizarBarbero,
+  localEliminarBarbero,
   localGetReporteClientes,
   getColombiaDateTimeClient
 } from './localBackendFallback';
@@ -479,7 +487,7 @@ export async function getUsuarios(): Promise<Usuario[]> {
 export async function crearUsuario(payload: {
   nombre: string;
   email: string;
-  password: string;
+  password?: string;
   rol: RolUsuario;
   sucursalAsignada?: string;
 }): Promise<{ exito: boolean; mensaje: string; usuario: Usuario }> {
@@ -489,17 +497,22 @@ export async function crearUsuario(payload: {
     body: JSON.stringify(payload),
   });
   if (!res || !res.ok) {
-    const nuevo: Usuario = {
-      id: `USR-${Date.now().toString().slice(-4)}`,
-      nombre: payload.nombre,
-      email: payload.email,
-      rol: payload.rol,
-      sucursalAsignada: payload.sucursalAsignada || 'suc-chico',
-      creadoEn: new Date().toISOString()
-    };
-    return { exito: true, mensaje: 'Usuario creado exitosamente', usuario: nuevo };
+    return localCrearUsuario(payload);
   }
   return await res.json();
+}
+
+export async function actualizarUsuario(usuario: Partial<Usuario> & { id: string }): Promise<Usuario[]> {
+  const res = await safeFetch(`${BASE_URL}/usuarios/${encodeURIComponent(usuario.id)}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(usuario),
+  });
+  if (!res || !res.ok) {
+    return localActualizarUsuario(usuario);
+  }
+  const data = await res.json();
+  return data.datos || localActualizarUsuario(usuario);
 }
 
 export async function eliminarUsuario(id: string): Promise<{ exito: boolean; mensaje: string }> {
@@ -507,9 +520,74 @@ export async function eliminarUsuario(id: string): Promise<{ exito: boolean; men
     method: 'DELETE',
   });
   if (!res || !res.ok) {
+    localEliminarUsuario(id);
     return { exito: true, mensaje: 'Usuario eliminado' };
   }
   return await res.json();
+}
+
+// Sucursales / Sedes
+export async function actualizarSucursal(sucursal: Sucursal): Promise<Sucursal[]> {
+  const res = await safeFetch(`${BASE_URL}/sucursales/${encodeURIComponent(sucursal.id)}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(sucursal),
+  });
+  if (!res || !res.ok) {
+    return localActualizarSucursal(sucursal);
+  }
+  const data = await res.json();
+  return data.datos || localActualizarSucursal(sucursal);
+}
+
+// Servicios
+export async function actualizarServicio(servicio: Servicio): Promise<Servicio[]> {
+  const res = await safeFetch(`${BASE_URL}/servicios/${encodeURIComponent(String(servicio.id))}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(servicio),
+  });
+  if (!res || !res.ok) {
+    return localActualizarServicio(servicio);
+  }
+  const data = await res.json();
+  return data.datos || localActualizarServicio(servicio);
+}
+
+export async function eliminarServicio(id: number): Promise<Servicio[]> {
+  const res = await safeFetch(`${BASE_URL}/servicios/${encodeURIComponent(String(id))}`, {
+    method: 'DELETE',
+  });
+  if (!res || !res.ok) {
+    return localEliminarServicio(id);
+  }
+  const data = await res.json();
+  return data.datos || localEliminarServicio(id);
+}
+
+// Barberos
+export async function actualizarBarbero(barbero: Barbero): Promise<Barbero[]> {
+  const res = await safeFetch(`${BASE_URL}/barberos/${encodeURIComponent(String(barbero.id))}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(barbero),
+  });
+  if (!res || !res.ok) {
+    return localActualizarBarbero(barbero);
+  }
+  const data = await res.json();
+  return data.datos || localActualizarBarbero(barbero);
+}
+
+export async function eliminarBarbero(id: number): Promise<Barbero[]> {
+  const res = await safeFetch(`${BASE_URL}/barberos/${encodeURIComponent(String(id))}`, {
+    method: 'DELETE',
+  });
+  if (!res || !res.ok) {
+    return localEliminarBarbero(id);
+  }
+  const data = await res.json();
+  return data.datos || localEliminarBarbero(id);
 }
 
 export async function restablecerClaveAdmin(nuevaClave: string = 'admin123'): Promise<{

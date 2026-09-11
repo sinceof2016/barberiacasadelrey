@@ -23,6 +23,9 @@ const STORAGE_KEYS = {
   EGRESOS: 'cdr_egresos_v1',
   BASE_CAJA: 'cdr_base_caja_v1',
   USUARIOS: 'cdr_usuarios_v1',
+  SUCURSALES: 'cdr_sucursales_v1',
+  SERVICIOS: 'cdr_servicios_v1',
+  BARBEROS: 'cdr_barberos_v1',
 };
 
 // Sincronización oficial con reloj Colombia (America/Bogota, UTC-5)
@@ -148,18 +151,81 @@ function getInitialCitas(): Cita[] {
 
 // Servicios y Barberos
 export function localGetSucursales() {
-  return sucursalesCasaDelRey;
+  return getLocal(STORAGE_KEYS.SUCURSALES, sucursalesCasaDelRey);
+}
+
+export function localGuardarSucursales(sucursales: any[]): void {
+  setLocal(STORAGE_KEYS.SUCURSALES, sucursales);
+}
+
+export function localActualizarSucursal(sucursal: any): any[] {
+  const lista = localGetSucursales();
+  const idx = lista.findIndex((s: any) => s.id === sucursal.id);
+  if (idx >= 0) {
+    lista[idx] = { ...lista[idx], ...sucursal };
+  } else {
+    lista.push(sucursal);
+  }
+  localGuardarSucursales(lista);
+  return lista;
 }
 
 export function localGetServicios() {
-  return serviciosCasaDelRey;
+  return getLocal(STORAGE_KEYS.SERVICIOS, serviciosCasaDelRey);
+}
+
+export function localGuardarServicios(servicios: any[]): void {
+  setLocal(STORAGE_KEYS.SERVICIOS, servicios);
+}
+
+export function localActualizarServicio(servicio: any): any[] {
+  const lista = localGetServicios();
+  const idx = lista.findIndex((s: any) => s.id === Number(servicio.id));
+  if (idx >= 0) {
+    lista[idx] = { ...lista[idx], ...servicio, id: Number(servicio.id), precio: Number(servicio.precio) };
+  } else {
+    const nuevoId = Math.max(...lista.map((s: any) => s.id), 0) + 1;
+    lista.push({ ...servicio, id: nuevoId, precio: Number(servicio.precio) });
+  }
+  localGuardarServicios(lista);
+  return lista;
+}
+
+export function localEliminarServicio(id: number): any[] {
+  const lista = localGetServicios().filter((s: any) => s.id !== id);
+  localGuardarServicios(lista);
+  return lista;
 }
 
 export function localGetBarberos(sucursalId?: string) {
+  const todos = getLocal(STORAGE_KEYS.BARBEROS, barberosCasaDelRey);
   if (sucursalId && sucursalId !== 'todas') {
-    return barberosCasaDelRey.filter(b => b.sucursalId === sucursalId);
+    return todos.filter((b: any) => b.sucursalId === sucursalId);
   }
-  return barberosCasaDelRey;
+  return todos;
+}
+
+export function localGuardarBarberos(barberos: any[]): void {
+  setLocal(STORAGE_KEYS.BARBEROS, barberos);
+}
+
+export function localActualizarBarbero(barbero: any): any[] {
+  const lista = getLocal(STORAGE_KEYS.BARBEROS, barberosCasaDelRey);
+  const idx = lista.findIndex((b: any) => b.id === Number(barbero.id));
+  if (idx >= 0) {
+    lista[idx] = { ...lista[idx], ...barbero, id: Number(barbero.id) };
+  } else {
+    const nuevoId = Math.max(...lista.map((b: any) => b.id), 100) + 1;
+    lista.push({ ...barbero, id: nuevoId });
+  }
+  localGuardarBarberos(lista);
+  return lista;
+}
+
+export function localEliminarBarbero(id: number): any[] {
+  const lista = getLocal(STORAGE_KEYS.BARBEROS, barberosCasaDelRey).filter((b: any) => b.id !== id);
+  localGuardarBarberos(lista);
+  return lista;
 }
 
 // Citas
@@ -685,6 +751,53 @@ export function localLoginUsuario(email: string, password: string): { exito: boo
 export function localGetUsuarios(): Usuario[] {
   const raw = getLocal<Usuario[]>(STORAGE_KEYS.USUARIOS, usuariosIniciales);
   return asegurarUsuariosActualizados(raw);
+}
+
+export function localGuardarUsuarios(usuarios: Usuario[]): void {
+  setLocal(STORAGE_KEYS.USUARIOS, usuarios);
+}
+
+export function localCrearUsuario(payload: {
+  nombre: string;
+  email: string;
+  password?: string;
+  rol: any;
+  sucursalAsignada?: string;
+}): { exito: boolean; mensaje: string; usuario: Usuario } {
+  const usuarios = localGetUsuarios();
+  const nuevo: Usuario = {
+    id: `USR-${Date.now().toString().slice(-6)}`,
+    nombre: payload.nombre.trim(),
+    email: payload.email.trim(),
+    password: payload.password?.trim() || 'caja123',
+    rol: payload.rol,
+    sucursalAsignada: payload.rol === 'Administrador' ? 'todas' : (payload.sucursalAsignada || 'suc-chico'),
+    creadoEn: new Date().toISOString(),
+    puedeVerApi: payload.rol === 'SuperAdmin'
+  };
+  usuarios.push(nuevo);
+  localGuardarUsuarios(usuarios);
+  return { exito: true, mensaje: 'Usuario registrado exitosamente', usuario: nuevo };
+}
+
+export function localActualizarUsuario(usuario: Partial<Usuario> & { id: string }): Usuario[] {
+  const usuarios = localGetUsuarios();
+  const idx = usuarios.findIndex(u => u.id === usuario.id);
+  if (idx >= 0) {
+    usuarios[idx] = { 
+      ...usuarios[idx], 
+      ...usuario,
+      puedeVerApi: usuario.rol === 'SuperAdmin' || (usuarios[idx].puedeVerApi && usuario.rol !== 'Cajero')
+    };
+    localGuardarUsuarios(usuarios);
+  }
+  return usuarios;
+}
+
+export function localEliminarUsuario(id: string): Usuario[] {
+  const usuarios = localGetUsuarios().filter(u => u.id !== id);
+  localGuardarUsuarios(usuarios);
+  return usuarios;
 }
 
 // Reporte de Clientes

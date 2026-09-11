@@ -22,6 +22,8 @@ export interface Barbero {
   nombre: string;
   especialidad: string;
   avatar?: string;
+  foto?: string;
+  descripcion?: string;
   sucursalId?: string;
   sucursalNombre?: string;
 }

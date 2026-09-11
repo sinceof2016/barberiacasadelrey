@@ -86,25 +86,25 @@ export const WhatsAppConfirmButton: React.FC<WhatsAppConfirmProps> = ({
   };
 
   return (
-    <div className={`p-4 rounded-xl bg-[#102214] border border-[#23532C] shadow-lg ${className}`}>
-      <div className="flex items-center justify-between mb-3 pb-2.5 border-b border-[#1D3B23]">
+    <div className={`p-4 rounded-xl bg-[#FFFFFF] border border-[#DFCBB5] shadow-2xs ${className}`}>
+      <div className="flex items-center justify-between mb-3 pb-2.5 border-b border-[#DFCBB5]">
         <div className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-lg bg-[#25D366] text-[#0A180E] flex items-center justify-center font-bold shadow">
+          <div className="w-7 h-7 rounded-lg bg-[#25D366] text-[#0A180E] flex items-center justify-center font-bold shadow-xs">
             <MessageSquare className="w-4 h-4 fill-current" />
           </div>
           <div>
-            <h4 className="text-xs font-mono font-bold text-[#FAF6EE] tracking-wide flex items-center gap-1.5">
+            <h4 className="text-xs font-mono font-bold text-[#221A14] tracking-wide flex items-center gap-1.5">
               <span>CONFIRMACIÓN DIRECTA VÍA WHATSAPP</span>
-              <span className="px-1.5 py-0.2 text-[8px] font-bold bg-[#1C4123] text-[#86EFAC] rounded border border-[#2E6B39]">
+              <span className="px-1.5 py-0.2 text-[8px] font-bold bg-[#EBF7EE] text-[#15803D] rounded border border-[#86EFAC]">
                 1 CLIC
               </span>
             </h4>
-            <p className="text-[10px] text-[#A3E3B5] font-mono">
+            <p className="text-[10px] text-[#6F5A4B] font-mono">
               Envía tu comprobante oficial al barbero de turno o guárdalo en tu chat
             </p>
           </div>
         </div>
-        <ShieldCheck className="w-4 h-4 text-[#86EFAC] shrink-0" />
+        <ShieldCheck className="w-4 h-4 text-[#15803D] shrink-0" />
       </div>
 
       <div className="flex flex-col sm:flex-row gap-2">
@@ -114,7 +114,7 @@ export const WhatsAppConfirmButton: React.FC<WhatsAppConfirmProps> = ({
           target="_blank"
           rel="noopener noreferrer"
           id="btn-whatsapp-barberia"
-          className="flex-1 py-2.5 px-3 rounded-lg bg-[#25D366] hover:bg-[#20BA5A] text-[#0A180E] font-mono font-black text-xs flex items-center justify-center gap-2 shadow-md transition-all active:scale-[0.98]"
+          className="flex-1 py-2.5 px-3 rounded-lg bg-[#25D366] hover:bg-[#20BA5A] text-[#0A180E] font-mono font-black text-xs flex items-center justify-center gap-2 shadow-xs transition-all active:scale-[0.98]"
         >
           <MessageSquare className="w-4 h-4 fill-current" />
           <span>CONFIRMAR CON LA BARBERÍA</span>
@@ -129,7 +129,7 @@ export const WhatsAppConfirmButton: React.FC<WhatsAppConfirmProps> = ({
             rel="noopener noreferrer"
             id="btn-whatsapp-cliente"
             title="Abrir WhatsApp para enviarte este comprobante"
-            className="py-2.5 px-3 rounded-lg bg-[#18351F] hover:bg-[#20472A] text-[#86EFAC] border border-[#2E6B39] font-mono font-bold text-xs flex items-center justify-center gap-1.5 transition-all active:scale-[0.98]"
+            className="py-2.5 px-3 rounded-lg bg-[#EBF7EE] hover:bg-[#DCF3E2] text-[#15803D] border border-[#86EFAC] font-mono font-bold text-xs flex items-center justify-center gap-1.5 transition-all active:scale-[0.98]"
           >
             <span>ENVIARME A MI NÚMERO</span>
             <ExternalLink className="w-3 h-3 opacity-70" />
@@ -141,13 +141,13 @@ export const WhatsAppConfirmButton: React.FC<WhatsAppConfirmProps> = ({
           type="button"
           onClick={handleCopiarMensaje}
           id="btn-copiar-mensaje-whatsapp"
-          className="py-2.5 px-3 rounded-lg bg-[#142618] hover:bg-[#1B3622] text-[#A3E3B5] border border-[#244E2B] font-mono text-[11px] font-bold transition-all flex items-center justify-center gap-1"
+          className="py-2.5 px-3 rounded-lg bg-[#FBEBE1] hover:bg-[#F3DECE] text-[#7C571C] border border-[#DFCBB5] font-mono text-[11px] font-bold transition-all flex items-center justify-center gap-1 cursor-pointer"
           title="Copiar texto formateado para pegarlo en WhatsApp"
         >
           {mensajeCopiado ? (
             <>
-              <Check className="w-3.5 h-3.5 text-[#86EFAC]" />
-              <span className="text-[#86EFAC]">¡COPIADO!</span>
+              <Check className="w-3.5 h-3.5 text-[#15803D]" />
+              <span className="text-[#15803D]">¡COPIADO!</span>
             </>
           ) : (
             <span>COPIAR TEXTO</span>

@@ -20,7 +20,8 @@ import {
   Users,
   FileSpreadsheet,
   Building2,
-  MapPin
+  MapPin,
+  Lock
 } from 'lucide-react';
 import { User } from 'firebase/auth';
 import { SUCURSALES_CASA_DEL_REY, getSucursalById } from '../data/sucursales';
@@ -64,12 +65,17 @@ export const AppointmentsList: React.FC<AppointmentsListProps> = ({
 }) => {
   const colTime = getColombiaDateTime();
   const hoyStr = colTime.fecha;
+  // Aislamiento estricto de caja: Los usuarios cajeros solo visualizan su sede asignada
+  const esCajeroAislado = !esAdmin && !!sucursalAsignada && sucursalAsignada !== 'todas';
+
   const [filtroSede, setFiltroSede] = useState<string>(() => {
     if (sucursalAsignada && sucursalAsignada !== 'todas') {
       return sucursalAsignada;
     }
     return 'todas';
   });
+
+  const sedeFiltroEfectiva = esCajeroAislado ? (sucursalAsignada || 'suc-chico') : filtroSede;
   const [busquedaTexto, setBusquedaTexto] = useState<string>('');
   const [filtroTipo, setFiltroTipo] = useState<'todos' | 'Individual' | 'Grupal'>('todos');
   const [filtroEstado, setFiltroEstado] = useState<'todos' | 'Confirmada' | 'Cancelada'>('todos');
@@ -216,10 +222,10 @@ export const AppointmentsList: React.FC<AppointmentsListProps> = ({
     return getSucursalById(sId).nombre;
   };
 
-  // Citas segmentadas por la sede seleccionada (o todas si es 'todas')
-  const citasSede = filtroSede === 'todas'
+  // Citas segmentadas por la sede efectiva (aislada para cajero, configurable para admin)
+  const citasSede = sedeFiltroEfectiva === 'todas'
     ? citas
-    : citas.filter(c => getCitaSedeId(c) === filtroSede);
+    : citas.filter(c => getCitaSedeId(c) === sedeFiltroEfectiva);
 
   const citasHoy = citasSede.filter(c => c.fecha === hoyStr && c.estado !== 'Cancelada');
   const citasHoyPendientes = citasHoy.filter(c => parseSlotToMinutes(c.hora) > colTime.totalMinutos);
@@ -275,161 +281,174 @@ export const AppointmentsList: React.FC<AppointmentsListProps> = ({
     .filter(c => c.estado === 'Confirmada')
     .reduce((count, c) => count + (c.tipo === 'Grupal' ? (c.totalPersonas || 2) : 1), 0);
 
-  const sedeActualInfo = filtroSede !== 'todas' ? getSucursalById(filtroSede) : null;
+  const sedeActualInfo = sedeFiltroEfectiva !== 'todas' ? getSucursalById(sedeFiltroEfectiva) : null;
 
   return (
-    <div className="py-2 space-y-4">
-      {/* Selector de Sede para el Administrador & Supervisores */}
-      <div className="bg-[#1A1412] border border-[#3D2E26] rounded-xl p-3.5 sm:p-4 shadow-lg relative overflow-hidden">
-        <BarberPoleRibbon className="h-1" />
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 pt-1">
+    <div className="py-2 space-y-4 font-sans">
+      {/* Selector de Sede o Banner de Aislamiento para Caja */}
+      <div className="bg-[#FFF8F5] border border-[#DFCBB5] rounded-2xl p-4 sm:p-5 shadow-xs relative overflow-hidden">
+        <BarberPoleRibbon className="h-1 -mx-5 -mt-5 mb-4" />
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-[#241A15] border border-[#C59B27]/40 text-[#C59B27] flex items-center justify-center shrink-0 shadow-inner">
+            <div className="w-11 h-11 rounded-xl bg-[#FBEBE1] border border-[#DFCBB5] text-[#7C571C] flex items-center justify-center shrink-0 shadow-xs">
               <Building2 className="w-5 h-5" />
             </div>
             <div>
               <div className="flex items-center gap-2 flex-wrap">
-                <h3 className="font-royal text-xs sm:text-sm font-bold uppercase tracking-wider text-[#FAF6EE] flex items-center gap-1.5">
-                  <span>Libro de Turnos por Sede</span>
-                  {esAdmin && (
-                    <span className="text-[9px] font-mono bg-[#C59B27] text-[#120E0C] px-1.5 py-0.5 rounded font-bold">
-                      ADMIN
+                <h3 className="font-serif text-sm sm:text-base font-bold uppercase tracking-wider text-[#221A14] flex items-center gap-1.5">
+                  <span>Libro de Turnos</span>
+                  {esAdmin ? (
+                    <span className="text-[9px] font-mono bg-[#7C571C] text-white px-2 py-0.5 rounded-full font-bold">
+                      ADMINISTRADOR
                     </span>
-                  )}
+                  ) : esCajeroAislado ? (
+                    <span className="text-[9px] font-mono bg-[#7C571C] text-white px-2 py-0.5 rounded-full font-bold flex items-center gap-1">
+                      <Lock className="w-2.5 h-2.5" /> CAJA AISLADA
+                    </span>
+                  ) : null}
                 </h3>
-                {filtroSede !== 'todas' && sedeActualInfo && (
-                  <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#2A1E18] text-[#E5B869] border border-[#C59B27]/50 font-bold flex items-center gap-1">
-                    <MapPin className="w-2.5 h-2.5 text-[#C59B27]" />
+                {sedeFiltroEfectiva !== 'todas' && sedeActualInfo && (
+                  <span className="text-[11px] font-mono px-2.5 py-0.5 rounded-full bg-[#FBEBE1] text-[#7C571C] border border-[#DFCBB5] font-bold flex items-center gap-1">
+                    <MapPin className="w-3 h-3 text-[#7C571C]" />
                     {sedeActualInfo.nombre}
                   </span>
                 )}
               </div>
-              <p className="text-[11px] text-[#8A796D] font-mono mt-0.5">
-                {filtroSede === 'todas'
+              <p className="text-xs text-[#6F5A4B] mt-0.5">
+                {esCajeroAislado
+                  ? `Acceso exclusivo de Caja para ${sedeActualInfo?.nombre}. Dirección: ${sedeActualInfo?.direccion} • 📞 ${sedeActualInfo?.telefono}`
+                  : sedeFiltroEfectiva === 'todas'
                   ? 'Consolidado general de citas de las 3 sedes oficiales en Bogotá D.C.'
                   : `${sedeActualInfo?.direccion} • 📞 ${sedeActualInfo?.telefono}`}
               </p>
             </div>
           </div>
 
-          {/* Botones de conmutación rápida de sede */}
-          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1 lg:pb-0">
-            <button
-              type="button"
-              onClick={() => setFiltroSede('todas')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-mono font-bold transition-all shrink-0 cursor-pointer flex items-center gap-1.5 ${
-                filtroSede === 'todas'
-                  ? 'bg-[#C59B27] text-[#120E0C] shadow-md ring-1 ring-[#C59B27]'
-                  : 'bg-[#0E0A09] text-[#A8988B] hover:text-[#FAF6EE] border border-[#3D2E26] hover:border-[#8A6642]'
-              }`}
-            >
-              <span>Todas las Sedes</span>
-              <span className={`text-[10px] px-1.5 py-0.2 rounded font-mono ${
-                filtroSede === 'todas' ? 'bg-[#120E0C] text-[#E5B869]' : 'bg-[#1A1412] text-[#8A796D]'
-              }`}>
-                {citas.length}
-              </span>
-            </button>
+          {/* Si es cajero aislado: Muestra badge de seguridad bloqueado. Si es admin: botones para cambiar sede */}
+          {esCajeroAislado ? (
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#FBEBE1] border border-[#DFCBB5] text-[#7C571C] text-xs font-semibold shrink-0">
+              <Lock className="w-3.5 h-3.5 text-[#7C571C]" />
+              <span>Sede de Caja: <strong className="text-[#221A14]">{sedeActualInfo?.nombre}</strong></span>
+              <span className="text-[10px] bg-[#7C571C] text-white px-2 py-0.5 rounded-full font-bold ml-1">Exclusivo</span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1 lg:pb-0">
+              <button
+                type="button"
+                onClick={() => setFiltroSede('todas')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-mono font-bold transition-all shrink-0 cursor-pointer flex items-center gap-1.5 ${
+                  sedeFiltroEfectiva === 'todas'
+                    ? 'bg-[#7C571C] text-[#FFFFFF] shadow-sm ring-1 ring-[#7C571C]'
+                    : 'bg-[#FFF8F5] text-[#6F5A4B] hover:text-[#221A14] border border-[#DFCBB5] hover:border-[#7C571C]'
+                }`}
+              >
+                <span>Todas las Sedes</span>
+                <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
+                  sedeFiltroEfectiva === 'todas' ? 'bg-[#FFFFFF] text-[#7C571C]' : 'bg-[#FBEBE1] text-[#6F5A4B]'
+                }`}>
+                  {citas.length}
+                </span>
+              </button>
 
-            {SUCURSALES_CASA_DEL_REY.map(s => {
-              const isSelected = filtroSede === s.id;
-              const countSede = citas.filter(c => getCitaSedeId(c) === s.id).length;
-              return (
-                <button
-                  key={s.id}
-                  type="button"
-                  onClick={() => setFiltroSede(s.id)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-mono font-bold transition-all shrink-0 cursor-pointer flex items-center gap-1.5 ${
-                    isSelected
-                      ? 'bg-[#C59B27] text-[#120E0C] shadow-md ring-1 ring-[#C59B27]'
-                      : 'bg-[#0E0A09] text-[#A8988B] hover:text-[#FAF6EE] border border-[#3D2E26] hover:border-[#8A6642]'
-                  }`}
-                  title={`${s.nombre} (${s.direccion})`}
-                >
-                  <Building2 className="w-3 h-3" />
-                  <span>{s.nombre.replace('Sede ', '')}</span>
-                  <span className={`text-[10px] px-1.5 py-0.2 rounded font-mono ${
-                    isSelected ? 'bg-[#120E0C] text-[#E5B869]' : 'bg-[#1A1412] text-[#8A796D]'
-                  }`}>
-                    {countSede}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
+              {SUCURSALES_CASA_DEL_REY.map(s => {
+                const isSelected = sedeFiltroEfectiva === s.id;
+                const countSede = citas.filter(c => getCitaSedeId(c) === s.id).length;
+                return (
+                  <button
+                    key={s.id}
+                    type="button"
+                    onClick={() => setFiltroSede(s.id)}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-mono font-bold transition-all shrink-0 cursor-pointer flex items-center gap-1.5 ${
+                      isSelected
+                        ? 'bg-[#7C571C] text-[#FFFFFF] shadow-sm ring-1 ring-[#7C571C]'
+                        : 'bg-[#FFF8F5] text-[#6F5A4B] hover:text-[#221A14] border border-[#DFCBB5] hover:border-[#7C571C]'
+                    }`}
+                    title={`${s.nombre} (${s.direccion})`}
+                  >
+                    <Building2 className="w-3 h-3" />
+                    <span>{s.nombre.replace('Sede ', '')}</span>
+                    <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
+                      isSelected ? 'bg-[#FFFFFF] text-[#7C571C]' : 'bg-[#FBEBE1] text-[#6F5A4B]'
+                    }`}>
+                      {countSede}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Vintage Metric Cards */}
+      {/* Heritage Metric Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <div className="bg-[#1A1412] border border-[#3D2E26] p-4 rounded-xl shadow-lg relative overflow-hidden">
+        <div className="bg-[#FFF8F5] border border-[#DFCBB5] p-4 rounded-2xl shadow-xs relative overflow-hidden hover:border-[#7C571C] transition-colors">
           <div className="flex items-center justify-between">
-            <p className="text-[#8A796D] text-[10px] uppercase font-bold tracking-wider font-mono">
-              TOTAL CITAS EN LIBRO
+            <p className="text-[#6F5A4B] text-[10px] uppercase font-bold tracking-wider font-mono">
+              TOTAL TURNOS EN LIBRO
             </p>
-            <VintageBarberPole className="w-4 h-4 opacity-70" />
+            <VintageBarberPole className="w-4 h-4 opacity-70 text-[#7C571C]" />
           </div>
           <div className="flex items-baseline gap-2 mt-1">
-            <p className="text-2xl font-mono font-bold tracking-tight text-[#FAF6EE]">{citasSede.length}</p>
-            <span className="text-[10px] text-[#E5B869] font-mono">
-              {filtroSede === 'todas' ? 'TODAS LAS SEDES' : 'EN ESTA SEDE'}
+            <p className="text-2xl font-mono font-bold tracking-tight text-[#221A14]">{citasSede.length}</p>
+            <span className="text-[10px] text-[#7C571C] font-mono font-bold uppercase">
+              {sedeFiltroEfectiva === 'todas' ? 'TODAS LAS SEDES' : 'EN ESTA SEDE'}
             </span>
           </div>
         </div>
 
-        <div className="bg-[#1A1412] border border-[#3D2E26] p-4 rounded-xl shadow-lg relative overflow-hidden">
+        <div className="bg-[#FFF8F5] border border-[#DFCBB5] p-4 rounded-2xl shadow-xs relative overflow-hidden hover:border-[#7C571C] transition-colors">
           <div className="flex items-center justify-between">
-            <p className="text-[#8A796D] text-[10px] uppercase font-bold tracking-wider font-mono">
+            <p className="text-[#6F5A4B] text-[10px] uppercase font-bold tracking-wider font-mono">
               CABALLEROS ATENDIDOS
             </p>
-            <StraightRazorIcon className="w-4 h-4 text-[#C59B27]" />
+            <StraightRazorIcon className="w-4 h-4 text-[#7C571C]" />
           </div>
           <div className="flex items-baseline gap-2 mt-1">
-            <p className="text-2xl font-mono font-bold tracking-tight text-[#86EFAC]">{totalClientes}</p>
-            <span className="text-[10px] text-[#86EFAC] font-mono">EN AGENDA</span>
+            <p className="text-2xl font-mono font-bold tracking-tight text-[#15803D]">{totalClientes}</p>
+            <span className="text-[10px] text-[#15803D] font-mono font-bold">EN AGENDA</span>
           </div>
         </div>
 
-        <div className="bg-[#1A1412] border border-[#3D2E26] p-4 rounded-xl shadow-lg relative overflow-hidden">
+        <div className="bg-[#FFF8F5] border border-[#DFCBB5] p-4 rounded-2xl shadow-xs relative overflow-hidden hover:border-[#7C571C] transition-colors">
           <div className="flex items-center justify-between">
-            <p className="text-[#8A796D] text-[10px] uppercase font-bold tracking-wider font-mono">
+            <p className="text-[#6F5A4B] text-[10px] uppercase font-bold tracking-wider font-mono">
               RECAUDO EN CAJA
             </p>
-            <VintageCrownIcon className="w-4 h-4 text-[#C59B27]" />
+            <VintageCrownIcon className="w-4 h-4 text-[#7C571C]" />
           </div>
           <div className="flex items-baseline gap-2 mt-1">
-            <p className="text-2xl font-mono font-bold tracking-tight text-[#FAF6EE]">{formatPrecio(totalIngresos)}</p>
-            <span className="text-[10px] text-[#8A796D] font-mono">COP</span>
+            <p className="text-2xl font-mono font-bold tracking-tight text-[#221A14]">{formatPrecio(totalIngresos)}</p>
+            <span className="text-[10px] text-[#6F5A4B] font-mono">COP</span>
           </div>
         </div>
       </div>
 
-      {/* Sección: Turnos del Día (Hoy) sincronizados con el calendario interno */}
-      {/* Fondo Blanco Marfil (#FAF6EE) */}
-      <div className="rounded-xl bg-[#FAF6EE] border border-[#DDD3C1] shadow-lg p-3.5 sm:p-4 text-[#1A1412] font-mono relative overflow-hidden">
+      {/* Sección: Turnos del Día (Hoy) sincronizados con el reloj de Colombia */}
+      <div className="rounded-2xl bg-[#FBEBE1] border border-[#DFCBB5] shadow-xs p-4 text-[#221A14] font-mono relative overflow-hidden">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-lg bg-[#1A1412] text-[#E5B869] flex items-center justify-center shrink-0 shadow-sm">
+            <div className="w-10 h-10 rounded-xl bg-[#FFF8F5] border border-[#DFCBB5] text-[#7C571C] flex items-center justify-center shrink-0 shadow-xs">
               <CalendarCheck className="w-5 h-5" />
             </div>
             <div>
               <div className="flex items-center gap-2 flex-wrap">
-                <h4 className="font-royal text-xs sm:text-sm font-bold uppercase tracking-wider text-[#1A1412]">
-                  Turnos del Día (Hoy) {filtroSede !== 'todas' && sedeActualInfo ? `— ${sedeActualInfo.nombre}` : ''}
+                <h4 className="font-serif text-sm font-bold uppercase tracking-wider text-[#221A14]">
+                  Turnos del Día (Hoy) {sedeFiltroEfectiva !== 'todas' && sedeActualInfo ? `— ${sedeActualInfo.nombre}` : ''}
                 </h4>
-                <span className="text-[10px] bg-[#1A1412] text-[#86EFAC] font-bold px-2 py-0.5 rounded-full border border-[#86EFAC]/30">
+                <span className="text-[10px] bg-[#15803D]/15 text-[#15803D] border border-[#15803D]/30 font-bold px-2 py-0.5 rounded-full">
                   {citasHoyPendientes.length} Por Atender
                 </span>
                 {citasHoyPasadas.length > 0 && (
-                  <span className="text-[10px] bg-[#EDE5D4] text-[#7C6656] font-semibold px-2 py-0.5 rounded border border-[#D5C8B3]" title="Turnos cuya hora ya transcurrió en Colombia">
+                  <span className="text-[10px] bg-[#FFF8F5] text-[#6F5A4B] font-semibold px-2 py-0.5 rounded-full border border-[#DFCBB5]" title="Turnos cuya hora ya transcurrió en Colombia">
                     {citasHoyPasadas.length} Pasados
                   </span>
                 )}
-                <span className="text-[10px] bg-[#EDE5D4] text-[#1A1412] font-semibold px-2 py-0.5 rounded border border-[#D5C8B3]">
+                <span className="text-[10px] bg-[#FFF8F5] text-[#221A14] font-semibold px-2 py-0.5 rounded-full border border-[#DFCBB5]">
                   {hoyStr}
                 </span>
               </div>
-              <p className="text-[11px] text-[#6A574A] mt-0.5">
+              <p className="text-xs text-[#6F5A4B] mt-0.5 font-sans">
                 {ocultarPasadosHoy
                   ? `Excluyendo turnos que ya pasaron de la hora actual (${colTime.hora12})`
                   : `Mostrando todos los turnos del día (${citasHoy.length} en total)`}
@@ -441,14 +460,14 @@ export const AppointmentsList: React.FC<AppointmentsListProps> = ({
             <button
               type="button"
               onClick={() => setOcultarPasadosHoy(!ocultarPasadosHoy)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-sm ${
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-xs ${
                 ocultarPasadosHoy
-                  ? 'bg-[#1A1412] text-[#86EFAC] border border-[#86EFAC]/40'
-                  : 'bg-[#FFFFFF] text-[#6A574A] border border-[#DDD3C1] hover:bg-[#EDE5D4]'
+                  ? 'bg-[#7C571C] text-white'
+                  : 'bg-[#FFF8F5] text-[#6F5A4B] border border-[#DFCBB5] hover:bg-[#FBEBE1]'
               }`}
               title="Omitir o incluir turnos que ya pasaron de la hora actual"
             >
-              <Clock className="w-3.5 h-3.5 text-[#C59B27]" />
+              <Clock className="w-3.5 h-3.5" />
               <span>{ocultarPasadosHoy ? 'Omitir Pasados: ON' : 'Omitir Pasados: OFF'}</span>
             </button>
 
@@ -457,13 +476,13 @@ export const AppointmentsList: React.FC<AppointmentsListProps> = ({
               onClick={() => {
                 setFiltroFechaModo(filtroFechaModo === 'hoy' ? 'todos' : 'hoy');
               }}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-sm ${
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-xs ${
                 filtroFechaModo === 'hoy'
-                  ? 'bg-[#1A1412] text-[#FAF6EE] ring-2 ring-[#C59B27]'
-                  : 'bg-[#FFFFFF] hover:bg-[#1A1412] text-[#1A1412] hover:text-[#FAF6EE] border border-[#DDD3C1]'
+                  ? 'bg-[#221A14] text-[#FFF8F5]'
+                  : 'bg-[#FFF8F5] text-[#221A14] hover:bg-[#221A14] hover:text-[#FFF8F5] border border-[#DFCBB5]'
               }`}
             >
-              <CalendarCheck className="w-3.5 h-3.5 text-[#C59B27]" />
+              <CalendarCheck className="w-3.5 h-3.5 text-[#7C571C]" />
               <span>{filtroFechaModo === 'hoy' ? '✓ Solo Hoy' : 'Filtrar Hoy'}</span>
             </button>
 
@@ -471,7 +490,7 @@ export const AppointmentsList: React.FC<AppointmentsListProps> = ({
               <button
                 type="button"
                 onClick={() => setFiltroFechaModo('todos')}
-                className="px-2.5 py-1.5 rounded-lg bg-[#FAF6EE] hover:bg-[#EDE5D4] text-[#7C6656] hover:text-[#1A1412] text-xs border border-[#DDD3C1] transition-colors flex items-center gap-1 cursor-pointer"
+                className="px-2.5 py-1.5 rounded-xl bg-[#FFF8F5] hover:bg-[#FBEBE1] text-[#6F5A4B] hover:text-[#221A14] text-xs border border-[#DFCBB5] transition-colors flex items-center gap-1 cursor-pointer"
               >
                 <RotateCcw className="w-3 h-3" />
                 <span>Ver Todos</span>
@@ -481,54 +500,56 @@ export const AppointmentsList: React.FC<AppointmentsListProps> = ({
         </div>
       </div>
 
-      {/* Control Toolbar - Vintage Density */}
-      <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3 p-3 rounded-xl bg-[#1A1412] border border-[#3D2E26]">
+      {/* Control Toolbar - Heritage Warm Styling */}
+      <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3 p-3.5 rounded-2xl bg-[#FFF8F5] border border-[#DFCBB5] shadow-xs">
         <div className="flex flex-wrap items-center gap-2 flex-1">
           {/* Campo de búsqueda rápida por nombre, teléfono o folio */}
           <div className="relative min-w-[200px] max-w-sm flex-1">
-            <Search className="w-3.5 h-3.5 text-[#8A796D] absolute left-2.5 top-1/2 -translate-y-1/2" />
+            <Search className="w-3.5 h-3.5 text-[#6F5A4B] absolute left-3 top-1/2 -translate-y-1/2" />
             <input
               type="text"
               value={busquedaTexto}
               onChange={(e) => setBusquedaTexto(e.target.value)}
               placeholder="Buscar por nombre, correo, tel o folio..."
-              className="w-full bg-[#0E0A09] border border-[#3D2E26] rounded-md pl-8 pr-7 py-1 text-xs font-mono text-[#FAF6EE] placeholder-[#8A796D] focus:outline-none focus:border-[#C59B27]"
+              className="w-full bg-[#FFF8F5] border border-[#DFCBB5] rounded-xl pl-9 pr-7 py-1.5 text-xs font-mono text-[#221A14] placeholder-[#6F5A4B] focus:outline-none focus:border-[#7C571C]"
             />
             {busquedaTexto && (
               <button
                 onClick={() => setBusquedaTexto('')}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-[#8A796D] hover:text-[#FAF6EE]"
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-[#6F5A4B] hover:text-[#221A14]"
               >
                 <X className="w-3 h-3" />
               </button>
             )}
           </div>
 
-          <span className="text-[10px] font-mono uppercase font-bold text-[#C59B27] hidden sm:inline ml-1">
+          <span className="text-[10px] font-mono uppercase font-bold text-[#7C571C] hidden sm:inline ml-1">
             FILTRAR:
           </span>
 
-          <select
-            value={filtroSede}
-            onChange={(e) => setFiltroSede(e.target.value)}
-            className="bg-[#0E0A09] border border-[#3D2E26] rounded-md px-2.5 py-1 text-xs font-mono text-[#E5B869] focus:outline-none focus:border-[#C59B27] cursor-pointer"
-            title="Filtrar libro por sede"
-          >
-            <option value="todas">🏛️ TODAS LAS SEDES ({citas.length})</option>
-            {SUCURSALES_CASA_DEL_REY.map(s => {
-              const cSede = citas.filter(c => getCitaSedeId(c) === s.id).length;
-              return (
-                <option key={s.id} value={s.id}>
-                  📍 {s.nombre.toUpperCase()} ({cSede})
-                </option>
-              );
-            })}
-          </select>
+          {!esCajeroAislado && (
+            <select
+              value={filtroSede}
+              onChange={(e) => setFiltroSede(e.target.value)}
+              className="bg-[#FFF8F5] border border-[#DFCBB5] rounded-xl px-2.5 py-1.5 text-xs font-mono text-[#7C571C] font-bold focus:outline-none focus:border-[#7C571C] cursor-pointer"
+              title="Filtrar libro por sede"
+            >
+              <option value="todas">🏛️ TODAS LAS SEDES ({citas.length})</option>
+              {SUCURSALES_CASA_DEL_REY.map(s => {
+                const cSede = citas.filter(c => getCitaSedeId(c) === s.id).length;
+                return (
+                  <option key={s.id} value={s.id}>
+                    📍 {s.nombre.toUpperCase()} ({cSede})
+                  </option>
+                );
+              })}
+            </select>
+          )}
 
           <select
             value={filtroTipo}
             onChange={(e: any) => setFiltroTipo(e.target.value)}
-            className="bg-[#0E0A09] border border-[#3D2E26] rounded-md px-2.5 py-1 text-xs font-mono text-[#FAF6EE] focus:outline-none focus:border-[#C59B27] cursor-pointer"
+            className="bg-[#FFF8F5] border border-[#DFCBB5] rounded-xl px-2.5 py-1.5 text-xs font-mono text-[#221A14] focus:outline-none focus:border-[#7C571C] cursor-pointer"
           >
             <option value="todos">TODOS LOS FORMATOS</option>
             <option value="Individual">INDIVIDUAL</option>
@@ -538,7 +559,7 @@ export const AppointmentsList: React.FC<AppointmentsListProps> = ({
           <select
             value={filtroEstado}
             onChange={(e: any) => setFiltroEstado(e.target.value)}
-            className="bg-[#0E0A09] border border-[#3D2E26] rounded-md px-2.5 py-1 text-xs font-mono text-[#FAF6EE] focus:outline-none focus:border-[#C59B27] cursor-pointer"
+            className="bg-[#FFF8F5] border border-[#DFCBB5] rounded-xl px-2.5 py-1.5 text-xs font-mono text-[#221A14] focus:outline-none focus:border-[#7C571C] cursor-pointer"
           >
             <option value="todos">TODOS LOS ESTADOS</option>
             <option value="Confirmada">CONFIRMADAS</option>
@@ -549,13 +570,13 @@ export const AppointmentsList: React.FC<AppointmentsListProps> = ({
             <button
               type="button"
               onClick={() => setFiltroFechaModo(filtroFechaModo === 'fecha' ? 'todos' : 'fecha')}
-              className={`px-2.5 py-1 rounded-md text-xs font-mono transition-colors flex items-center gap-1 cursor-pointer border ${
+              className={`px-3 py-1.5 rounded-xl text-xs font-mono transition-colors flex items-center gap-1 cursor-pointer border ${
                 filtroFechaModo === 'fecha'
-                  ? 'bg-[#C59B27] text-[#120E0C] border-[#C59B27] font-bold'
-                  : 'bg-[#0E0A09] text-[#A8988B] border-[#3D2E26] hover:text-[#FAF6EE]'
+                  ? 'bg-[#7C571C] text-white border-[#7C571C] font-bold'
+                  : 'bg-[#FFF8F5] text-[#6F5A4B] border-[#DFCBB5] hover:text-[#221A14]'
               }`}
             >
-              <span>📅 Por Calendario</span>
+              <span>📅 Por Fecha</span>
             </button>
             {filtroFechaModo === 'fecha' && (
               <div className="w-44">
@@ -576,12 +597,12 @@ export const AppointmentsList: React.FC<AppointmentsListProps> = ({
             type="button"
             onClick={handlePromptSyncBatch}
             disabled={sincronizandoCalendar || citasHoyPendientes.length === 0}
-            className="px-2.5 py-1 rounded-lg bg-[#1F1815] hover:bg-[#2A1E18] border border-[#3D2E26] hover:border-[#C59B27] text-xs font-mono text-[#E5B869] transition-all flex items-center gap-1.5 shadow-sm disabled:opacity-50"
+            className="px-3 py-1.5 rounded-xl bg-[#FBEBE1] hover:bg-[#F5E5DB] border border-[#DFCBB5] hover:border-[#7C571C] text-xs font-mono text-[#7C571C] font-bold transition-all flex items-center gap-1.5 shadow-xs disabled:opacity-50 cursor-pointer"
             title="Sincronizar todos los turnos pendientes de hoy a tu cuenta de Google Calendar"
           >
-            <Calendar className="w-3.5 h-3.5 text-[#C59B27]" />
-            <span className="hidden sm:inline">Sincronizar Hoy con Google ({citasHoyPendientes.length})</span>
-            <span className="sm:hidden">Sync Hoy Google</span>
+            <Calendar className="w-3.5 h-3.5 text-[#7C571C]" />
+            <span className="hidden sm:inline">Sync Hoy ({citasHoyPendientes.length})</span>
+            <span className="sm:hidden">Sync</span>
           </button>
 
           {onOpenGoogleCalendarModal && (
@@ -589,11 +610,11 @@ export const AppointmentsList: React.FC<AppointmentsListProps> = ({
               id="btn-open-google-modal-list"
               type="button"
               onClick={onOpenGoogleCalendarModal}
-              className="px-2 py-1 rounded-lg bg-[#181210] hover:bg-[#261B16] border border-[#3D2E26] text-xs font-mono text-[#FAF6EE] transition-all flex items-center gap-1"
+              className="px-2.5 py-1.5 rounded-xl bg-[#FFF8F5] hover:bg-[#FBEBE1] border border-[#DFCBB5] text-xs font-mono text-[#221A14] transition-all flex items-center gap-1 cursor-pointer"
               title="Administrar Google Calendar"
             >
-              <Sparkles className="w-3 h-3 text-[#C59B27]" />
-              <span className="hidden md:inline">Ver Calendario</span>
+              <Sparkles className="w-3 h-3 text-[#7C571C]" />
+              <span className="hidden md:inline">Calendario</span>
             </button>
           )}
 
@@ -602,10 +623,10 @@ export const AppointmentsList: React.FC<AppointmentsListProps> = ({
               id="btn-reporte-clientes-lista"
               type="button"
               onClick={onOpenReporteClientes}
-              className="px-2.5 py-1 rounded-lg bg-[#142316] hover:bg-[#1D3521] border border-[#23532C] hover:border-[#86EFAC] text-xs font-mono font-bold text-[#86EFAC] transition-all flex items-center gap-1.5 shadow cursor-pointer"
+              className="px-3 py-1.5 rounded-xl bg-[#15803D]/10 hover:bg-[#15803D]/20 border border-[#15803D]/30 text-xs font-mono font-bold text-[#15803D] transition-all flex items-center gap-1.5 shadow-xs cursor-pointer"
               title="Generar reporte de base de datos con los clientes que realizan reservas"
             >
-              <Users className="w-3.5 h-3.5 text-[#86EFAC]" />
+              <Users className="w-3.5 h-3.5 text-[#15803D]" />
               <span className="hidden sm:inline">Reporte Clientes</span>
               <span className="sm:hidden">Clientes</span>
             </button>
@@ -613,14 +634,14 @@ export const AppointmentsList: React.FC<AppointmentsListProps> = ({
 
           <button
             onClick={onRefresh}
-            className="px-2.5 py-1 rounded-lg bg-[#241C18] hover:bg-[#33251E] border border-[#3D2E26] hover:border-[#C59B27] text-xs font-mono text-[#FAF6EE] transition-colors flex items-center gap-1.5"
+            className="px-3 py-1.5 rounded-xl bg-[#FFF8F5] hover:bg-[#FBEBE1] border border-[#DFCBB5] hover:border-[#7C571C] text-xs font-mono text-[#221A14] transition-colors flex items-center gap-1.5 cursor-pointer"
           >
-            <RefreshCw className="w-3 h-3 text-[#C59B27]" />
+            <RefreshCw className="w-3 h-3 text-[#7C571C]" />
             <span>Actualizar</span>
           </button>
           <button
             onClick={onOpenNewBooking}
-            className="px-3.5 py-1.5 rounded-lg bg-[#C59B27] hover:bg-[#D4A373] text-[#120E0C] font-mono font-bold text-xs shadow transition-all flex items-center gap-1.5 tracking-wider"
+            className="px-3.5 py-1.5 rounded-xl bg-[#7C571C] hover:bg-[#684816] text-[#FFFFFF] font-mono font-bold text-xs shadow-xs transition-all flex items-center gap-1.5 tracking-wider cursor-pointer"
           >
             <VintageScissorsIcon className="w-3 h-3" />
             <span>+ Nuevo Turno</span>
@@ -630,42 +651,42 @@ export const AppointmentsList: React.FC<AppointmentsListProps> = ({
 
       {/* Calendar Notification Toast */}
       {notifCalendar && (
-        <div className="p-3 bg-[#132A18] border border-[#23532C] rounded-xl flex items-center justify-between gap-2 text-xs font-mono text-[#86EFAC] shadow-lg animate-fadeIn">
+        <div className="p-3 bg-[#15803D]/10 border border-[#15803D]/30 rounded-xl flex items-center justify-between gap-2 text-xs font-mono text-[#15803D] shadow-xs">
           <div className="flex items-center gap-2">
-            <CheckCircle2 className="w-4 h-4 text-[#86EFAC] shrink-0" />
+            <CheckCircle2 className="w-4 h-4 text-[#15803D] shrink-0" />
             <span>{notifCalendar}</span>
           </div>
-          <button onClick={() => setNotifCalendar(null)} className="text-[#86EFAC]/70 hover:text-[#86EFAC]">
+          <button onClick={() => setNotifCalendar(null)} className="text-[#15803D]/70 hover:text-[#15803D]">
             <X className="w-3.5 h-3.5" />
           </button>
         </div>
       )}
 
-      {/* Vintage Table */}
-      <div className="bg-[#1A1412] border border-[#3D2E26] rounded-xl overflow-hidden shadow-2xl relative">
+      {/* Heritage Table */}
+      <div className="bg-[#FFF8F5] border border-[#DFCBB5] rounded-2xl overflow-hidden shadow-xs relative">
         <BarberPoleRibbon className="h-1" />
-        <div className="px-4 py-3 border-b border-[#3D2E26] flex items-center justify-between bg-[#14100E]">
-          <h3 className="text-xs font-royal font-bold uppercase tracking-widest text-[#FAF6EE] flex items-center gap-2">
-            <StraightRazorIcon className="w-3.5 h-3.5 text-[#C59B27]" />
+        <div className="px-5 py-3.5 border-b border-[#DFCBB5] flex items-center justify-between bg-[#FBEBE1]">
+          <h3 className="text-xs font-serif font-bold uppercase tracking-widest text-[#221A14] flex items-center gap-2">
+            <StraightRazorIcon className="w-3.5 h-3.5 text-[#7C571C]" />
             <span>LIBRO MAESTRO DE TURNOS ({citasFiltradas.length})</span>
           </h3>
           <div className="flex gap-1.5">
-            <div className="w-2 h-2 rounded-full bg-[#C59B27]"></div>
-            <div className="w-2 h-2 rounded-full bg-[#3D2E26]"></div>
+            <div className="w-2 h-2 rounded-full bg-[#7C571C]"></div>
+            <div className="w-2 h-2 rounded-full bg-[#DFCBB5]"></div>
           </div>
         </div>
 
         {citasFiltradas.length === 0 ? (
-          <div className="text-center py-12 px-4 text-xs font-mono text-[#8A796D] space-y-2">
+          <div className="text-center py-12 px-4 text-xs font-mono text-[#6F5A4B] space-y-2">
             <p>
-              No hay citas registradas en el libro {filtroSede !== 'todas' && sedeActualInfo ? `para ${sedeActualInfo.nombre}` : ''} con los filtros seleccionados.
+              No hay citas registradas en el libro {sedeFiltroEfectiva !== 'todas' && sedeActualInfo ? `para ${sedeActualInfo.nombre}` : ''} con los filtros seleccionados.
             </p>
-            {filtroSede !== 'todas' && (
+            {!esCajeroAislado && sedeFiltroEfectiva !== 'todas' && (
               <div>
                 <button
                   type="button"
                   onClick={() => setFiltroSede('todas')}
-                  className="mt-1 px-3 py-1 bg-[#241A15] hover:bg-[#C59B27] text-[#FAF6EE] hover:text-[#120E0C] border border-[#3D2E26] rounded-md font-bold transition-all cursor-pointer inline-flex items-center gap-1.5"
+                  className="mt-1 px-3 py-1 bg-[#FBEBE1] hover:bg-[#7C571C] text-[#221A14] hover:text-[#FFFFFF] border border-[#DFCBB5] rounded-xl font-bold transition-all cursor-pointer inline-flex items-center gap-1.5"
                 >
                   <RotateCcw className="w-3 h-3" />
                   <span>Ver Todas las Sedes</span>
@@ -675,21 +696,21 @@ export const AppointmentsList: React.FC<AppointmentsListProps> = ({
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-[11px] border-collapse">
-              <thead className="bg-[#0E0A09] text-[#8A796D] font-mono uppercase tracking-wider">
+            <table className="w-full text-left text-[11px] border-collapse font-sans">
+              <thead className="bg-[#FBEBE1] text-[#7C571C] font-mono uppercase tracking-wider text-[10px]">
                 <tr>
-                  <th className="px-3 py-2.5 border-b border-[#3D2E26] font-medium">FOLIO</th>
-                  <th className="px-3 py-2.5 border-b border-[#3D2E26] font-medium">SEDE</th>
-                  <th className="px-3 py-2.5 border-b border-[#3D2E26] font-medium">FORMATO</th>
-                  <th className="px-3 py-2.5 border-b border-[#3D2E26] font-medium">CABALLERO / TITULAR</th>
-                  <th className="px-3 py-2.5 border-b border-[#3D2E26] font-medium">FECHA & HORA</th>
-                  <th className="px-3 py-2.5 border-b border-[#3D2E26] font-medium">SERVICIO / DESGLOSE</th>
-                  <th className="px-3 py-2.5 border-b border-[#3D2E26] font-medium">ESTADO</th>
-                  <th className="px-3 py-2.5 border-b border-[#3D2E26] font-medium text-right">VALOR</th>
-                  <th className="px-3 py-2.5 border-b border-[#3D2E26] font-medium text-right">CALENDARIO / ACCIONES</th>
+                  <th className="px-3.5 py-3 border-b border-[#DFCBB5] font-bold">FOLIO</th>
+                  <th className="px-3.5 py-3 border-b border-[#DFCBB5] font-bold">SEDE</th>
+                  <th className="px-3.5 py-3 border-b border-[#DFCBB5] font-bold">FORMATO</th>
+                  <th className="px-3.5 py-3 border-b border-[#DFCBB5] font-bold">CABALLERO / TITULAR</th>
+                  <th className="px-3.5 py-3 border-b border-[#DFCBB5] font-bold">FECHA & HORA</th>
+                  <th className="px-3.5 py-3 border-b border-[#DFCBB5] font-bold">SERVICIO / DESGLOSE</th>
+                  <th className="px-3.5 py-3 border-b border-[#DFCBB5] font-bold">ESTADO</th>
+                  <th className="px-3.5 py-3 border-b border-[#DFCBB5] font-bold text-right">VALOR</th>
+                  <th className="px-3.5 py-3 border-b border-[#DFCBB5] font-bold text-right">ACCIONES</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[#2E2019] font-mono text-xs">
+              <tbody className="divide-y divide-[#DFCBB5] font-mono text-xs">
                 {citasFiltradas.map((c) => {
                   const servicio = c.servicioId ? servicios.find(s => s.id === c.servicioId) : null;
                   const barbero = c.barberoId ? barberos.find(b => String(b.id) === String(c.barberoId)) : null;
@@ -706,32 +727,39 @@ export const AppointmentsList: React.FC<AppointmentsListProps> = ({
                     : '$ 35.000';
 
                   return (
-                    <tr key={c.idReserva} className="hover:bg-[#241A15] transition-colors group">
-                      <td className="px-3 py-3 text-[#E5B869] font-bold whitespace-nowrap">
+                    <tr key={c.idReserva} className="hover:bg-[#FBEBE1]/60 transition-colors group font-sans">
+                      <td className="px-3.5 py-3 text-[#7C571C] font-bold font-mono whitespace-nowrap">
                         {c.idReserva}
                       </td>
-                      <td className="px-3 py-3 whitespace-nowrap">
-                        <button
-                          type="button"
-                          onClick={() => setFiltroSede(getCitaSedeId(c))}
-                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-[#14100E] hover:bg-[#2A1E18] text-[#E5B869] border border-[#3D2E26] hover:border-[#C59B27] transition-all cursor-pointer shadow-xs"
-                          title={`Filtrar libro solo por ${getCitaSedeNombre(c)}`}
-                        >
-                          <Building2 className="w-2.5 h-2.5 text-[#C59B27]" />
-                          <span>{getCitaSedeNombre(c).replace('Sede ', '')}</span>
-                        </button>
+                      <td className="px-3.5 py-3 whitespace-nowrap">
+                        {!esCajeroAislado ? (
+                          <button
+                            type="button"
+                            onClick={() => setFiltroSede(getCitaSedeId(c))}
+                            className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-[#FBEBE1] hover:bg-[#7C571C] text-[#7C571C] hover:text-white border border-[#DFCBB5] transition-all cursor-pointer shadow-xs"
+                            title={`Filtrar libro solo por ${getCitaSedeNombre(c)}`}
+                          >
+                            <Building2 className="w-2.5 h-2.5" />
+                            <span>{getCitaSedeNombre(c).replace('Sede ', '')}</span>
+                          </button>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-[#FBEBE1] text-[#7C571C] border border-[#DFCBB5]">
+                            <Building2 className="w-2.5 h-2.5" />
+                            <span>{getCitaSedeNombre(c).replace('Sede ', '')}</span>
+                          </span>
+                        )}
                       </td>
-                      <td className="px-3 py-3">
-                        <span className="px-2 py-0.5 bg-[#0E0A09] text-[#A8988B] rounded text-[10px] border border-[#3D2E26]">
+                      <td className="px-3.5 py-3">
+                        <span className="px-2.5 py-0.5 bg-[#FFF8F5] text-[#6F5A4B] rounded-full text-[10px] border border-[#DFCBB5] font-mono">
                           {c.tipo}
                         </span>
                       </td>
-                      <td className="px-3 py-3 text-[#FAF6EE] font-medium whitespace-nowrap">
-                        <div className="font-semibold">{c.clienteNombre || c.responsableNombre}</div>
-                        <div className="text-[10px] text-[#8A796D]">{c.clienteTelefono || c.responsableTelefono}</div>
+                      <td className="px-3.5 py-3 text-[#221A14] font-medium whitespace-nowrap">
+                        <div className="font-semibold text-xs text-[#221A14]">{c.clienteNombre || c.responsableNombre}</div>
+                        <div className="text-[10px] text-[#6F5A4B] font-mono">{c.clienteTelefono || c.responsableTelefono}</div>
                         {(c.clienteEmail || c.responsableEmail) && (
                           <div 
-                            className="text-[10px] text-[#C59B27] truncate max-w-[180px] flex items-center gap-1 mt-0.5" 
+                            className="text-[10px] text-[#7C571C] truncate max-w-[180px] flex items-center gap-1 mt-0.5 font-mono" 
                             title={c.clienteEmail || c.responsableEmail}
                           >
                             <Mail className="w-2.5 h-2.5 shrink-0" />
@@ -739,37 +767,37 @@ export const AppointmentsList: React.FC<AppointmentsListProps> = ({
                           </div>
                         )}
                       </td>
-                      <td className="px-3 py-3 text-[#A8988B] whitespace-nowrap">
-                        <span className="text-[#FAF6EE]">{c.fecha}</span> @ <span className="text-[#E5B869] font-bold">{c.hora}</span>
+                      <td className="px-3.5 py-3 text-[#6F5A4B] whitespace-nowrap font-mono text-xs">
+                        <span className="text-[#221A14] font-semibold">{c.fecha}</span> @ <span className="text-[#7C571C] font-bold">{c.hora}</span>
                       </td>
-                      <td className="px-3 py-3 text-[#A8988B]">
+                      <td className="px-3.5 py-3 text-[#6F5A4B]">
                         {c.tipo === 'Individual' ? (
                           <div>
-                            <span className="text-[#FAF6EE]">{servicio?.nombre || 'Corte Real'}</span>
-                            {barbero && <div className="text-[10px] text-[#8A796D]">Maestro: {barbero.nombre}</div>}
+                            <span className="text-[#221A14] font-semibold">{servicio?.nombre || 'Corte Real'}</span>
+                            {barbero && <div className="text-[10px] text-[#6F5A4B] font-mono">Maestro: {barbero.nombre}</div>}
                           </div>
                         ) : (
                           <div>
-                            <span className="text-[#E5B869] font-bold">{c.totalPersonas} Integrantes</span>
-                            <div className="text-[10px] text-[#8A796D] truncate max-w-xs">
+                            <span className="text-[#7C571C] font-bold font-mono">{c.totalPersonas} Integrantes</span>
+                            <div className="text-[10px] text-[#6F5A4B] truncate max-w-xs font-mono">
                               {c.detalles?.map(d => d.nombre).join(', ')}
                             </div>
                           </div>
                         )}
                       </td>
-                      <td className="px-3 py-3 whitespace-nowrap">
-                        <span className={`px-2 py-0.5 rounded-sm text-[9px] font-bold uppercase ${
+                      <td className="px-3.5 py-3 whitespace-nowrap">
+                        <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-bold uppercase font-mono ${
                           c.estado === 'Confirmada'
-                            ? 'bg-[#1C2C1D] text-[#86EFAC] border border-[#2D472F]'
-                            : 'bg-[#3E161C] text-[#F87171] border border-[#6B242D]'
+                            ? 'bg-[#15803D]/15 text-[#15803D] border border-[#15803D]/30'
+                            : 'bg-[#DC2626]/15 text-[#DC2626] border border-[#DC2626]/30'
                         }`}>
                           {c.estado}
                         </span>
                       </td>
-                      <td className="px-3 py-3 text-right font-bold text-[#FAF6EE] whitespace-nowrap">
+                      <td className="px-3.5 py-3 text-right font-bold text-[#221A14] whitespace-nowrap font-mono">
                         {valorFila}
                       </td>
-                      <td className="px-3 py-3 text-right whitespace-nowrap">
+                      <td className="px-3.5 py-3 text-right whitespace-nowrap">
                         <div className="flex items-center justify-end gap-1.5">
                           {c.estado !== 'Cancelada' && (
                             <>
@@ -779,20 +807,20 @@ export const AppointmentsList: React.FC<AppointmentsListProps> = ({
                                   href={syncedMap[c.idReserva].htmlLink || 'https://calendar.google.com'}
                                   target="_blank"
                                   rel="noopener noreferrer"
-                                  className="p-1.5 rounded-md bg-[#1C2C1D] text-[#86EFAC] border border-[#2D472F] hover:border-[#86EFAC] transition-colors"
+                                  className="p-1.5 rounded-xl bg-[#15803D]/15 text-[#15803D] border border-[#15803D]/30 hover:bg-[#15803D]/25 transition-colors"
                                   title="Turno sincronizado con Google Calendar. Clic para ver."
                                 >
-                                  <CheckCircle2 className="w-3.5 h-3.5 text-[#86EFAC]" />
+                                  <CheckCircle2 className="w-3.5 h-3.5 text-[#15803D]" />
                                 </a>
                               ) : (
                                 <button
                                   type="button"
                                   onClick={() => handlePromptSyncSingle(c)}
                                   disabled={sincronizandoCalendar}
-                                  className="p-1.5 rounded-md bg-[#0E0A09] hover:bg-[#2A1E18] text-[#8A796D] hover:text-[#C59B27] border border-[#3D2E26] hover:border-[#C59B27] transition-colors"
+                                  className="p-1.5 rounded-xl bg-[#FFF8F5] hover:bg-[#FBEBE1] text-[#6F5A4B] hover:text-[#7C571C] border border-[#DFCBB5] hover:border-[#7C571C] transition-colors cursor-pointer"
                                   title="Sincronizar directamente con Google Calendar (API v3)"
                                 >
-                                  <Sparkles className="w-3.5 h-3.5 text-[#C59B27]" />
+                                  <Sparkles className="w-3.5 h-3.5 text-[#7C571C]" />
                                 </button>
                               )}
 
@@ -805,7 +833,7 @@ export const AppointmentsList: React.FC<AppointmentsListProps> = ({
                                 })}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="p-1.5 rounded-md bg-[#0E0A09] hover:bg-[#2A1E18] text-[#8A796D] hover:text-[#C59B27] border border-[#3D2E26] hover:border-[#C59B27] transition-colors"
+                                className="p-1.5 rounded-xl bg-[#FFF8F5] hover:bg-[#FBEBE1] text-[#6F5A4B] hover:text-[#7C571C] border border-[#DFCBB5] hover:border-[#7C571C] transition-colors"
                                 title="Abrir plantilla web en Google Calendar"
                               >
                                 <CalendarPlus className="w-3.5 h-3.5" />
@@ -819,7 +847,7 @@ export const AppointmentsList: React.FC<AppointmentsListProps> = ({
                                     duracionMinutos: servicio?.duracionMinutos,
                                   })
                                 }
-                                className="p-1.5 rounded-md bg-[#0E0A09] hover:bg-[#2A1E18] text-[#8A796D] hover:text-[#86EFAC] border border-[#3D2E26] hover:border-[#86EFAC]/50 transition-colors"
+                                className="p-1.5 rounded-xl bg-[#FFF8F5] hover:bg-[#FBEBE1] text-[#6F5A4B] hover:text-[#15803D] border border-[#DFCBB5] hover:border-[#15803D]/50 transition-colors cursor-pointer"
                                 title="Descargar Apple Calendar (.ics)"
                               >
                                 <Download className="w-3.5 h-3.5" />
@@ -827,7 +855,7 @@ export const AppointmentsList: React.FC<AppointmentsListProps> = ({
                               <button
                                 onClick={() => handleCancelar(c.idReserva)}
                                 disabled={cancelandoId === c.idReserva}
-                                className="p-1.5 rounded-md bg-[#0E0A09] hover:bg-[#3E161C] text-[#8A796D] hover:text-[#F87171] border border-[#3D2E26] hover:border-[#6B242D] transition-colors"
+                                className="p-1.5 rounded-xl bg-[#FFF8F5] hover:bg-[#DC2626]/10 text-[#6F5A4B] hover:text-[#DC2626] border border-[#DFCBB5] hover:border-[#DC2626]/40 transition-colors cursor-pointer"
                                 title="Cancelar turno"
                               >
                                 <Trash2 className="w-3.5 h-3.5" />

@@ -126,7 +126,7 @@ export const ServiceCatalog: React.FC<ServiceCatalogProps> = ({
       <section className="text-center pt-2 pb-6 px-4">
         <div className="inline-flex items-center gap-1.5 text-xs tracking-widest uppercase font-semibold text-[#7C571C] mb-2 font-mono">
           <Sparkles className="w-3.5 h-3.5 text-[#C49756]" />
-          <span>TRADICIÓN BARBERO DESDE 1928</span>
+          <span>TRADICIÓN BARBERO DESDE 2016</span>
         </div>
         <h1 className="font-serif text-3xl sm:text-4xl text-[#221A14] font-bold tracking-tight mb-2">
           Cuidado Tradicional & Estilo Clásico

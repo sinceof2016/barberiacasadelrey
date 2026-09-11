@@ -344,47 +344,47 @@ export const ApiConsole: React.FC = () => {
   };
 
   return (
-    <div className="py-2">
-      {/* Main Vintage Console Box */}
-      <div className="rounded-2xl bg-[#1A1412]/95 backdrop-blur-md border border-[#3D2E26] shadow-2xl relative overflow-hidden text-[#FAF6EE]">
-        {/* Vintage Barber Pole Ribbon Banner */}
+    <div className="py-2 font-sans">
+      {/* Main Console Box - Warm Heritage Theme */}
+      <div className="rounded-2xl bg-[#FFF8F5] border border-[#DFCBB5] shadow-xs relative overflow-hidden text-[#221A14]">
+        {/* Barber Pole Ribbon Banner */}
         <BarberPoleRibbon className="h-1.5" />
 
         <div className="p-5 sm:p-6">
-          {/* Header Bar with Vintage Telegraph / Instrument Style */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#3D2E26] pb-4 mb-5">
+          {/* Header Bar */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#DFCBB5] pb-4 mb-5">
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-lg bg-[#261B16] border border-[#C59B27]/40 text-[#E5B869] flex items-center justify-center shadow-md">
+              <div className="w-10 h-10 rounded-xl bg-[#FBEBE1] border border-[#DFCBB5] text-[#7C571C] flex items-center justify-center shadow-xs">
                 <StraightRazorIcon className="w-5 h-5" />
               </div>
               <div>
                 <div className="flex items-center gap-2">
-                  <h3 className="text-sm font-bold tracking-tight text-[#FAF6EE] uppercase font-mono">
+                  <h3 className="text-sm font-bold tracking-tight text-[#221A14] uppercase font-mono">
                     Consola API • Barbería La Casa del Rey
                   </h3>
-                  <span className="px-2 py-0.5 bg-[#C59B27]/15 text-[#E5B869] text-[9px] font-mono font-bold rounded border border-[#C59B27]/30">
+                  <span className="px-2.5 py-0.5 bg-[#FBEBE1] text-[#7C571C] text-[9px] font-mono font-bold rounded-full border border-[#DFCBB5]">
                     REST v1.0
                   </span>
                 </div>
-                <p className="text-[11px] text-[#A8988B] mt-0.5 font-mono">
+                <p className="text-xs text-[#6F5A4B] mt-0.5 font-sans">
                   Ingress directo a rutas Express en Node.js • Puerto 3000
                 </p>
               </div>
             </div>
 
-            <div className="flex items-center gap-2 font-mono text-[10px]">
-              <span className="text-[#8A796D] font-bold">URI RAÍZ:</span>
-              <span className="px-2.5 py-1 bg-[#0E0A09] border border-[#3D2E26] text-[#E5B869] rounded font-semibold shadow-inner">
+            <div className="flex items-center gap-2 font-mono text-xs">
+              <span className="text-[#6F5A4B] font-bold">URI RAÍZ:</span>
+              <span className="px-2.5 py-1 bg-[#FBEBE1] border border-[#DFCBB5] text-[#7C571C] rounded-lg font-bold">
                 {API_BASE_URL}
               </span>
             </div>
           </div>
 
-          {/* Vintage Endpoint Selector Tabs */}
+          {/* Endpoint Selector Tabs */}
           <div className="mb-5">
             <div className="flex items-center justify-between mb-2">
-              <label className="text-[10px] font-mono font-bold uppercase tracking-widest text-[#E5B869] flex items-center gap-1.5">
-                <VintageScissorsIcon className="w-3 h-3 text-[#C59B27]" />
+              <label className="text-[10px] font-mono font-bold uppercase tracking-widest text-[#7C571C] flex items-center gap-1.5">
+                <VintageScissorsIcon className="w-3 h-3 text-[#7C571C]" />
                 <span>ENDPOINTS DEL SISTEMA (SELECCIONAR PRESET):</span>
               </label>
               <VintageWaxSeal text="TELÉGRAFO REST" className="hidden sm:inline-flex" />
@@ -398,23 +398,25 @@ export const ApiConsole: React.FC = () => {
                     key={idx}
                     type="button"
                     onClick={() => handleSelectPreset(ep)}
-                    className={`p-2.5 rounded-lg text-left border transition-all text-xs font-mono flex items-center justify-between group cursor-pointer shadow-2xs ${
+                    className={`p-3 rounded-xl text-left border transition-all text-xs font-mono flex items-center justify-between group cursor-pointer shadow-xs ${
                       isSelected
-                        ? 'bg-[#2A1E18] border-[#C59B27] text-[#FAF6EE] shadow-md ring-2 ring-[#C59B27]/50'
-                        : 'bg-[#14100E] border-[#3D2E26] hover:border-[#8A6642] text-[#A8988B] hover:text-[#FAF6EE]'
+                        ? 'bg-[#7C571C] border-[#7C571C] text-white shadow-xs'
+                        : 'bg-[#FFF8F5] border-[#DFCBB5] hover:border-[#7C571C] text-[#221A14] hover:bg-[#FBEBE1]'
                     }`}
                   >
                     <div className="flex items-center gap-2 truncate pr-1">
                       {renderEndpointIcon(ep.icon)}
-                      <span className="truncate group-hover:text-[#E5B869] transition-colors font-medium">
+                      <span className={`truncate transition-colors font-semibold ${isSelected ? 'text-white' : 'text-[#221A14]'}`}>
                         {ep.name}
                       </span>
                     </div>
                     <span
-                      className={`text-[9px] px-1.5 py-0.5 rounded font-bold font-mono tracking-wider ${
-                        ep.method === 'GET'
-                          ? 'bg-[#1C2C1D] text-[#86EFAC] border border-[#2D472F]'
-                          : 'bg-[#3E161C] text-[#FCA5A5] border border-[#6B242D]'
+                      className={`text-[9px] px-2 py-0.5 rounded-full font-bold font-mono tracking-wider shrink-0 ${
+                        isSelected
+                          ? 'bg-white/20 text-white'
+                          : ep.method === 'GET'
+                          ? 'bg-[#15803D]/15 text-[#15803D] border border-[#15803D]/30'
+                          : 'bg-[#DC2626]/15 text-[#DC2626] border border-[#DC2626]/30'
                       }`}
                     >
                       {ep.method}
@@ -425,14 +427,14 @@ export const ApiConsole: React.FC = () => {
             </div>
           </div>
 
-          {/* Request Builder: Antique Mahogany & Brass Console */}
-          <div className="bg-[#0E0A09] border border-[#3D2E26] rounded-xl p-4 mb-5 shadow-inner">
-            <div className="flex items-center justify-between mb-3 pb-2 border-b border-[#2B1F19]">
-              <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-[#A8988B] flex items-center gap-1.5">
-                <Terminal className="w-3 h-3 text-[#C59B27]" />
+          {/* Request Builder */}
+          <div className="bg-[#FBEBE1] border border-[#DFCBB5] rounded-2xl p-4 sm:p-5 mb-5 shadow-xs">
+            <div className="flex items-center justify-between mb-3 pb-2 border-b border-[#DFCBB5]">
+              <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-[#7C571C] flex items-center gap-1.5">
+                <Terminal className="w-3.5 h-3.5" />
                 <span>SOLICITUD HTTP (CONSOLA DE CONTROL)</span>
               </span>
-              <span className="text-[10px] font-mono text-[#8A796D]">Content-Type: application/json</span>
+              <span className="text-[10px] font-mono text-[#6F5A4B]">Content-Type: application/json</span>
             </div>
 
             <div className="flex flex-col sm:flex-row gap-2 mb-3 font-mono">
@@ -440,7 +442,7 @@ export const ApiConsole: React.FC = () => {
               <select
                 value={selectedMethod}
                 onChange={(e: any) => setSelectedMethod(e.target.value)}
-                className="bg-[#1A1412] border border-[#3D2E26] text-xs text-[#FAF6EE] rounded-lg px-3 py-2 font-bold focus:outline-none focus:border-[#C59B27] transition-colors cursor-pointer"
+                className="bg-[#FFF8F5] border border-[#DFCBB5] text-xs text-[#221A14] rounded-xl px-3 py-2 font-bold focus:outline-none focus:border-[#7C571C] transition-colors cursor-pointer"
               >
                 <option value="GET">GET</option>
                 <option value="POST">POST</option>
@@ -452,17 +454,17 @@ export const ApiConsole: React.FC = () => {
                   type="text"
                   value={selectedEndpoint}
                   onChange={(e) => setSelectedEndpoint(e.target.value)}
-                  className="w-full bg-[#1A1412] border border-[#3D2E26] text-xs text-[#E5B869] font-semibold rounded-lg px-3 py-2 focus:outline-none focus:border-[#C59B27] transition-colors"
+                  className="w-full bg-[#FFF8F5] border border-[#DFCBB5] text-xs text-[#7C571C] font-semibold rounded-xl px-3 py-2 focus:outline-none focus:border-[#7C571C] transition-colors"
                   placeholder="/servicios"
                 />
               </div>
 
-              {/* Vintage Brass Trigger Button */}
+              {/* Trigger Button */}
               <button
                 id="btn-api-execute"
                 onClick={handleExecute}
                 disabled={cargando}
-                className="px-5 py-2 bg-[#C59B27] hover:bg-[#D4A373] active:bg-[#B38A1F] text-[#120E0C] font-bold text-xs font-mono rounded-lg transition-all shadow-md active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2 tracking-wider cursor-pointer"
+                className="px-5 py-2 bg-[#7C571C] hover:bg-[#684816] active:bg-[#573A12] text-white font-bold text-xs font-mono rounded-xl transition-all shadow-xs active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2 tracking-wider cursor-pointer"
               >
                 {cargando ? (
                   <>
@@ -471,7 +473,7 @@ export const ApiConsole: React.FC = () => {
                   </>
                 ) : (
                   <>
-                    <Play className="w-3.5 h-3.5 fill-[#120E0C]" />
+                    <Play className="w-3.5 h-3.5 fill-white" />
                     <span>ENVIAR</span>
                   </>
                 )}
@@ -481,51 +483,51 @@ export const ApiConsole: React.FC = () => {
             {/* Request Payload for POST */}
             {selectedMethod === 'POST' && (
               <div className="mb-3">
-                <label className="block text-[10px] font-mono text-[#A8988B] mb-1 font-bold uppercase">
+                <label className="block text-[10px] font-mono text-[#6F5A4B] mb-1 font-bold uppercase">
                   CUERPO DE LA PETICIÓN (JSON):
                 </label>
                 <textarea
                   rows={5}
                   value={requestBody}
                   onChange={(e) => setRequestBody(e.target.value)}
-                  className="w-full bg-[#14100E] border border-[#3D2E26] text-xs font-mono text-[#FAF6EE] p-3 rounded-lg focus:outline-none focus:border-[#C59B27]"
+                  className="w-full bg-[#FFF8F5] border border-[#DFCBB5] text-xs font-mono text-[#221A14] p-3 rounded-xl focus:outline-none focus:border-[#7C571C]"
                   placeholder="{}"
                 />
               </div>
             )}
 
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-2 text-[10px] font-mono text-[#8A796D] pt-2 border-t border-[#241B16]">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-2 text-[10px] font-mono text-[#6F5A4B] pt-2 border-t border-[#DFCBB5]">
               <span className="flex items-center gap-1.5">
-                <VintageBarberPole className="w-3.5 h-3.5 text-[#C59B27]" />
+                <VintageBarberPole className="w-3.5 h-3.5 text-[#7C571C]" />
                 <span>Consola interactiva de pruebas de endpoints</span>
               </span>
               <button
                 id="btn-copy-curl"
                 onClick={handleCopiarCurl}
-                className="text-[#E5B869] hover:text-[#FAF6EE] flex items-center gap-1.5 transition-colors font-bold cursor-pointer"
+                className="text-[#7C571C] hover:text-[#221A14] flex items-center gap-1.5 transition-colors font-bold cursor-pointer"
               >
-                {copiado ? <Check className="w-3 h-3 text-[#86EFAC]" /> : <Copy className="w-3 h-3" />}
+                {copiado ? <Check className="w-3 h-3 text-[#15803D]" /> : <Copy className="w-3 h-3" />}
                 <span>{copiado ? '¡cURL Copiado!' : 'Copiar comando cURL'}</span>
               </button>
             </div>
           </div>
 
-          {/* Response Viewer: Vintage Parchment & Amber Phosphor style */}
+          {/* Response Viewer */}
           {responseStatus !== null && (
-            <div className="bg-[#0E0A09] border border-[#3D2E26] rounded-xl p-4 font-mono text-xs shadow-inner">
-              <div className="flex items-center justify-between pb-3 mb-3 border-b border-[#2B1F19]">
+            <div className="bg-[#FFF8F5] border border-[#DFCBB5] rounded-2xl p-4 font-mono text-xs shadow-xs">
+              <div className="flex items-center justify-between pb-3 mb-3 border-b border-[#DFCBB5]">
                 <div className="flex items-center gap-2">
-                  <StraightRazorIcon className="w-4 h-4" />
-                  <span className="text-[10px] text-[#A8988B] uppercase font-bold tracking-wider">
-                    RESPUESTA OFICIAL DEL SERVIDOR
+                  <StraightRazorIcon className="w-4 h-4 text-[#7C571C]" />
+                  <span className="text-[10px] text-[#6F5A4B] uppercase font-bold tracking-wider">
+                    RESPUESTA DEL SERVIDOR
                   </span>
                 </div>
                 <div className="flex items-center gap-2">
                   <span
                     className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold font-mono ${
                       responseStatus >= 200 && responseStatus < 300
-                        ? 'bg-[#1C2C1D] text-[#86EFAC] border border-[#2D472F]'
-                        : 'bg-[#3E161C] text-[#FCA5A5] border border-[#6B242D]'
+                        ? 'bg-[#15803D]/15 text-[#15803D] border border-[#15803D]/30'
+                        : 'bg-[#DC2626]/15 text-[#DC2626] border border-[#DC2626]/30'
                     }`}
                   >
                     STATUS: {responseStatus} {responseStatus === 200 ? 'OK' : ''}
@@ -534,7 +536,7 @@ export const ApiConsole: React.FC = () => {
               </div>
 
               <div className="relative">
-                <pre className="text-[#E5B869] text-xs overflow-x-auto p-3.5 bg-[#14100E] border border-[#2B1F19] rounded-lg max-h-80 leading-relaxed font-mono selection:bg-[#C59B27] selection:text-[#120E0C]">
+                <pre className="text-[#221A14] text-xs overflow-x-auto p-3.5 bg-[#FBEBE1] border border-[#DFCBB5] rounded-xl max-h-80 leading-relaxed font-mono selection:bg-[#7C571C] selection:text-white">
                   {JSON.stringify(responseData, null, 2)}
                 </pre>
               </div>

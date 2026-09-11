@@ -12,11 +12,9 @@ import {
   Calendar, 
   TrendingUp, 
   TrendingDown, 
-  Wallet, 
   CreditCard, 
   Smartphone, 
   Coins, 
-  Plus, 
   Trash2, 
   Copy, 
   Check, 
@@ -32,15 +30,11 @@ import {
   Building2,
   Store,
   Lock,
-  ShieldCheck,
   ArrowRight
 } from 'lucide-react';
 import { 
-  VintageCrownIcon, 
   StraightRazorIcon, 
-  VintageScissorsIcon, 
-  BarberPoleRibbon,
-  VintageWaxSeal 
+  BarberPoleRibbon
 } from './VintageBarberIcons';
 import { CashDrawerModal } from './CashDrawerModal';
 import { isGavetaVisible, ejecutarAperturaGaveta } from '../services/cashDrawer';
@@ -104,6 +98,7 @@ export const AccountingModule: React.FC<AccountingModuleProps> = ({
   const [editandoBase, setEditandoBase] = useState<boolean>(false);
   const [nuevaBase, setNuevaBase] = useState<number>(100000);
   const [copiadoReporte, setCopiadoReporte] = useState<boolean>(false);
+  const [exportadoExcel, setExportadoExcel] = useState<boolean>(false);
 
   // Cash Drawer (Gaveta Registradora) state
   const [drawerModalOpen, setDrawerModalOpen] = useState<boolean>(false);
@@ -242,7 +237,7 @@ export const AccountingModule: React.FC<AccountingModuleProps> = ({
         ).join('\n') + '\n'
       : '';
 
-    const texto = `👑 *BARBERÍA CASA DEL REY - CIERRE CONTABLE* 👑
+    const texto = `👑 *BARBERÍA LA CASA DEL REY - CIERRE CONTABLE* 👑
 📍 *Sede:* ${nombreSedeHeader}
 📅 *Fecha:* ${fechaSeleccionada}
 ✂️ *Cortes Totales:* ${contabilidad.totalServicios}
@@ -265,7 +260,7 @@ ${(contabilidad.liquidacionesBarberos || []).map(b => `• ${b.barberoNombre}: $
 ${gastos.map(g => `• ${g.concepto} (${g.metodoPago}${g.sucursalNombre ? ` - ${g.sucursalNombre}` : ''}): ${formatCOP(g.monto)}`).join('\n') || '• Sin gastos registrados'}
 • *Total Egresos:* ${formatCOP(contabilidad.totalGastos)}
 
-🏦 *BALANCE CASA DEL REY:*
+🏦 *BALANCE LA CASA DEL REY:*
 • Margen Barbería: ${formatCOP(contabilidad.ingresosNetosBarberia)}
 • Menos Gastos: -${formatCOP(contabilidad.totalGastos)}
 • *UTILIDAD NETA NEGOCIO:* ${formatCOP(contabilidad.balanceNetoFinal)}
@@ -279,11 +274,111 @@ ${gastos.map(g => `• ${g.concepto} (${g.metodoPago}${g.sucursalNombre ? ` - ${
 ${fisicoNumerico !== null ? `• Efectivo contado físico: ${formatCOP(fisicoNumerico)}
 • *Diferencia:* ${diferenciaArqueo === 0 ? '✅ CUADRADO EXACTO' : diferenciaArqueo! > 0 ? `🟢 SOBRANTE (+${formatCOP(diferenciaArqueo!)})` : `🔴 FALTANTE (${formatCOP(diferenciaArqueo!)})`}` : ''}
 ----------------------------------
-Generado por el Sistema Contable de Casa del Rey`;
+Generado por el Sistema Contable de La Casa del Rey`;
 
     navigator.clipboard.writeText(texto);
     setCopiadoReporte(true);
     setTimeout(() => setCopiadoReporte(false), 2500);
+  };
+
+  // Exportar reporte contable a Excel (.CSV estructurado y compatible)
+  const handleExportarExcel = () => {
+    if (!contabilidad) return;
+
+    const escapeCsv = (val: any) => {
+      if (val === null || val === undefined) return '""';
+      const str = String(val).replace(/"/g, '""');
+      return `"${str}"`;
+    };
+
+    const nombreSede = sucursalSeleccionada === 'todas'
+      ? 'Consolidado General (3 Sedes)'
+      : getSucursalById(sucursalSeleccionada).nombre;
+
+    const lines: string[] = [];
+
+    // Metadatos y Título
+    lines.push(`"REPORTE DE CIERRE CONTABLE - BARBERÍA LA CASA DEL REY"`);
+    lines.push(`"Sede:",${escapeCsv(nombreSede)}`);
+    lines.push(`"Fecha de Corte:",${escapeCsv(fechaSeleccionada)}`);
+    lines.push(`"Total Servicios / Cortes:",${contabilidad.totalServicios}`);
+    lines.push(`"Generado En:",${escapeCsv(new Date().toLocaleString('es-CO'))}`);
+    lines.push('');
+
+    // Resumen Financiero
+    lines.push('"RESUMEN FINANCIERO EJECUTIVO","VALOR COP"');
+    lines.push(`"Ingresos Brutos por Servicios",${contabilidad.ingresosBrutos}`);
+    lines.push(`"Total Propinas Recaudadas",${contabilidad.totalPropinas}`);
+    lines.push(`"TOTAL RECAUDADO (Bruto + Propinas)",${contabilidad.ingresosBrutos + contabilidad.totalPropinas}`);
+    lines.push(`"Total Comisiones y Propinas a Barberos",-${contabilidad.totalComisionesBarberos + contabilidad.totalPropinas}`);
+    lines.push(`"Margen Bruto de la Barbería",${contabilidad.ingresosNetosBarberia}`);
+    lines.push(`"Total Egresos y Gastos de Caja",-${contabilidad.totalGastos}`);
+    lines.push(`"UTILIDAD NETA FINAL NEGOCIO",${contabilidad.balanceNetoFinal}`);
+    lines.push('');
+
+    // Canales de Pago
+    lines.push('"MEDIO DE PAGO","MONTO COP"');
+    lines.push(`"Efectivo en Caja",${contabilidad.desgloseMediosPago.efectivo}`);
+    lines.push(`"Transferencias (Nequi / Daviplata / Bancos)",${contabilidad.desgloseMediosPago.transferencia}`);
+    lines.push(`"Tarjetas de Crédito / Débito / Datáfono",${contabilidad.desgloseMediosPago.tarjeta}`);
+    lines.push('');
+
+    // Arqueo de Caja
+    lines.push('"ARQUEO DE GAVETA EN EFECTIVO","MONTO COP"');
+    lines.push(`"Base Inicial de Apertura",${contabilidad.efectivoCaja.baseInicial}`);
+    lines.push(`"(+) Entradas en Efectivo por Servicios",${contabilidad.efectivoCaja.entradasEfectivo}`);
+    lines.push(`"(-) Salidas por Gastos en Efectivo",-${contabilidad.efectivoCaja.salidasEfectivoGastos}`);
+    lines.push(`"(-) Salidas por Comisiones en Efectivo",-${contabilidad.efectivoCaja.salidasEfectivoComisiones}`);
+    lines.push(`"SALDO ESPERADO EN GAVETA",${saldoEsperado}`);
+    if (fisicoNumerico !== null) {
+      lines.push(`"Efectivo Físico Contado",${fisicoNumerico}`);
+      lines.push(`"Diferencia de Arqueo",${diferenciaArqueo}`);
+    }
+    lines.push('');
+
+    // Liquidación por Barbero
+    lines.push('"LIQUIDACIÓN DE BARBEROS","CORTES","COMISIÓN COP","PROPINAS COP","TOTAL A LIQUIDAR COP","ESTADO"');
+    (contabilidad.liquidacionesBarberos || []).forEach(b => {
+      lines.push([
+        escapeCsv(b.barberoNombre),
+        b.cortesCount,
+        b.totalComision,
+        b.totalPropinas,
+        b.totalALiquidar,
+        escapeCsv(b.pendientePorPagar === 0 ? 'Liquidado Completo' : `Pendiente por Pagar: ${b.pendientePorPagar}`)
+      ].join(','));
+    });
+    lines.push('');
+
+    // Registro de Egresos
+    lines.push('"DETALLE DE EGRESOS Y GASTOS DE CAJA"');
+    lines.push('"Hora","ID","Concepto","Sede","Categoría","Medio de Pago","Monto COP","Comprobante"');
+    gastos.forEach(g => {
+      lines.push([
+        escapeCsv(g.hora),
+        escapeCsv(g.id),
+        escapeCsv(g.concepto),
+        escapeCsv(g.sucursalNombre || 'Chicó Real'),
+        escapeCsv(g.categoria),
+        escapeCsv(g.metodoPago),
+        g.monto,
+        escapeCsv(g.comprobante || 'N/A')
+      ].join(','));
+    });
+
+    const csvContent = '\uFEFF' + lines.join('\r\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `cierre_contable_casa_del_rey_${fechaSeleccionada}_${sucursalSeleccionada}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    setExportadoExcel(true);
+    setTimeout(() => setExportadoExcel(false), 2500);
   };
 
   const sucursalActualObj = getSucursalById(sucursalSeleccionada);
@@ -291,50 +386,64 @@ Generado por el Sistema Contable de Casa del Rey`;
   return (
     <div className="space-y-6">
       {/* Top Banner with Date & Quick Export */}
-      <div className="bg-[#1A1412] border border-[#3D2E26] rounded-xl p-4 sm:p-5 shadow-xl relative overflow-hidden">
+      <div className="bg-[#FFF8F5] border border-[#DFCBB5] rounded-xl p-4 sm:p-5 shadow-sm relative overflow-hidden">
         <BarberPoleRibbon className="h-1 absolute top-0 left-0" />
 
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pt-1">
           <div>
             <div className="flex items-center gap-2">
-              <Coins className="w-5 h-5 text-[#C59B27]" />
-              <h2 className="font-royal text-base sm:text-lg font-bold text-[#FAF6EE] uppercase tracking-wide">
-                Contabilidad & Recaudos de Casa del Rey
+              <Coins className="w-5 h-5 text-[#7C571C]" />
+              <h2 className="font-serif text-base sm:text-lg font-bold text-[#221A14] uppercase tracking-wide">
+                Contabilidad & Recaudos de La Casa del Rey
               </h2>
             </div>
-            <p className="text-xs text-[#8A796D] font-mono mt-0.5">
+            <p className="text-xs text-[#6F5A4B] font-mono mt-0.5">
               Control de ingresos brutos, medios de pago, arqueo de caja física y utilidades netas
             </p>
           </div>
 
-          <div className="flex items-center gap-2.5 font-mono text-xs">
-            <div className="flex items-center gap-2 bg-[#0E0A09] px-3 py-1.5 rounded-lg border border-[#3D2E26]">
-              <Calendar className="w-4 h-4 text-[#C59B27]" />
-              <span className="text-[#8A796D]">Fecha:</span>
+          <div className="flex flex-wrap items-center gap-2 font-mono text-xs">
+            {/* Selector de Fecha */}
+            <div className="flex items-center gap-2 bg-[#FFFFFF] px-3 py-1.5 rounded-lg border border-[#DFCBB5] shadow-xs">
+              <Calendar className="w-4 h-4 text-[#7C571C]" />
+              <span className="text-[#6F5A4B]">Fecha:</span>
               <input
                 type="date"
                 value={fechaSeleccionada}
                 onChange={(e) => setFechaSeleccionada(e.target.value)}
-                className="bg-transparent text-[#E5B869] font-bold focus:outline-none cursor-pointer"
+                className="bg-transparent text-[#221A14] font-bold focus:outline-none cursor-pointer"
               />
               {fechaSeleccionada !== hoyStr && (
                 <button
                   onClick={() => setFechaSeleccionada(hoyStr)}
-                  className="text-[10px] bg-[#261B16] text-[#FAF6EE] px-2 py-0.5 rounded hover:bg-[#3D2E26] transition-colors"
+                  className="text-[10px] bg-[#FBEBE1] text-[#7C571C] px-2 py-0.5 rounded hover:bg-[#DFCBB5] transition-colors cursor-pointer"
                 >
                   Hoy
                 </button>
               )}
             </div>
 
+            {/* Botón Exportar a Excel */}
+            <button
+              id="btn-exportar-contabilidad-excel"
+              onClick={handleExportarExcel}
+              disabled={!contabilidad}
+              className="px-3.5 py-1.5 bg-[#7C571C] hover:bg-[#684815] text-[#FAF6EE] rounded-lg font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+              title="Descargar libro contable estructurado en Excel (.csv)"
+            >
+              {exportadoExcel ? <Check className="w-4 h-4" /> : <FileSpreadsheet className="w-4 h-4" />}
+              <span>{exportadoExcel ? 'DESCARGADO' : 'EXPORTAR EXCEL'}</span>
+            </button>
+
+            {/* Botón WhatsApp / Copiar */}
             <button
               onClick={copiarReporteWhatsApp}
               disabled={!contabilidad}
-              className="px-3.5 py-1.5 bg-[#C59B27] hover:bg-[#D4A373] text-[#120E0C] rounded-lg font-bold transition-all shadow flex items-center gap-1.5 cursor-pointer"
+              className="px-3 py-1.5 bg-[#FBEBE1] hover:bg-[#F5E8DA] border border-[#DFCBB5] text-[#221A14] rounded-lg font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
               title="Copiar reporte completo para WhatsApp o Gerencia"
             >
-              {copiadoReporte ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-              <span>{copiadoReporte ? '¡COPIADO!' : 'EXPORTAR REPORTE'}</span>
+              {copiadoReporte ? <Check className="w-4 h-4 text-[#15803D]" /> : <Copy className="w-4 h-4 text-[#7C571C]" />}
+              <span>{copiadoReporte ? '¡COPIADO!' : 'COPIAR REPORTE'}</span>
             </button>
           </div>
         </div>
@@ -342,39 +451,39 @@ Generado por el Sistema Contable de Casa del Rey`;
 
       {/* Selector de Sucursal (Para Administrador) o Vista Aislada (Para Cajero) */}
       {esCajero ? (
-        <div className="bg-[#181310] border border-[#C59B27]/50 rounded-xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-lg font-mono">
+        <div className="bg-[#FFF8F5] border border-[#DFCBB5] rounded-xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs font-mono">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-[#261B16] border border-[#C59B27] flex items-center justify-center text-[#C59B27] shrink-0 shadow">
+            <div className="w-10 h-10 rounded-xl bg-[#FBEBE1] border border-[#DFCBB5] flex items-center justify-center text-[#7C571C] shrink-0 shadow-xs">
               <Lock className="w-5 h-5" />
             </div>
             <div>
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-xs font-bold uppercase text-[#E5B869] flex items-center gap-1.5">
-                  <Store className="w-3.5 h-3.5" />
+                <span className="text-xs font-bold uppercase text-[#221A14] flex items-center gap-1.5">
+                  <Store className="w-3.5 h-3.5 text-[#7C571C]" />
                   Caja Asignada: {sucursalActualObj.nombre}
                 </span>
-                <span className="px-2 py-0.5 rounded text-[9px] bg-[#1C2C1D] text-[#86EFAC] border border-[#2D472F] font-bold">
+                <span className="px-2 py-0.5 rounded text-[9px] bg-[#EBF7EE] text-[#15803D] border border-[#86EFAC] font-bold">
                   VISTA AISLADA
                 </span>
               </div>
-              <p className="text-[11px] text-[#A8988B] mt-0.5">
+              <p className="text-[11px] text-[#6F5A4B] mt-0.5">
                 {sucursalActualObj.direccion} • Arqueo, ingresos y egresos restringidos exclusivamente a esta sucursal.
               </p>
             </div>
           </div>
 
-          <div className="text-right text-xs shrink-0 self-end sm:self-center bg-[#0E0A09] px-3 py-1.5 rounded-lg border border-[#261B16]">
-            <span className="text-[#8A796D] block text-[9px] uppercase">Cajero en Turno</span>
-            <span className="text-[#86EFAC] font-bold">{usuario?.nombre || 'Operador de Caja'}</span>
+          <div className="text-right text-xs shrink-0 self-end sm:self-center bg-[#FFFFFF] px-3 py-1.5 rounded-lg border border-[#DFCBB5]">
+            <span className="text-[#6F5A4B] block text-[9px] uppercase">Cajero en Turno</span>
+            <span className="text-[#15803D] font-bold">{usuario?.nombre || 'Operador de Caja'}</span>
           </div>
         </div>
       ) : (
-        <div className="bg-[#1A1412] border border-[#3D2E26] rounded-xl p-3 sm:p-4 shadow-lg flex flex-col lg:flex-row items-start lg:items-center justify-between gap-3 font-mono text-xs">
+        <div className="bg-[#FFF8F5] border border-[#DFCBB5] rounded-xl p-3 sm:p-4 shadow-xs flex flex-col lg:flex-row items-start lg:items-center justify-between gap-3 font-mono text-xs">
           <div className="flex items-center gap-2">
-            <Building2 className="w-4 h-4 text-[#C59B27]" />
-            <span className="font-bold text-[#FAF6EE] uppercase text-xs">Sede Contable:</span>
-            <span className="text-[10px] text-[#8A796D] hidden sm:inline">
-              (El Administrador puede ver el consolidado total o dividir por cada una de las 3 sucursales)
+            <Building2 className="w-4 h-4 text-[#7C571C]" />
+            <span className="font-bold text-[#221A14] uppercase text-xs">Sede Contable:</span>
+            <span className="text-[10px] text-[#6F5A4B] hidden sm:inline">
+              (El Administrador puede ver el consolidado total o filtrar por cada sede)
             </span>
           </div>
 
@@ -384,8 +493,8 @@ Generado por el Sistema Contable de Casa del Rey`;
               onClick={() => setSucursalSeleccionada('todas')}
               className={`px-3 py-1.5 rounded-lg border text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
                 sucursalSeleccionada === 'todas'
-                  ? 'bg-[#C59B27] text-[#120E0C] border-[#C59B27] shadow'
-                  : 'bg-[#0E0A09] text-[#A8988B] border-[#3D2E26] hover:text-[#FAF6EE] hover:border-[#8A796D]'
+                  ? 'bg-[#7C571C] text-[#FFFFFF] border-[#7C571C] shadow-xs'
+                  : 'bg-[#FFFFFF] text-[#6F5A4B] border-[#DFCBB5] hover:text-[#221A14]'
               }`}
             >
               <Building2 className="w-3.5 h-3.5" />
@@ -399,11 +508,11 @@ Generado por el Sistema Contable de Casa del Rey`;
                 onClick={() => setSucursalSeleccionada(s.id)}
                 className={`px-3 py-1.5 rounded-lg border text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
                   sucursalSeleccionada === s.id
-                    ? 'bg-[#2A1E18] text-[#E5B869] border-[#C59B27] shadow'
-                    : 'bg-[#0E0A09] text-[#A8988B] border-[#3D2E26] hover:text-[#FAF6EE] hover:border-[#8A796D]'
+                    ? 'bg-[#7C571C] text-[#FFFFFF] border-[#7C571C] shadow-xs'
+                    : 'bg-[#FFFFFF] text-[#6F5A4B] border-[#DFCBB5] hover:text-[#221A14]'
                 }`}
               >
-                <Store className="w-3.5 h-3.5 text-[#C59B27]" />
+                <Store className="w-3.5 h-3.5" />
                 <span>{s.nombre.replace('Sede ', '')}</span>
               </button>
             ))}
@@ -412,11 +521,11 @@ Generado por el Sistema Contable de Casa del Rey`;
       )}
 
       {cargando ? (
-        <div className="bg-[#1A1412] border border-[#3D2E26] rounded-xl p-12 text-center font-mono text-xs text-[#8A796D]">
+        <div className="bg-[#FFF8F5] border border-[#DFCBB5] rounded-xl p-12 text-center font-mono text-xs text-[#6F5A4B]">
           Calculando libros contables y arqueo de caja...
         </div>
       ) : error ? (
-        <div className="bg-[#3E161C] border border-[#6B242D] rounded-xl p-4 text-[#FCA5A5] font-mono text-xs flex items-center gap-2">
+        <div className="bg-[#FDF2F2] border border-[#F87171] rounded-xl p-4 text-[#991B1B] font-mono text-xs flex items-center gap-2">
           <AlertTriangle className="w-4 h-4 shrink-0" />
           <span>{error}</span>
         </div>
@@ -425,60 +534,60 @@ Generado por el Sistema Contable de Casa del Rey`;
           {/* Main Financial KPIs */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 font-mono">
             {/* Bruto Recaudado */}
-            <div className="bg-[#1A1412] border border-[#3D2E26] rounded-xl p-4 shadow-lg">
-              <div className="flex items-center justify-between text-[#8A796D] text-xs">
+            <div className="bg-[#FFF8F5] border border-[#DFCBB5] rounded-xl p-4 shadow-sm">
+              <div className="flex items-center justify-between text-[#6F5A4B] text-xs">
                 <span className="uppercase font-bold">Total Recaudado</span>
-                <DollarSign className="w-4 h-4 text-[#C59B27]" />
+                <DollarSign className="w-4 h-4 text-[#7C571C]" />
               </div>
-              <div className="text-xl sm:text-2xl font-bold text-[#FAF6EE] mt-1.5">
+              <div className="text-xl sm:text-2xl font-bold text-[#221A14] mt-1.5">
                 {formatCOP(contabilidad.ingresosBrutos + contabilidad.totalPropinas)}
               </div>
-              <div className="text-[10px] text-[#8A796D] mt-1 flex justify-between">
+              <div className="text-[10px] text-[#6F5A4B] mt-1 flex justify-between">
                 <span>{contabilidad.totalServicios} servicios</span>
                 <span>Propinas: {formatCOP(contabilidad.totalPropinas)}</span>
               </div>
             </div>
 
             {/* Para Barberos */}
-            <div className="bg-[#1A1412] border border-[#3D2E26] rounded-xl p-4 shadow-lg">
-              <div className="flex items-center justify-between text-[#8A796D] text-xs">
-                <span className="uppercase font-bold text-[#C59B27]">Para Barberos</span>
-                <StraightRazorIcon className="w-4 h-4 text-[#C59B27]" />
+            <div className="bg-[#FFF8F5] border border-[#DFCBB5] rounded-xl p-4 shadow-sm">
+              <div className="flex items-center justify-between text-[#6F5A4B] text-xs">
+                <span className="uppercase font-bold text-[#7C571C]">Para Barberos</span>
+                <StraightRazorIcon className="w-4 h-4 text-[#7C571C]" />
               </div>
-              <div className="text-xl sm:text-2xl font-bold text-[#E5B869] mt-1.5">
+              <div className="text-xl sm:text-2xl font-bold text-[#7C571C] mt-1.5">
                 {formatCOP(contabilidad.totalComisionesBarberos + contabilidad.totalPropinas)}
               </div>
-              <div className="text-[10px] text-[#8A796D] mt-1 flex justify-between">
+              <div className="text-[10px] text-[#6F5A4B] mt-1 flex justify-between">
                 <span>Comisión + Propinas</span>
                 <span>Reparto del equipo</span>
               </div>
             </div>
 
             {/* Egresos / Gastos */}
-            <div className="bg-[#1A1412] border border-[#3D2E26] rounded-xl p-4 shadow-lg">
-              <div className="flex items-center justify-between text-[#8A796D] text-xs">
-                <span className="uppercase font-bold text-[#F87171]">Egresos & Gastos</span>
-                <TrendingDown className="w-4 h-4 text-[#F87171]" />
+            <div className="bg-[#FFF8F5] border border-[#DFCBB5] rounded-xl p-4 shadow-sm">
+              <div className="flex items-center justify-between text-[#6F5A4B] text-xs">
+                <span className="uppercase font-bold text-[#991B1B]">Egresos & Gastos</span>
+                <TrendingDown className="w-4 h-4 text-[#991B1B]" />
               </div>
-              <div className="text-xl sm:text-2xl font-bold text-[#F87171] mt-1.5">
+              <div className="text-xl sm:text-2xl font-bold text-[#991B1B] mt-1.5">
                 {formatCOP(contabilidad.totalGastos)}
               </div>
-              <div className="text-[10px] text-[#8A796D] mt-1 flex justify-between">
+              <div className="text-[10px] text-[#6F5A4B] mt-1 flex justify-between">
                 <span>{gastos.length} gastos registrados</span>
                 <span>Insumos y caja menor</span>
               </div>
             </div>
 
             {/* Ganancia Neta Casa del Rey */}
-            <div className="bg-[#1A1412] border border-[#2D472F] rounded-xl p-4 shadow-lg bg-gradient-to-br from-[#1A1412] to-[#162217]">
-              <div className="flex items-center justify-between text-[#86EFAC] text-xs">
+            <div className="bg-[#FFF8F5] border border-[#86EFAC] rounded-xl p-4 shadow-sm bg-gradient-to-br from-[#FFF8F5] to-[#EBF7EE]">
+              <div className="flex items-center justify-between text-[#15803D] text-xs">
                 <span className="uppercase font-bold">Utilidad Neta Negocio</span>
-                <TrendingUp className="w-4 h-4 text-[#86EFAC]" />
+                <TrendingUp className="w-4 h-4 text-[#15803D]" />
               </div>
-              <div className="text-xl sm:text-2xl font-bold text-[#86EFAC] mt-1.5">
+              <div className="text-xl sm:text-2xl font-bold text-[#15803D] mt-1.5">
                 {formatCOP(contabilidad.balanceNetoFinal)}
               </div>
-              <div className="text-[10px] text-[#8A796D] mt-1 flex justify-between">
+              <div className="text-[10px] text-[#6F5A4B] mt-1 flex justify-between">
                 <span>Margen post-comisiones</span>
                 <span>Post-gastos</span>
               </div>
@@ -487,21 +596,21 @@ Generado por el Sistema Contable de Casa del Rey`;
 
           {/* Sección de División Contable por Sucursal (Exclusivo Administrador cuando ve consolidado) */}
           {sucursalSeleccionada === 'todas' && contabilidad.divisionPorSucursal && contabilidad.divisionPorSucursal.length > 0 && (
-            <div className="bg-[#1A1412] border border-[#3D2E26] rounded-xl p-5 shadow-xl font-mono text-xs space-y-4">
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 border-b border-[#2E2019] pb-3">
+            <div className="bg-[#FFF8F5] border border-[#DFCBB5] rounded-xl p-5 shadow-sm font-mono text-xs space-y-4">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 border-b border-[#DFCBB5] pb-3">
                 <div className="flex items-center gap-2">
-                  <Building2 className="w-4 h-4 text-[#C59B27]" />
+                  <Building2 className="w-4 h-4 text-[#7C571C]" />
                   <div>
-                    <h3 className="font-royal text-sm font-bold uppercase text-[#FAF6EE] tracking-wide flex items-center gap-2">
-                      División Contable por Sucursal (3 Sedes Independientes)
+                    <h3 className="font-serif text-sm font-bold uppercase text-[#221A14] tracking-wide flex items-center gap-2">
+                      División Contable por Sucursal (3 Sedes)
                     </h3>
-                    <p className="text-[10px] text-[#8A796D]">
+                    <p className="text-[10px] text-[#6F5A4B]">
                       Comparativa individual de ingresos, comisiones, egresos y utilidad neta por cada sede
                     </p>
                   </div>
                 </div>
-                <span className="px-2 py-0.5 rounded bg-[#261B16] text-[#E5B869] text-[10px] border border-[#3D2E26] font-bold">
-                  VISTA ADMINISTRADOR
+                <span className="px-2 py-0.5 rounded bg-[#FBEBE1] text-[#7C571C] text-[10px] border border-[#DFCBB5] font-bold">
+                  VISTA CONSOLIDADA
                 </span>
               </div>
 
@@ -511,69 +620,69 @@ Generado por el Sistema Contable de Casa del Rey`;
                   return (
                     <div 
                       key={div.sucursalId} 
-                      className="bg-[#120E0C] border border-[#2E2019] hover:border-[#C59B27]/60 rounded-xl p-4 transition-all flex flex-col justify-between shadow-md"
+                      className="bg-[#FFFFFF] border border-[#DFCBB5] hover:border-[#7C571C] rounded-xl p-4 transition-all flex flex-col justify-between shadow-xs"
                     >
                       <div className="space-y-3">
-                        <div className="flex items-start justify-between gap-2 border-b border-[#261B16] pb-2.5">
+                        <div className="flex items-start justify-between gap-2 border-b border-[#DFCBB5] pb-2.5">
                           <div>
-                            <span className="font-bold text-[#FAF6EE] text-sm block flex items-center gap-1.5">
-                              <Store className="w-3.5 h-3.5 text-[#C59B27]" />
+                            <span className="font-bold text-[#221A14] text-sm block flex items-center gap-1.5">
+                              <Store className="w-3.5 h-3.5 text-[#7C571C]" />
                               {div.sucursalNombre}
                             </span>
-                            <span className="text-[10px] text-[#8A796D] block line-clamp-1">
+                            <span className="text-[10px] text-[#6F5A4B] block line-clamp-1">
                               {infoSede.direccion}
                             </span>
                           </div>
-                          <span className="px-1.5 py-0.5 rounded bg-[#1C1512] text-[#C59B27] font-bold text-[10px] border border-[#3D2E26] shrink-0">
+                          <span className="px-1.5 py-0.5 rounded bg-[#FBEBE1] text-[#7C571C] font-bold text-[10px] border border-[#DFCBB5] shrink-0">
                             {div.totalServicios} cortes
                           </span>
                         </div>
 
                         <div className="space-y-1.5 text-xs">
                           <div className="flex justify-between items-center">
-                            <span className="text-[#8A796D]">Total Recaudado:</span>
-                            <span className="font-bold text-[#FAF6EE]">
+                            <span className="text-[#6F5A4B]">Total Recaudado:</span>
+                            <span className="font-bold text-[#221A14]">
                               {formatCOP(div.ingresosBrutos + div.totalPropinas)}
                             </span>
                           </div>
 
-                          <div className="flex justify-between items-center text-[#E5B869]">
+                          <div className="flex justify-between items-center text-[#7C571C]">
                             <span>Para Barberos:</span>
                             <span className="font-bold">
                               -{formatCOP(div.totalComisionesBarberos + div.totalPropinas)}
                             </span>
                           </div>
 
-                          <div className="flex justify-between items-center text-[#F87171]">
+                          <div className="flex justify-between items-center text-[#991B1B]">
                             <span>Egresos / Gastos:</span>
                             <span className="font-bold">
                               -{formatCOP(div.totalGastos)}
                             </span>
                           </div>
 
-                          <div className="pt-2 border-t border-[#261B16] flex justify-between items-center text-[#86EFAC]">
+                          <div className="pt-2 border-t border-[#DFCBB5] flex justify-between items-center text-[#15803D]">
                             <span className="font-bold uppercase text-[11px]">Utilidad Neta:</span>
                             <span className="text-sm font-bold">
                               {formatCOP(div.balanceNetoFinal)}
                             </span>
                           </div>
 
-                          <div className="flex justify-between items-center text-[10px] text-[#A8988B] pt-1">
+                          <div className="flex justify-between items-center text-[10px] text-[#6F5A4B] pt-1">
                             <span>Saldo Gaveta:</span>
-                            <span className="font-bold text-[#FAF6EE]">
+                            <span className="font-bold text-[#221A14]">
                               {formatCOP(div.saldoEsperadoEnGaveta)}
                             </span>
                           </div>
                         </div>
                       </div>
 
-                      <div className="pt-3 mt-3 border-t border-[#261B16]">
+                      <div className="pt-3 mt-3 border-t border-[#DFCBB5]">
                         <button
                           type="button"
                           onClick={() => setSucursalSeleccionada(div.sucursalId)}
-                          className="w-full py-1.5 px-3 rounded-lg bg-[#261B16] hover:bg-[#3D2E26] text-[#E5B869] hover:text-[#FAF6EE] border border-[#3D2E26] hover:border-[#C59B27] text-[11px] font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                          className="w-full py-1.5 px-3 rounded-lg bg-[#FBEBE1] hover:bg-[#F5E8DA] text-[#7C571C] hover:text-[#221A14] border border-[#DFCBB5] text-[11px] font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer"
                         >
-                          <span>Aislar Contabilidad de {div.sucursalNombre.replace('Sede ', '')}</span>
+                          <span>Ver Contabilidad de {div.sucursalNombre.replace('Sede ', '')}</span>
                           <ArrowRight className="w-3 h-3" />
                         </button>
                       </div>
@@ -587,34 +696,34 @@ Generado por el Sistema Contable de Casa del Rey`;
           {/* Breakdown by Payment Methods + Cash Register reconciliation */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
             {/* Medios de Pago */}
-            <div className="lg:col-span-5 bg-[#1A1412] border border-[#3D2E26] rounded-xl p-5 shadow-xl font-mono text-xs space-y-4">
-              <div className="flex items-center justify-between border-b border-[#2E2019] pb-3">
+            <div className="lg:col-span-5 bg-[#FFF8F5] border border-[#DFCBB5] rounded-xl p-5 shadow-sm font-mono text-xs space-y-4">
+              <div className="flex items-center justify-between border-b border-[#DFCBB5] pb-3">
                 <div className="flex items-center gap-2">
-                  <Receipt className="w-4 h-4 text-[#C59B27]" />
-                  <h3 className="font-royal text-sm font-bold uppercase text-[#FAF6EE] tracking-wide">
+                  <Receipt className="w-4 h-4 text-[#7C571C]" />
+                  <h3 className="font-serif text-sm font-bold uppercase text-[#221A14] tracking-wide">
                     Recaudos por Medio de Pago
                   </h3>
                 </div>
-                <span className="text-[10px] text-[#8A796D]">ARQUEO DE CANALES</span>
+                <span className="text-[10px] text-[#6F5A4B]">ARQUEO DE CANALES</span>
               </div>
 
               <div className="space-y-3">
                 {/* Efectivo */}
-                <div className="bg-[#120E0C] p-3 rounded-lg border border-[#2E2019] flex items-center justify-between">
+                <div className="bg-[#FFFFFF] p-3 rounded-lg border border-[#DFCBB5] flex items-center justify-between shadow-2xs">
                   <div className="flex items-center gap-2.5">
-                    <div className="w-8 h-8 rounded-lg bg-[#261B16] border border-[#C59B27]/40 flex items-center justify-center text-[#C59B27]">
+                    <div className="w-8 h-8 rounded-lg bg-[#FBEBE1] border border-[#DFCBB5] flex items-center justify-center text-[#7C571C]">
                       💵
                     </div>
                     <div>
-                      <span className="font-bold text-[#FAF6EE] block">Efectivo Físico</span>
-                      <span className="text-[10px] text-[#8A796D]">Gaveta del cajero</span>
+                      <span className="font-bold text-[#221A14] block">Efectivo Físico</span>
+                      <span className="text-[10px] text-[#6F5A4B]">Gaveta del cajero</span>
                     </div>
                   </div>
                   <div className="text-right">
-                    <span className="text-sm font-bold text-[#FAF6EE]">
+                    <span className="text-sm font-bold text-[#221A14]">
                       {formatCOP(contabilidad.desgloseMediosPago.efectivo)}
                     </span>
-                    <span className="text-[10px] text-[#8A796D] block">
+                    <span className="text-[10px] text-[#6F5A4B] block">
                       {contabilidad.ingresosBrutos > 0 
                         ? `${Math.round((contabilidad.desgloseMediosPago.efectivo / (contabilidad.ingresosBrutos + contabilidad.totalPropinas)) * 100)}%` 
                         : '0%'}
@@ -623,21 +732,21 @@ Generado por el Sistema Contable de Casa del Rey`;
                 </div>
 
                 {/* Transferencia Nequi/Daviplata */}
-                <div className="bg-[#120E0C] p-3 rounded-lg border border-[#2E2019] flex items-center justify-between">
+                <div className="bg-[#FFFFFF] p-3 rounded-lg border border-[#DFCBB5] flex items-center justify-between shadow-2xs">
                   <div className="flex items-center gap-2.5">
-                    <div className="w-8 h-8 rounded-lg bg-[#261B16] border border-[#C59B27]/40 flex items-center justify-center text-[#C59B27]">
+                    <div className="w-8 h-8 rounded-lg bg-[#FBEBE1] border border-[#DFCBB5] flex items-center justify-center text-[#7C571C]">
                       <Smartphone className="w-4 h-4" />
                     </div>
                     <div>
-                      <span className="font-bold text-[#FAF6EE] block">Nequi / Daviplata</span>
-                      <span className="text-[10px] text-[#8A796D]">Transferencias bancarias</span>
+                      <span className="font-bold text-[#221A14] block">Nequi / Daviplata</span>
+                      <span className="text-[10px] text-[#6F5A4B]">Transferencias</span>
                     </div>
                   </div>
                   <div className="text-right">
-                    <span className="text-sm font-bold text-[#FAF6EE]">
+                    <span className="text-sm font-bold text-[#221A14]">
                       {formatCOP(contabilidad.desgloseMediosPago.transferencia)}
                     </span>
-                    <span className="text-[10px] text-[#8A796D] block">
+                    <span className="text-[10px] text-[#6F5A4B] block">
                       {contabilidad.ingresosBrutos > 0 
                         ? `${Math.round((contabilidad.desgloseMediosPago.transferencia / (contabilidad.ingresosBrutos + contabilidad.totalPropinas)) * 100)}%` 
                         : '0%'}
@@ -646,21 +755,21 @@ Generado por el Sistema Contable de Casa del Rey`;
                 </div>
 
                 {/* Tarjetas */}
-                <div className="bg-[#120E0C] p-3 rounded-lg border border-[#2E2019] flex items-center justify-between">
+                <div className="bg-[#FFFFFF] p-3 rounded-lg border border-[#DFCBB5] flex items-center justify-between shadow-2xs">
                   <div className="flex items-center gap-2.5">
-                    <div className="w-8 h-8 rounded-lg bg-[#261B16] border border-[#C59B27]/40 flex items-center justify-center text-[#C59B27]">
+                    <div className="w-8 h-8 rounded-lg bg-[#FBEBE1] border border-[#DFCBB5] flex items-center justify-center text-[#7C571C]">
                       <CreditCard className="w-4 h-4" />
                     </div>
                     <div>
-                      <span className="font-bold text-[#FAF6EE] block">Tarjetas / Datáfono</span>
-                      <span className="text-[10px] text-[#8A796D]">Débito y Crédito</span>
+                      <span className="font-bold text-[#221A14] block">Tarjetas / Datáfono</span>
+                      <span className="text-[10px] text-[#6F5A4B]">Débito y Crédito</span>
                     </div>
                   </div>
                   <div className="text-right">
-                    <span className="text-sm font-bold text-[#FAF6EE]">
+                    <span className="text-sm font-bold text-[#221A14]">
                       {formatCOP(contabilidad.desgloseMediosPago.tarjeta)}
                     </span>
-                    <span className="text-[10px] text-[#8A796D] block">
+                    <span className="text-[10px] text-[#6F5A4B] block">
                       {contabilidad.ingresosBrutos > 0 
                         ? `${Math.round((contabilidad.desgloseMediosPago.tarjeta / (contabilidad.ingresosBrutos + contabilidad.totalPropinas)) * 100)}%` 
                         : '0%'}
@@ -670,20 +779,20 @@ Generado por el Sistema Contable de Casa del Rey`;
               </div>
 
               {/* Liquidaciones de Barberos Summary */}
-              <div className="pt-3 border-t border-[#2E2019] space-y-2">
-                <span className="text-[10px] text-[#8A796D] uppercase font-bold block">
+              <div className="pt-3 border-t border-[#DFCBB5] space-y-2">
+                <span className="text-[10px] text-[#6F5A4B] uppercase font-bold block">
                   Distribución a Barberos ({contabilidad.liquidacionesBarberos?.length || 0}):
                 </span>
                 <div className="space-y-1.5">
                   {(contabilidad.liquidacionesBarberos || []).map((b: any) => (
-                    <div key={b.barberoId} className="flex justify-between items-center bg-[#120E0C] p-2 rounded border border-[#261B16]">
+                    <div key={b.barberoId} className="flex justify-between items-center bg-[#FFFFFF] p-2 rounded border border-[#DFCBB5]">
                       <div>
-                        <span className="text-[#FAF6EE] font-medium">{b.barberoNombre}</span>
-                        <span className="text-[10px] text-[#8A796D] block">{b.cortesCount} cortes</span>
+                        <span className="text-[#221A14] font-medium">{b.barberoNombre}</span>
+                        <span className="text-[10px] text-[#6F5A4B] block">{b.cortesCount} cortes</span>
                       </div>
                       <div className="text-right">
-                        <span className="text-[#E5B869] font-bold block">{formatCOP(b.totalALiquidar)}</span>
-                        <span className={`text-[9px] ${b.pendientePorPagar === 0 ? 'text-[#86EFAC]' : 'text-[#FCD34D]'}`}>
+                        <span className="text-[#7C571C] font-bold block">{formatCOP(b.totalALiquidar)}</span>
+                        <span className={`text-[9px] ${b.pendientePorPagar === 0 ? 'text-[#15803D]' : 'text-[#B45309]'}`}>
                           {b.pendientePorPagar === 0 ? 'Liquidado' : `Por pagar: ${formatCOP(b.pendientePorPagar)}`}
                         </span>
                       </div>
@@ -694,45 +803,45 @@ Generado por el Sistema Contable de Casa del Rey`;
             </div>
 
             {/* Arqueo y Control de Gaveta en Efectivo */}
-            <div className="lg:col-span-7 bg-[#1A1412] border border-[#3D2E26] rounded-xl p-5 shadow-xl font-mono text-xs space-y-4">
-              <div className="flex items-center justify-between border-b border-[#2E2019] pb-3">
+            <div className="lg:col-span-7 bg-[#FFF8F5] border border-[#DFCBB5] rounded-xl p-5 shadow-sm font-mono text-xs space-y-4">
+              <div className="flex items-center justify-between border-b border-[#DFCBB5] pb-3">
                 <div className="flex items-center gap-2">
-                  <Scale className="w-4 h-4 text-[#C59B27]" />
-                  <h3 className="font-royal text-sm font-bold uppercase text-[#FAF6EE] tracking-wide">
+                  <Scale className="w-4 h-4 text-[#7C571C]" />
+                  <h3 className="font-serif text-sm font-bold uppercase text-[#221A14] tracking-wide">
                     Arqueo de Caja & Gaveta Física
                   </h3>
                 </div>
-                <span className="text-[10px] px-2 py-0.5 rounded bg-[#261B16] text-[#E5B869] border border-[#3D2E26]">
+                <span className="text-[10px] px-2 py-0.5 rounded bg-[#FBEBE1] text-[#7C571C] border border-[#DFCBB5] font-bold">
                   CIERRE DE CAJA
                 </span>
               </div>
 
               {/* Notificación de Apertura de Gaveta */}
               {gavetaNotif && (
-                <div className="p-3 bg-[#132A18] border border-[#23532C] rounded-xl flex items-center justify-between gap-2 text-xs text-[#86EFAC] shadow-lg">
+                <div className="p-3 bg-[#EBF7EE] border border-[#86EFAC] rounded-xl flex items-center justify-between gap-2 text-xs text-[#15803D] shadow-xs">
                   <div className="flex items-center gap-2">
-                    <CheckCircle2 className="w-4 h-4 text-[#86EFAC] shrink-0" />
+                    <CheckCircle2 className="w-4 h-4 text-[#15803D] shrink-0" />
                     <span>{gavetaNotif}</span>
                   </div>
-                  <button onClick={() => setGavetaNotif(null)} className="text-[#86EFAC]/70 hover:text-[#86EFAC]">
+                  <button onClick={() => setGavetaNotif(null)} className="text-[#15803D]/70 hover:text-[#15803D]">
                     <X className="w-3.5 h-3.5" />
                   </button>
                 </div>
               )}
 
-              {/* Botón de Apertura de Gaveta de Dinero (Solo visible si está activo el flag y usuario es Admin/Cajero) */}
+              {/* Botón de Apertura de Gaveta de Dinero */}
               {visibleGaveta && esAdminOCajero && (
-                <div className="p-3.5 bg-[#1C1512] rounded-xl border border-[#C59B27]/40 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-md">
+                <div className="p-3.5 bg-[#FFFFFF] rounded-xl border border-[#DFCBB5] flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
                   <div className="flex items-center gap-2.5">
-                    <div className="w-8 h-8 rounded-lg bg-[#261B16] border border-[#C59B27] flex items-center justify-center text-[#C59B27] shrink-0 shadow">
+                    <div className="w-8 h-8 rounded-lg bg-[#FBEBE1] border border-[#DFCBB5] flex items-center justify-center text-[#7C571C] shrink-0 shadow-xs">
                       <KeyRound className="w-4 h-4" />
                     </div>
                     <div>
-                      <span className="font-bold text-[#FAF6EE] text-xs block">
+                      <span className="font-bold text-[#221A14] text-xs block">
                         Gaveta Registradora (POS ESC/POS)
                       </span>
-                      <span className="text-[10px] text-[#A8988B]">
-                        Apertura física de solenoide RJ11/RJ12 por WebSerial, WebUSB o Red
+                      <span className="text-[10px] text-[#6F5A4B]">
+                        Apertura física de solenoide RJ11/RJ12
                       </span>
                     </div>
                   </div>
@@ -741,193 +850,210 @@ Generado por el Sistema Contable de Casa del Rey`;
                     <button
                       type="button"
                       onClick={() => setDrawerModalOpen(true)}
-                      className="p-2 rounded-lg bg-[#140E0C] hover:bg-[#261B16] border border-[#3D2E26] text-[#A8988B] hover:text-[#FAF6EE] transition-colors cursor-pointer"
+                      className="p-2 rounded-lg bg-[#FBEBE1] hover:bg-[#F5E8DA] border border-[#DFCBB5] text-[#6F5A4B] hover:text-[#221A14] transition-colors cursor-pointer"
                       title="Configurar métodos de conexión de la gaveta"
                     >
                       <Settings className="w-3.5 h-3.5" />
                     </button>
                     <button
                       type="button"
-                      disabled={abriendoGaveta}
                       onClick={handleAbrirGavetaManual}
-                      className="px-3.5 py-1.5 rounded-lg bg-[#C59B27] hover:bg-[#D4A373] text-[#120E0C] font-bold text-xs shadow transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-                      title="Abrir gaveta de dinero"
+                      disabled={abriendoGaveta}
+                      className="px-3 py-1.5 rounded-lg bg-[#7C571C] hover:bg-[#684815] text-[#FAF6EE] text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
                     >
-                      <Coins className="w-3.5 h-3.5" />
-                      <span>{abriendoGaveta ? 'Abriendo...' : 'Abrir Gaveta de Dinero'}</span>
+                      <KeyRound className="w-3.5 h-3.5" />
+                      <span>{abriendoGaveta ? 'Abriendo...' : 'Abrir Gaveta'}</span>
                     </button>
                   </div>
                 </div>
               )}
 
-              {/* Formula de Arqueo */}
-              <div className="bg-[#0E0A09] rounded-xl p-4 border border-[#2E2019] space-y-2.5">
-                <div className="flex justify-between items-center text-xs pb-2 border-b border-[#261B16]">
+              {/* Flujo de Efectivo en la Gaveta */}
+              <div className="bg-[#FFFFFF] p-4 rounded-xl border border-[#DFCBB5] space-y-2.5 shadow-2xs">
+                {/* Base Inicial */}
+                <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <span className="text-[#8A796D]">Base Inicial de Cambio:</span>
+                    <span className="text-[#6F5A4B]">Base Inicial en Gaveta:</span>
                     {editandoBase ? (
                       <div className="flex items-center gap-1">
                         <input
                           type="number"
+                          step="10000"
                           value={nuevaBase}
                           onChange={(e) => setNuevaBase(Number(e.target.value))}
-                          className="w-24 bg-[#1A1412] border border-[#C59B27] px-1.5 py-0.5 rounded text-xs text-[#FAF6EE]"
+                          className="w-24 bg-[#FDF6F0] border border-[#DFCBB5] text-[#221A14] rounded px-1.5 py-0.5 text-xs focus:outline-none"
                         />
                         <button
                           onClick={handleGuardarBaseCaja}
-                          className="px-2 py-0.5 bg-[#C59B27] text-[#120E0C] text-[10px] font-bold rounded"
+                          className="px-2 py-0.5 bg-[#7C571C] text-[#FAF6EE] rounded text-[10px] font-bold hover:bg-[#684815]"
                         >
-                          OK
+                          Guardar
+                        </button>
+                        <button
+                          onClick={() => setEditandoBase(false)}
+                          className="text-[#6F5A4B] text-[10px]"
+                        >
+                          ✕
                         </button>
                       </div>
                     ) : (
-                      <button
-                        onClick={() => setEditandoBase(true)}
-                        className="text-[#8A796D] hover:text-[#FAF6EE] flex items-center gap-1"
-                        title="Editar base de cambio"
-                      >
-                        <Edit2 className="w-3 h-3" />
-                      </button>
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-bold text-[#221A14]">
+                          {formatCOP(contabilidad.efectivoCaja.baseInicial)}
+                        </span>
+                        {esAdmin && (
+                          <button
+                            onClick={() => setEditandoBase(true)}
+                            className="text-[#7C571C] hover:text-[#221A14]"
+                            title="Editar base de apertura"
+                          >
+                            <Edit2 className="w-3 h-3" />
+                          </button>
+                        )}
+                      </div>
                     )}
                   </div>
-                  <span className="font-bold text-[#FAF6EE]">{formatCOP(contabilidad.efectivoCaja.baseInicial)}</span>
+                  <span className="text-[10px] text-[#6F5A4B]">Fondo fijo</span>
                 </div>
 
-                <div className="flex justify-between items-center text-xs text-[#86EFAC]">
-                  <span>(+) Entradas de Efectivo por Cortes:</span>
+                {/* (+) Entradas Efectivo */}
+                <div className="flex items-center justify-between text-[#15803D]">
+                  <span>(+) Entradas por Servicios en Efectivo:</span>
                   <span className="font-bold">+{formatCOP(contabilidad.efectivoCaja.entradasEfectivo)}</span>
                 </div>
 
-                <div className="flex justify-between items-center text-xs text-[#F87171]">
-                  <span>(-) Salidas de Gastos pagados en Efectivo:</span>
+                {/* (-) Salidas Gastos */}
+                <div className="flex items-center justify-between text-[#991B1B]">
+                  <span>(-) Egresos / Gastos Pagados en Efectivo:</span>
                   <span className="font-bold">-{formatCOP(contabilidad.efectivoCaja.salidasEfectivoGastos)}</span>
                 </div>
 
-                <div className="flex justify-between items-center text-xs text-[#E5B869]">
-                  <span>(-) Comisiones liquidadas a Barberos en Efectivo:</span>
+                {/* (-) Salidas Comisiones */}
+                <div className="flex items-center justify-between text-[#991B1B]">
+                  <span>(-) Comisiones Pagadas a Barberos en Efectivo:</span>
                   <span className="font-bold">-{formatCOP(contabilidad.efectivoCaja.salidasEfectivoComisiones)}</span>
                 </div>
 
                 {/* Saldo Esperado */}
-                <div className="pt-2 border-t border-[#261B16] flex justify-between items-center">
-                  <span className="text-xs font-bold text-[#C59B27] uppercase">SALDO ESPERADO EN GAVETA:</span>
-                  <span className="text-base font-bold text-[#E5B869]">{formatCOP(saldoEsperado)}</span>
+                <div className="pt-2 border-t border-[#DFCBB5] flex items-center justify-between text-sm">
+                  <span className="font-bold text-[#221A14]">SALDO ESPERADO EN GAVETA:</span>
+                  <span className="font-bold text-base text-[#7C571C]">
+                    {formatCOP(saldoEsperado)}
+                  </span>
                 </div>
               </div>
 
-              {/* Verificación de Conteo Físico Real */}
-              <div className="bg-[#120E0C] p-4 rounded-xl border border-[#2E2019] space-y-3">
-                <label className="text-[10px] text-[#8A796D] block uppercase font-bold">
-                  Verificar con conteo físico de billetes y monedas:
-                </label>
+              {/* Verificación de Cuadre Físico */}
+              <div className="bg-[#FFFFFF] p-4 rounded-xl border border-[#DFCBB5] space-y-3 shadow-2xs">
+                <span className="text-[10px] text-[#6F5A4B] uppercase font-bold block">
+                  Verificación de Cuadre (Conteo en Mano):
+                </span>
 
-                <div className="flex gap-2">
-                  <div className="relative flex-1">
-                    <span className="absolute left-3 top-2 text-[#8A796D]">$</span>
-                    <input
-                      type="number"
-                      value={conteoEfectivoFisico}
-                      onChange={(e) => setConteoEfectivoFisico(e.target.value)}
-                      placeholder="Ingresa el total contado en la caja..."
-                      className="w-full bg-[#0E0A09] border border-[#3D2E26] rounded-lg pl-7 pr-3 py-2 text-xs font-bold text-[#FAF6EE] focus:outline-none focus:border-[#C59B27]"
-                    />
+                <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                  <div className="flex-1">
+                    <label className="text-[10px] text-[#6F5A4B] block mb-1">
+                      Efectivo Total Contado Físicamente:
+                    </label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-2 text-[#7C571C] font-bold">$</span>
+                      <input
+                        type="number"
+                        placeholder="Ingresa el monto contado..."
+                        value={conteoEfectivoFisico}
+                        onChange={(e) => setConteoEfectivoFisico(e.target.value)}
+                        className="w-full bg-[#FDF6F0] border border-[#DFCBB5] text-[#221A14] rounded-lg pl-7 pr-3 py-1.5 text-xs font-bold focus:outline-none focus:border-[#7C571C]"
+                      />
+                    </div>
                   </div>
-                  {conteoEfectivoFisico !== '' && (
-                    <button
-                      type="button"
-                      onClick={() => setConteoEfectivoFisico('')}
-                      className="px-3 py-2 bg-[#261B16] text-[#8A796D] hover:text-[#FAF6EE] rounded-lg text-xs"
-                    >
-                      Limpiar
-                    </button>
+
+                  {fisicoNumerico !== null && (
+                    <div className="sm:w-1/2 p-2.5 rounded-lg border text-xs">
+                      {diferenciaArqueo === 0 ? (
+                        <div className="text-[#15803D] bg-[#EBF7EE] border-[#86EFAC] p-2 rounded flex items-center gap-2">
+                          <Check className="w-4 h-4 shrink-0" />
+                          <div>
+                            <span className="font-bold block">¡CAJA CUADRADA!</span>
+                            <span className="text-[10px]">El dinero coincide exactamente.</span>
+                          </div>
+                        </div>
+                      ) : diferenciaArqueo! > 0 ? (
+                        <div className="text-[#15803D] bg-[#EBF7EE] border-[#86EFAC] p-2 rounded flex items-center gap-2">
+                          <TrendingUp className="w-4 h-4 shrink-0" />
+                          <div>
+                            <span className="font-bold block">SOBRANTE DE DINERO</span>
+                            <span className="text-[10px]">Hay +{formatCOP(diferenciaArqueo!)} de más</span>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="text-[#991B1B] bg-[#FDF2F2] border-[#F87171] p-2 rounded flex items-center gap-2">
+                          <AlertTriangle className="w-4 h-4 shrink-0" />
+                          <div>
+                            <span className="font-bold block">FALTANTE DE DINERO</span>
+                            <span className="text-[10px]">Faltan {formatCOP(Math.abs(diferenciaArqueo!))}</span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   )}
                 </div>
-
-                {/* Resultado del Arqueo */}
-                {fisicoNumerico !== null && (
-                  <div className={`p-3 rounded-lg border flex items-center justify-between text-xs ${
-                    diferenciaArqueo === 0
-                      ? 'bg-[#1C2C1D] border-[#2D472F] text-[#86EFAC]'
-                      : diferenciaArqueo! > 0
-                      ? 'bg-[#1C2C1D] border-[#2D472F] text-[#86EFAC]'
-                      : 'bg-[#3E161C] border-[#6B242D] text-[#FCA5A5]'
-                  }`}>
-                    <div>
-                      <span className="font-bold block">
-                        {diferenciaArqueo === 0
-                          ? '✅ CAJA PERFECTAMENTE CUADRADA'
-                          : diferenciaArqueo! > 0
-                          ? '🟢 SOBRANTE EN CAJA'
-                          : '🔴 FALTANTE EN CAJA'}
-                      </span>
-                      <span className="text-[10px] opacity-80">
-                        {diferenciaArqueo === 0
-                          ? 'El dinero físico coincide con el registro del sistema'
-                          : diferenciaArqueo! > 0
-                          ? 'Hay más dinero físico en gaveta del registrado'
-                          : 'Falta dinero en la gaveta frente al registro'}
-                      </span>
-                    </div>
-                    <span className="text-sm font-bold">
-                      {diferenciaArqueo === 0 ? '$0' : formatCOP(Math.abs(diferenciaArqueo!))}
-                    </span>
-                  </div>
-                )}
               </div>
             </div>
           </div>
 
-          {/* Módulo de Gastos / Egresos Diarios */}
-          <div className="bg-[#1A1412] border border-[#3D2E26] rounded-xl p-5 shadow-xl font-mono text-xs space-y-4">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 border-b border-[#2E2019] pb-3">
+          {/* Gestión de Egresos y Gastos de Caja */}
+          <div className="bg-[#FFF8F5] border border-[#DFCBB5] rounded-xl p-5 shadow-sm font-mono text-xs space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-[#DFCBB5] pb-3 gap-2">
               <div className="flex items-center gap-2">
-                <TrendingDown className="w-4 h-4 text-[#F87171]" />
-                <h3 className="font-royal text-sm font-bold uppercase text-[#FAF6EE] tracking-wide">
-                  Libro de Egresos & Gastos Menores ({gastos.length})
+                <TrendingDown className="w-4 h-4 text-[#991B1B]" />
+                <h3 className="font-serif text-sm font-bold uppercase text-[#221A14] tracking-wide">
+                  Egresos & Compras del Día ({fechaSeleccionada})
                 </h3>
               </div>
-              <span className="text-xs text-[#F87171] font-bold">
-                Total Gastos: {formatCOP(contabilidad.totalGastos)}
+              <span className="text-[10px] text-[#6F5A4B]">
+                Total Egresos: <span className="font-bold text-[#991B1B]">{formatCOP(contabilidad.totalGastos)}</span>
               </span>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-              {/* Formulario de Gasto */}
-              <form onSubmit={handleCrearGasto} className="lg:col-span-4 bg-[#0E0A09] p-4 rounded-xl border border-[#2E2019] space-y-3">
-                <div className="flex items-center gap-1.5 text-xs text-[#C59B27] font-bold">
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>REGISTRAR EGRESO DE CAJA</span>
+              {/* Formulario Registrar Gasto */}
+              <form onSubmit={handleCrearGasto} className="lg:col-span-4 bg-[#FFFFFF] p-4 rounded-xl border border-[#DFCBB5] space-y-3 shadow-2xs">
+                <div className="flex items-center justify-between border-b border-[#DFCBB5] pb-2">
+                  <span className="font-bold text-[#221A14] uppercase text-[11px] flex items-center gap-1.5">
+                    <TrendingDown className="w-3.5 h-3.5 text-[#991B1B]" />
+                    Nuevo Gasto de Caja
+                  </span>
+                  <span className="text-[9px] text-[#6F5A4B]">SALIDA INMEDIATA</span>
                 </div>
 
                 <div>
-                  <label className="text-[10px] text-[#8A796D] block uppercase font-bold mb-1">
+                  <label className="text-[10px] text-[#6F5A4B] block uppercase font-bold mb-1">
                     Concepto / Descripción:
                   </label>
                   <input
                     type="text"
                     value={conceptoGasto}
                     onChange={(e) => setConceptoGasto(e.target.value)}
-                    placeholder="Ej. Cuchillas desechables, café, etc."
+                    placeholder="Ej. Cuchillas desechables, café..."
                     required
-                    className="w-full bg-[#1A1412] border border-[#3D2E26] text-[#FAF6EE] rounded px-3 py-1.5 text-xs focus:outline-none focus:border-[#C59B27]"
+                    className="w-full bg-[#FDF6F0] border border-[#DFCBB5] text-[#221A14] rounded px-3 py-1.5 text-xs focus:outline-none focus:border-[#7C571C]"
                   />
                 </div>
 
-                {/* Sede del Gasto (Dropdown para Admin, Fija para Cajero) */}
+                {/* Sede del Gasto */}
                 <div>
-                  <label className="text-[10px] text-[#8A796D] block uppercase font-bold mb-1">
+                  <label className="text-[10px] text-[#6F5A4B] block uppercase font-bold mb-1">
                     Sucursal Asignada al Gasto:
                   </label>
                   {esCajero ? (
-                    <div className="p-2 rounded bg-[#140E0C] border border-[#2E2019] text-[11px] text-[#A8988B] flex items-center justify-between">
+                    <div className="p-2 rounded bg-[#FDF6F0] border border-[#DFCBB5] text-[11px] text-[#6F5A4B] flex items-center justify-between">
                       <span>Sede:</span>
-                      <span className="text-[#E5B869] font-bold">{sucursalActualObj.nombre}</span>
+                      <span className="text-[#221A14] font-bold">{sucursalActualObj.nombre}</span>
                     </div>
                   ) : (
                     <select
                       value={sucursalGasto}
                       onChange={(e) => setSucursalGasto(e.target.value)}
-                      className="w-full bg-[#1A1412] border border-[#3D2E26] text-[#FAF6EE] rounded px-2 py-1.5 text-[11px] focus:outline-none focus:border-[#C59B27]"
+                      className="w-full bg-[#FDF6F0] border border-[#DFCBB5] text-[#221A14] rounded px-2 py-1.5 text-[11px] focus:outline-none focus:border-[#7C571C]"
                     >
                       {SUCURSALES_CASA_DEL_REY.map(s => (
                         <option key={s.id} value={s.id}>{s.nombre}</option>
@@ -938,13 +1064,13 @@ Generado por el Sistema Contable de Casa del Rey`;
 
                 <div className="grid grid-cols-2 gap-2">
                   <div>
-                    <label className="text-[10px] text-[#8A796D] block uppercase font-bold mb-1">
+                    <label className="text-[10px] text-[#6F5A4B] block uppercase font-bold mb-1">
                       Categoría:
                     </label>
                     <select
                       value={categoriaGasto}
                       onChange={(e) => setCategoriaGasto(e.target.value as any)}
-                      className="w-full bg-[#1A1412] border border-[#3D2E26] text-[#FAF6EE] rounded px-2 py-1.5 text-[11px] focus:outline-none focus:border-[#C59B27]"
+                      className="w-full bg-[#FDF6F0] border border-[#DFCBB5] text-[#221A14] rounded px-2 py-1.5 text-[11px] focus:outline-none focus:border-[#7C571C]"
                     >
                       <option value="Insumos / Cuchillas">Insumos/Cuchillas</option>
                       <option value="Aseo y Desinfección">Aseo/Desinfección</option>
@@ -955,7 +1081,7 @@ Generado por el Sistema Contable de Casa del Rey`;
                   </div>
 
                   <div>
-                    <label className="text-[10px] text-[#8A796D] block uppercase font-bold mb-1">
+                    <label className="text-[10px] text-[#6F5A4B] block uppercase font-bold mb-1">
                       Monto (COP):
                     </label>
                     <input
@@ -965,20 +1091,20 @@ Generado por el Sistema Contable de Casa del Rey`;
                       value={montoGasto}
                       onChange={(e) => setMontoGasto(Number(e.target.value))}
                       required
-                      className="w-full bg-[#1A1412] border border-[#3D2E26] text-[#FAF6EE] rounded px-2 py-1.5 text-xs focus:outline-none focus:border-[#C59B27]"
+                      className="w-full bg-[#FDF6F0] border border-[#DFCBB5] text-[#221A14] rounded px-2 py-1.5 text-xs focus:outline-none focus:border-[#7C571C]"
                     />
                   </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-2">
                   <div>
-                    <label className="text-[10px] text-[#8A796D] block uppercase font-bold mb-1">
+                    <label className="text-[10px] text-[#6F5A4B] block uppercase font-bold mb-1">
                       Medio Pago:
                     </label>
                     <select
                       value={metodoGasto}
                       onChange={(e) => setMetodoGasto(e.target.value as any)}
-                      className="w-full bg-[#1A1412] border border-[#3D2E26] text-[#FAF6EE] rounded px-2 py-1.5 text-[11px] focus:outline-none focus:border-[#C59B27]"
+                      className="w-full bg-[#FDF6F0] border border-[#DFCBB5] text-[#221A14] rounded px-2 py-1.5 text-[11px] focus:outline-none focus:border-[#7C571C]"
                     >
                       <option value="Efectivo Caja">Efectivo Caja</option>
                       <option value="Transferencia">Transferencia</option>
@@ -986,7 +1112,7 @@ Generado por el Sistema Contable de Casa del Rey`;
                   </div>
 
                   <div>
-                    <label className="text-[10px] text-[#8A796D] block uppercase font-bold mb-1">
+                    <label className="text-[10px] text-[#6F5A4B] block uppercase font-bold mb-1">
                       Comprobante:
                     </label>
                     <input
@@ -994,7 +1120,7 @@ Generado por el Sistema Contable de Casa del Rey`;
                       value={comprobanteGasto}
                       onChange={(e) => setComprobanteGasto(e.target.value)}
                       placeholder="# Recibo / Factura"
-                      className="w-full bg-[#1A1412] border border-[#3D2E26] text-[#FAF6EE] rounded px-2 py-1.5 text-[11px] focus:outline-none focus:border-[#C59B27]"
+                      className="w-full bg-[#FDF6F0] border border-[#DFCBB5] text-[#221A14] rounded px-2 py-1.5 text-[11px] focus:outline-none focus:border-[#7C571C]"
                     />
                   </div>
                 </div>
@@ -1002,7 +1128,7 @@ Generado por el Sistema Contable de Casa del Rey`;
                 <button
                   type="submit"
                   disabled={guardandoGasto}
-                  className="w-full py-2 bg-[#3E161C] hover:bg-[#521E25] text-[#FCA5A5] border border-[#6B242D] font-bold rounded-lg text-xs transition-colors flex items-center justify-center gap-1.5"
+                  className="w-full py-2 bg-[#991B1B] hover:bg-[#7F1D1D] text-[#FAF6EE] font-bold rounded-lg text-xs transition-colors flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
                 >
                   <TrendingDown className="w-3.5 h-3.5" />
                   <span>{guardandoGasto ? 'Guardando...' : 'REGISTRAR GASTO'}</span>
@@ -1010,15 +1136,15 @@ Generado por el Sistema Contable de Casa del Rey`;
               </form>
 
               {/* Lista de Gastos */}
-              <div className="lg:col-span-8 overflow-x-auto">
+              <div className="lg:col-span-8 overflow-x-auto bg-[#FFFFFF] p-4 rounded-xl border border-[#DFCBB5] shadow-2xs">
                 {gastos.length === 0 ? (
-                  <div className="py-8 text-center text-[#8A796D]">
+                  <div className="py-8 text-center text-[#6F5A4B]">
                     No se han registrado egresos o compras en la fecha {fechaSeleccionada}.
                   </div>
                 ) : (
                   <table className="w-full text-left text-xs">
                     <thead>
-                      <tr className="border-b border-[#2E2019] text-[10px] text-[#8A796D] uppercase">
+                      <tr className="border-b border-[#DFCBB5] text-[10px] text-[#6F5A4B] uppercase">
                         <th className="pb-2 font-bold">Hora / ID</th>
                         <th className="pb-2 font-bold">Concepto</th>
                         <th className="pb-2 font-bold">Sede</th>
@@ -1028,38 +1154,38 @@ Generado por el Sistema Contable de Casa del Rey`;
                         <th className="pb-2 font-bold text-center">Acción</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-[#261B16]">
+                    <tbody className="divide-y divide-[#DFCBB5]">
                       {gastos.map(g => (
-                        <tr key={g.id} className="hover:bg-[#201815] transition-colors">
+                        <tr key={g.id} className="hover:bg-[#FDF3EB] transition-colors">
                           <td className="py-2.5 whitespace-nowrap">
-                            <span className="font-bold text-[#FAF6EE]">{g.hora}</span>
-                            <span className="text-[10px] text-[#705F53] block">{g.id}</span>
+                            <span className="font-bold text-[#221A14]">{g.hora}</span>
+                            <span className="text-[10px] text-[#6F5A4B] block">{g.id}</span>
                           </td>
                           <td className="py-2.5">
-                            <span className="font-medium text-[#FAF6EE]">{g.concepto}</span>
+                            <span className="font-medium text-[#221A14]">{g.concepto}</span>
                             {g.comprobante && (
-                              <span className="text-[10px] text-[#8A796D] block">Ref: {g.comprobante}</span>
+                              <span className="text-[10px] text-[#6F5A4B] block">Ref: {g.comprobante}</span>
                             )}
                           </td>
                           <td className="py-2.5 whitespace-nowrap text-[10px]">
-                            <span className="px-1.5 py-0.5 rounded bg-[#261B16] text-[#E5B869] border border-[#3D2E26]">
+                            <span className="px-1.5 py-0.5 rounded bg-[#FBEBE1] text-[#7C571C] border border-[#DFCBB5]">
                               {g.sucursalNombre ? g.sucursalNombre.replace('Sede ', '') : 'Chicó Real'}
                             </span>
                           </td>
-                          <td className="py-2.5 whitespace-nowrap text-[11px] text-[#A8988B]">
+                          <td className="py-2.5 whitespace-nowrap text-[11px] text-[#6F5A4B]">
                             {g.categoria}
                           </td>
-                          <td className="py-2.5 whitespace-nowrap text-[11px] text-[#A8988B]">
+                          <td className="py-2.5 whitespace-nowrap text-[11px] text-[#6F5A4B]">
                             {g.metodoPago}
                           </td>
-                          <td className="py-2.5 whitespace-nowrap text-right font-bold text-[#F87171]">
+                          <td className="py-2.5 whitespace-nowrap text-right font-bold text-[#991B1B]">
                             -{formatCOP(g.monto)}
                           </td>
                           <td className="py-2.5 whitespace-nowrap text-center">
                             <button
                               type="button"
                               onClick={() => handleEliminarGasto(g.id, g.concepto)}
-                              className="p-1 rounded text-[#8A796D] hover:text-[#F87171] hover:bg-[#3E161C] transition-colors"
+                              className="p-1 rounded text-[#6F5A4B] hover:text-[#991B1B] hover:bg-[#FDF2F2] transition-colors cursor-pointer"
                               title="Anular egreso"
                             >
                               <Trash2 className="w-3.5 h-3.5" />

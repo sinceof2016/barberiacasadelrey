@@ -69,6 +69,18 @@ export const BarbersTeam: React.FC<BarbersTeamProps> = ({
                   <Scissors className="w-3.5 h-3.5 text-[#7C571C]" />
                   <span>Oficio: <strong className="text-[#221A14]">{b.especialidad}</strong></span>
                 </p>
+
+                {b.descripcion && (
+                  <p className="text-[11px] text-[#6F5A4B] italic mt-1.5 line-clamp-2 leading-relaxed">
+                    "{b.descripcion}"
+                  </p>
+                )}
+
+                {b.sucursalNombre && (
+                  <span className="inline-block text-[10px] font-mono text-[#7C571C] mt-1 bg-[#FBEBE1] px-2 py-0.5 rounded border border-[#DFCBB5]">
+                    📍 {b.sucursalNombre}
+                  </span>
+                )}
               </div>
             </div>
 

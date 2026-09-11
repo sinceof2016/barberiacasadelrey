@@ -1,19 +1,15 @@
 import React, { useState } from 'react';
 import { Usuario } from '../types';
-import { loginUsuario, restablecerClaveAdmin } from '../services/api';
+import { loginUsuario } from '../services/api';
 import { 
   Lock, 
   Mail, 
   KeyRound, 
   AlertCircle, 
   CheckCircle2,
-  RotateCcw,
-  ShieldCheck,
-  UserCheck
+  Sparkles
 } from 'lucide-react';
-import { 
-  BarberPoleRibbon 
-} from './VintageBarberIcons';
+import { BarberPoleRibbon } from './VintageBarberIcons';
 import { LOGO_CASA_DEL_REY } from '../utils/assets';
 
 interface LoginModalProps {
@@ -30,7 +26,6 @@ export const LoginModal: React.FC<LoginModalProps> = ({
   const [email, setEmail] = useState<string>('');
   const [password, setPassword] = useState<string>('');
   const [cargando, setCargando] = useState<boolean>(false);
-  const [restableciendo, setRestableciendo] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [mensajeExito, setMensajeExito] = useState<string | null>(null);
 
@@ -60,55 +55,38 @@ export const LoginModal: React.FC<LoginModalProps> = ({
     }
   };
 
-  const handleRestablecerClaveAdmin = async () => {
-    setRestableciendo(true);
-    setError(null);
-    try {
-      const res = await restablecerClaveAdmin('admin123');
-      setEmail('admin@casadelrey.com');
-      setPassword('admin123');
-      setMensajeExito(res.mensaje || 'Clave restablecida exitosamente a: admin123');
-      setTimeout(() => setMensajeExito(null), 5000);
-    } catch (err: any) {
-      setError(err.message || 'Error al restablecer clave');
-    } finally {
-      setRestableciendo(false);
-    }
-  };
-
-  const autofillCredenciales = (uEmail: string, uPass: string) => {
-    setEmail(uEmail);
-    setPassword(uPass);
-    setError(null);
-  };
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#090605]/85 backdrop-blur-md">
-      <div className="relative w-full max-w-md rounded-2xl bg-[#1A1412] border border-[#3D2E26] p-6 shadow-2xl font-mono text-xs overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#221A14]/75 backdrop-blur-sm">
+      <div className="relative w-full max-w-md rounded-2xl bg-[#FFF8F5] border border-[#DFCBB5] p-6 shadow-2xl font-mono text-xs overflow-hidden">
         {/* Vintage Barber Ribbon Accent */}
         <BarberPoleRibbon className="h-1.5 absolute top-0 left-0" />
 
         {/* Modal Header */}
-        <div className="flex items-start justify-between border-b border-[#2E2019] pb-4">
+        <div className="flex items-start justify-between border-b border-[#DFCBB5] pb-4">
           <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-lg overflow-hidden border border-[#C59B27]/50 bg-[#0E0A09] shadow-md shrink-0 flex items-center justify-center">
+            <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-[#C49756] bg-[#FBEBE1] shadow-md shrink-0 flex items-center justify-center p-0.5">
               <img 
                 src={LOGO_CASA_DEL_REY} 
                 alt="Barbería La Casa del Rey" 
-                className="w-full h-full object-cover object-center" 
+                className="w-full h-full object-cover object-center rounded-full" 
                 referrerPolicy="no-referrer"
               />
             </div>
             <div>
-              <h3 className="font-royal text-base font-bold text-[#FAF6EE] uppercase tracking-wide">
+              <div className="inline-flex items-center gap-1 text-[9px] font-mono text-[#7C571C] font-bold uppercase tracking-wider mb-0.5">
+                <Sparkles className="w-3 h-3 text-[#C49756]" />
+                <span>Acceso Restringido</span>
+              </div>
+              <h3 className="font-serif text-base font-bold text-[#221A14] uppercase tracking-wide">
                 Portal del Personal
               </h3>
-              <p className="text-[11px] text-[#8A796D]">Barbería La Casa del Rey • Acceso Restringido</p>
+              <p className="text-[11px] text-[#6F5A4B]">Barbería La Casa del Rey</p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="text-[#8A796D] hover:text-[#FAF6EE] text-sm p-1 transition-colors"
+            className="text-[#6F5A4B] hover:text-[#221A14] text-base p-1 transition-colors rounded-lg hover:bg-[#FBEBE1]"
+            aria-label="Cerrar modal"
           >
             ✕
           </button>
@@ -117,48 +95,50 @@ export const LoginModal: React.FC<LoginModalProps> = ({
         {/* Login Form */}
         <form onSubmit={handleSubmit} className="mt-5 space-y-4">
           <div>
-            <label className="text-[10px] text-[#8A796D] block uppercase font-bold mb-1">
+            <label className="text-[10px] text-[#4F4539] block uppercase font-bold mb-1">
               Correo Electrónico:
             </label>
             <div className="relative">
-              <Mail className="w-4 h-4 absolute left-3 top-2.5 text-[#8A796D]" />
+              <Mail className="w-4 h-4 absolute left-3 top-2.5 text-[#7C571C]" />
               <input
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="ejemplo@casadelrey.com"
                 required
-                className="w-full bg-[#0E0A09] border border-[#3D2E26] text-[#FAF6EE] rounded-lg pl-9 pr-3 py-2 text-xs focus:outline-none focus:border-[#C59B27]"
+                autoComplete="email"
+                className="w-full bg-[#FFFFFF] border border-[#DFCBB5] text-[#221A14] placeholder:text-[#A8988B] rounded-lg pl-9 pr-3 py-2 text-xs focus:outline-none focus:border-[#7C571C] focus:ring-1 focus:ring-[#7C571C]"
               />
             </div>
           </div>
 
           <div>
-            <label className="text-[10px] text-[#8A796D] block uppercase font-bold mb-1">
+            <label className="text-[10px] text-[#4F4539] block uppercase font-bold mb-1">
               Contraseña de Acceso:
             </label>
             <div className="relative">
-              <KeyRound className="w-4 h-4 absolute left-3 top-2.5 text-[#8A796D]" />
+              <KeyRound className="w-4 h-4 absolute left-3 top-2.5 text-[#7C571C]" />
               <input
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
                 required
-                className="w-full bg-[#0E0A09] border border-[#3D2E26] text-[#FAF6EE] rounded-lg pl-9 pr-3 py-2 text-xs focus:outline-none focus:border-[#C59B27]"
+                autoComplete="current-password"
+                className="w-full bg-[#FFFFFF] border border-[#DFCBB5] text-[#221A14] placeholder:text-[#A8988B] rounded-lg pl-9 pr-3 py-2 text-xs focus:outline-none focus:border-[#7C571C] focus:ring-1 focus:ring-[#7C571C]"
               />
             </div>
           </div>
 
           {error && (
-            <div className="p-2.5 rounded-lg bg-[#3E161C] border border-[#6B242D] text-[#FCA5A5] text-xs flex items-center gap-2">
+            <div className="p-3 rounded-lg bg-[#FDF2F2] border border-[#F87171]/40 text-[#991B1B] text-xs flex items-center gap-2">
               <AlertCircle className="w-4 h-4 shrink-0" />
               <span>{error}</span>
             </div>
           )}
 
           {mensajeExito && (
-            <div className="p-2.5 rounded-lg bg-[#1C2C1D] border border-[#2D472F] text-[#86EFAC] text-xs flex items-center gap-2">
+            <div className="p-3 rounded-lg bg-[#F0FDF4] border border-[#86EFAC] text-[#166534] text-xs flex items-center gap-2">
               <CheckCircle2 className="w-4 h-4 shrink-0" />
               <span>{mensajeExito}</span>
             </div>
@@ -166,77 +146,16 @@ export const LoginModal: React.FC<LoginModalProps> = ({
 
           <button
             type="submit"
-            disabled={cargando || restableciendo}
-            className="w-full py-2.5 bg-[#C59B27] hover:bg-[#D4A373] text-[#120E0C] font-mono font-bold text-xs rounded-lg transition-all shadow-md active:scale-98 disabled:opacity-50 flex items-center justify-center gap-2 tracking-wider uppercase cursor-pointer"
+            disabled={cargando}
+            className="w-full py-2.5 bg-[#7C571C] hover:bg-[#684815] text-[#FAF6EE] font-mono font-bold text-xs rounded-lg transition-all shadow-md active:scale-98 disabled:opacity-50 flex items-center justify-center gap-2 tracking-wider uppercase cursor-pointer"
           >
             <Lock className="w-3.5 h-3.5" />
             <span>{cargando ? 'VERIFICANDO...' : 'INICIAR SESIÓN'}</span>
           </button>
         </form>
 
-        {/* Sección: Restablecer Clave de Administrador & Cuentas Preconfiguradas */}
-        <div className="mt-4 pt-3 border-t border-[#2E2019] space-y-2.5">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] uppercase font-bold text-[#E5B869] flex items-center gap-1">
-              <ShieldCheck className="w-3.5 h-3.5" />
-              Restablecer o Autocompletar:
-            </span>
-            <button
-              type="button"
-              onClick={handleRestablecerClaveAdmin}
-              disabled={restableciendo}
-              className="text-[10px] text-[#E5B869] hover:text-[#FAF6EE] flex items-center gap-1 px-2 py-0.5 rounded bg-[#2A1E18] border border-[#3D2E26] hover:border-[#C59B27] transition-colors cursor-pointer"
-              title="Restablece la contraseña del administrador a su valor predeterminado (admin123)"
-            >
-              <RotateCcw className={`w-3 h-3 ${restableciendo ? 'animate-spin' : ''}`} />
-              <span>{restableciendo ? 'Restableciendo...' : 'Restablecer Clave Admin'}</span>
-            </button>
-          </div>
-
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 text-[10px]">
-            <button
-              type="button"
-              onClick={() => autofillCredenciales('admin@casadelrey.com', 'admin123')}
-              className="p-2 rounded bg-[#0E0A09] border border-[#3D2E26] hover:border-[#C59B27] text-left transition-colors cursor-pointer"
-            >
-              <div className="flex items-center gap-1 text-[#E5B869] font-bold mb-0.5">
-                <ShieldCheck className="w-3 h-3" />
-                <span>Admin Salón</span>
-              </div>
-              <div className="text-[#8A796D] truncate text-[9px]">Sin acceso a API</div>
-              <div className="text-[#A8988B] font-bold text-[9px]">admin123</div>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => autofillCredenciales('caja.chico@casadelrey.com', 'caja123')}
-              className="p-2 rounded bg-[#0E0A09] border border-[#3D2E26] hover:border-[#C59B27] text-left transition-colors cursor-pointer"
-            >
-              <div className="flex items-center gap-1 text-[#86EFAC] font-bold mb-0.5">
-                <UserCheck className="w-3 h-3" />
-                <span>Caja Chicó</span>
-              </div>
-              <div className="text-[#8A796D] truncate text-[9px]">Aislada Chicó</div>
-              <div className="text-[#A8988B] font-bold text-[9px]">caja123</div>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => autofillCredenciales('caja.usaquen@casadelrey.com', 'caja123')}
-              className="p-2 rounded bg-[#0E0A09] border border-[#3D2E26] hover:border-[#C59B27] text-left transition-colors cursor-pointer"
-            >
-              <div className="flex items-center gap-1 text-[#86EFAC] font-bold mb-0.5">
-                <UserCheck className="w-3 h-3" />
-                <span>Caja Usaquén</span>
-              </div>
-              <div className="text-[#8A796D] truncate text-[9px]">Aislada Usaquén</div>
-              <div className="text-[#A8988B] font-bold text-[9px]">caja123</div>
-            </button>
-          </div>
-        </div>
-
-        <div className="mt-3 text-center text-[10px] text-[#8A796D]">
-          <span>¿Eres un cliente? El acceso a servicios y reservas es público sin necesidad de iniciar sesión.</span>
+        <div className="mt-4 pt-3 border-t border-[#DFCBB5] text-center text-[11px] text-[#6F5A4B]">
+          <span>¿Eres un cliente? Los servicios y reservas están disponibles libremente en el portal principal sin requerir inicio de sesión.</span>
         </div>
       </div>
     </div>

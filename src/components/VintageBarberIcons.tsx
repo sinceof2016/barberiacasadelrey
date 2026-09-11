@@ -236,7 +236,7 @@ export const BarberPoleRibbon: React.FC<{ className?: string }> = ({ className =
 
 // 8. Vintage Seal / Stamp
 export const VintageWaxSeal: React.FC<{ text?: string; className?: string }> = ({ 
-  text = "EST. 1928", 
+  text = "EST. 2016", 
   className = "" 
 }) => (
   <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-sm border border-[#C59B27]/40 bg-[#261B16] text-[#D4A373] text-[10px] font-mono tracking-widest uppercase shadow-sm ${className}`}>

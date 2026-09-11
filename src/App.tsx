@@ -13,7 +13,6 @@ import { BarbersTeam } from './components/BarbersTeam';
 import { IndividualBookingForm } from './components/IndividualBookingForm';
 import { GroupBookingForm } from './components/GroupBookingForm';
 import { AppointmentsList } from './components/AppointmentsList';
-import { AppointmentLookupModal } from './components/AppointmentLookupModal';
 import { ApiConsole } from './components/ApiConsole';
 import { DailyCutsModule } from './components/DailyCutsModule';
 import { AccountingModule } from './components/AccountingModule';
@@ -85,7 +84,6 @@ export default function App() {
   const [bookingType, setBookingType] = useState<'individual' | 'grupal'>('individual');
   const [preselectedServiceId, setPreselectedServiceId] = useState<number | undefined>(undefined);
   const [preselectedBarberId, setPreselectedBarberId] = useState<number | undefined>(undefined);
-  const [lookupModalOpen, setLookupModalOpen] = useState<boolean>(false);
 
   // Google Calendar integration state (using in-memory auth tokens per security mandates)
   const [googleUser, setGoogleUser] = useState<User | null>(null);
@@ -208,7 +206,6 @@ export default function App() {
         activeTab={activeTab}
         setActiveTab={setActiveTab}
         totalCitas={citas.length}
-        onOpenLookup={() => setLookupModalOpen(true)}
         usuario={usuario}
         onOpenLogin={() => setLoginModalOpen(true)}
         onLogout={handleLogout}
@@ -427,15 +424,6 @@ export default function App() {
         onLoginSuccess={handleLoginSuccess}
       />
 
-      {/* Lookup Modal */}
-      <AppointmentLookupModal
-        isOpen={lookupModalOpen}
-        onClose={() => setLookupModalOpen(false)}
-        servicios={servicios}
-        onCitaUpdated={cargarDatos}
-        citas={citas}
-      />
-
       {/* Google Calendar Management Modal */}
       <GoogleCalendarModal
         isOpen={googleCalendarModalOpen}
@@ -503,7 +491,7 @@ export default function App() {
           </div>
 
           <div className="pt-4 border-t border-[#DFCBB5] flex flex-col sm:flex-row items-center justify-between gap-2 text-[10px] text-[#6F5A4B]">
-            <span>© {new Date().getFullYear()} BARBERÍA LA CASA DEL REY • EST. 1928</span>
+            <span>© {new Date().getFullYear()} BARBERÍA LA CASA DEL REY • EST. 2016</span>
             <div className="flex items-center gap-3">
               <span className="inline-flex items-center gap-1.5 text-[#15803D] font-mono text-[9px] bg-[#EBF7EE] px-2 py-0.5 rounded-full border border-[#86EFAC]/50">
                 <span className="w-1.5 h-1.5 rounded-full bg-[#15803D] animate-pulse"></span>
@@ -520,7 +508,6 @@ export default function App() {
       <BottomNav
         activeTab={activeTab}
         setActiveTab={setActiveTab}
-        onOpenLookup={() => setLookupModalOpen(true)}
       />
     </div>
   );

@@ -30,7 +30,7 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
             <div className="flex items-center gap-2 mb-1.5 flex-wrap">
               <span className="px-2.5 py-0.5 bg-[#FBEBE1] text-[#7C571C] text-[10px] font-mono font-bold rounded-full border border-[#DFCBB5] flex items-center gap-1">
                 <Sparkles className="w-3 h-3 text-[#C49756]" />
-                <span>EST. 1928 • TRADICIÓN DE BARBERÍA</span>
+                <span>EST. 2016 • TRADICIÓN DE BARBERÍA</span>
               </span>
               <span className="text-[10px] font-mono text-[#6F5A4B] flex items-center gap-1">
                 <MapPin className="w-3 h-3 text-[#7C571C]" /> BOGOTÁ • 3 SEDES (CHICÓ, USAQUÉN, CHAPINERO)

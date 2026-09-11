@@ -36,7 +36,6 @@ interface NavbarProps {
   activeTab: TabType;
   setActiveTab: (tab: TabType) => void;
   totalCitas: number;
-  onOpenLookup: () => void;
   usuario: Usuario | null;
   onOpenLogin: () => void;
   onLogout: () => void;
@@ -48,7 +47,6 @@ export const Navbar: React.FC<NavbarProps> = ({
   activeTab,
   setActiveTab,
   totalCitas,
-  onOpenLookup,
   usuario,
   onOpenLogin,
   onLogout,
@@ -144,14 +142,6 @@ export const Navbar: React.FC<NavbarProps> = ({
               }`}
             >
               Barberos
-            </button>
-
-            <button
-              id="nav-tab-miscitas"
-              onClick={onOpenLookup}
-              className="px-3.5 py-1.5 rounded-full text-xs font-medium tracking-wide text-[#6F5A4B] hover:text-[#221A14] transition-all cursor-pointer"
-            >
-              Mis Citas
             </button>
           </nav>
 
@@ -301,7 +291,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                   }`}
                 >
                   <ShieldCheck className="w-3.5 h-3.5" />
-                  <span>Usuarios</span>
+                  <span>Super Admin</span>
                 </button>
               )}
 

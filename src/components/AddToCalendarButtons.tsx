@@ -189,28 +189,28 @@ export const AddToCalendarButtons: React.FC<AddToCalendarButtonsProps> = ({
   const payload = buildGoogleCalendarEventPayload(cita, servicioNombre, barberoNombre, duracionMinutos);
 
   return (
-    <div className={`p-4 rounded-xl bg-[#241C18] border border-[#3D2E26] space-y-3 shadow-md ${className}`}>
+    <div className={`p-4 rounded-xl bg-[#FFFFFF] border border-[#DFCBB5] space-y-3 shadow-2xs ${className}`}>
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <BellRing className="w-3.5 h-3.5 text-[#C59B27]" />
-          <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-[#FAF6EE]">
+          <BellRing className="w-3.5 h-3.5 text-[#7C571C]" />
+          <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-[#221A14]">
             Sincronización con Google Calendar
           </span>
         </div>
-        <span className="text-[9px] font-mono text-[#86EFAC] bg-[#1C2C1D] px-2 py-0.5 rounded border border-[#2D472F] font-bold">
+        <span className="text-[9px] font-mono text-[#15803D] bg-[#EBF7EE] px-2 py-0.5 rounded border border-[#86EFAC] font-bold">
           API OFICIAL v3
         </span>
       </div>
 
-      <p className="text-[11px] text-[#BDB2A7] leading-tight">
+      <p className="text-[11px] text-[#6F5A4B] leading-tight">
         Guarda tu cita directamente en tu cuenta de Google Calendar para recibir alarmas 24 horas y 1 hora antes en tus dispositivos.
       </p>
 
       {/* Success banner if synced */}
       {eventoCreado && (
-        <div className="p-3 bg-[#132A18] border border-[#23532C] rounded-lg flex items-center justify-between gap-2 text-xs font-mono text-[#86EFAC]">
+        <div className="p-3 bg-[#EBF7EE] border border-[#86EFAC] rounded-lg flex items-center justify-between gap-2 text-xs font-mono text-[#15803D]">
           <div className="flex items-center gap-2">
-            <CheckCircle2 className="w-4 h-4 text-[#86EFAC] shrink-0" />
+            <CheckCircle2 className="w-4 h-4 text-[#15803D] shrink-0" />
             <span>¡Cita sincronizada en tu Google Calendar!</span>
           </div>
           {eventoCreado.htmlLink && (
@@ -218,7 +218,7 @@ export const AddToCalendarButtons: React.FC<AddToCalendarButtonsProps> = ({
               href={eventoCreado.htmlLink}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 text-[11px] font-bold underline hover:text-white"
+              className="inline-flex items-center gap-1 text-[11px] font-bold underline hover:text-[#0E5427]"
             >
               <span>Ver evento</span>
               <ExternalLink className="w-3 h-3" />
@@ -229,8 +229,8 @@ export const AddToCalendarButtons: React.FC<AddToCalendarButtonsProps> = ({
 
       {/* Error alert */}
       {errorSync && (
-        <div className="p-2.5 bg-[#2D1515] border border-[#522323] rounded-lg flex items-center gap-2 text-xs font-mono text-[#FCA5A5]">
-          <AlertCircle className="w-4 h-4 text-[#EF4444] shrink-0" />
+        <div className="p-2.5 bg-[#FFDAD6] border border-[#BA1A1A]/30 rounded-lg flex items-center gap-2 text-xs font-mono text-[#BA1A1A]">
+          <AlertCircle className="w-4 h-4 text-[#BA1A1A] shrink-0" />
           <span>{errorSync}</span>
         </div>
       )}
@@ -242,10 +242,10 @@ export const AddToCalendarButtons: React.FC<AddToCalendarButtonsProps> = ({
           type="button"
           onClick={handleDirectSyncClick}
           disabled={sincronizandoApi || !!eventoCreado}
-          className={`w-full flex items-center justify-center gap-2.5 py-2.5 px-4 rounded-xl text-xs font-mono font-bold transition-all shadow-md ${
+          className={`w-full flex items-center justify-center gap-2.5 py-2.5 px-4 rounded-xl text-xs font-mono font-bold transition-all shadow-sm ${
             eventoCreado
-              ? 'bg-[#1C2C1D] text-[#86EFAC] border border-[#2D472F] cursor-default'
-              : 'bg-[#C59B27] hover:bg-[#D4A373] text-[#120E0C] hover:shadow-[#C59B27]/20 border border-[#E5B869] active:scale-[0.99]'
+              ? 'bg-[#EBF7EE] text-[#15803D] border border-[#86EFAC] cursor-default'
+              : 'bg-[#7C571C] hover:bg-[#684815] text-[#FAF6EE] border border-[#DFCBB5] active:scale-[0.99] cursor-pointer'
           }`}
         >
           {sincronizandoApi ? (
@@ -255,12 +255,12 @@ export const AddToCalendarButtons: React.FC<AddToCalendarButtonsProps> = ({
             </>
           ) : eventoCreado ? (
             <>
-              <Check className="w-4 h-4 text-[#86EFAC]" />
+              <Check className="w-4 h-4 text-[#15803D]" />
               <span>Sincronizado en tu Google Calendar</span>
             </>
           ) : (
             <>
-              <Sparkles className="w-4 h-4 text-[#120E0C]" />
+              <Sparkles className="w-4 h-4 text-[#FAF6EE]" />
               <span>Sincronizar directamente con mi Google Calendar</span>
             </>
           )}
@@ -274,30 +274,30 @@ export const AddToCalendarButtons: React.FC<AddToCalendarButtonsProps> = ({
           href={googleCalendarUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="flex items-center justify-center gap-2 py-1.5 px-3 rounded-lg bg-[#1A1412] hover:bg-[#2E2019] border border-[#3D2E26] hover:border-[#C59B27] text-[#FAF6EE] text-[11px] font-semibold transition-all group shadow-sm"
+          className="flex items-center justify-center gap-2 py-1.5 px-3 rounded-lg bg-[#FBEBE1] hover:bg-[#F3DECE] border border-[#DFCBB5] hover:border-[#7C571C] text-[#221A14] text-[11px] font-semibold transition-all group shadow-2xs"
           title="Abrir plantilla en calendar.google.com"
         >
-          <CalendarPlus className="w-3.5 h-3.5 text-[#C59B27] group-hover:scale-110 transition-transform" />
+          <CalendarPlus className="w-3.5 h-3.5 text-[#7C571C] group-hover:scale-110 transition-transform" />
           <span>Abrir plantilla web Google</span>
-          <ExternalLink className="w-3 h-3 text-[#8A796D] ml-auto" />
+          <ExternalLink className="w-3 h-3 text-[#6F5A4B] ml-auto" />
         </a>
 
         <button
           id="btn-add-apple-calendar"
           type="button"
           onClick={handleDownloadApple}
-          className="flex items-center justify-center gap-2 py-1.5 px-3 rounded-lg bg-[#1A1412] hover:bg-[#2E2019] border border-[#3D2E26] hover:border-[#C59B27] text-[#FAF6EE] text-[11px] font-semibold transition-all group shadow-sm"
+          className="flex items-center justify-center gap-2 py-1.5 px-3 rounded-lg bg-[#FBEBE1] hover:bg-[#F3DECE] border border-[#DFCBB5] hover:border-[#7C571C] text-[#221A14] text-[11px] font-semibold transition-all group shadow-2xs cursor-pointer"
         >
           {descargadoIcs ? (
             <>
-              <Check className="w-3.5 h-3.5 text-[#86EFAC]" />
-              <span className="text-[#86EFAC]">Descargado (.ics)</span>
+              <Check className="w-3.5 h-3.5 text-[#15803D]" />
+              <span className="text-[#15803D]">Descargado (.ics)</span>
             </>
           ) : (
             <>
-              <Download className="w-3.5 h-3.5 text-[#E5B869] group-hover:scale-110 transition-transform" />
+              <Download className="w-3.5 h-3.5 text-[#7C571C] group-hover:scale-110 transition-transform" />
               <span>Apple Calendar (.ics)</span>
-              <span className="text-[9px] font-mono text-[#8A796D] ml-auto">iOS/Mac</span>
+              <span className="text-[9px] font-mono text-[#6F5A4B] ml-auto">iOS/Mac</span>
             </>
           )}
         </button>
