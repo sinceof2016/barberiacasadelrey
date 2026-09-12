@@ -78,16 +78,28 @@ export const CustomerReportModule: React.FC<CustomerReportModuleProps> = ({
     }
   }, [isOpen]);
 
+  // Cerrar ventana con la tecla Escape
+  useEffect(() => {
+    if (!isOpen || !onClose) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
+
   // Filtrado local interactivo
   const clientesFiltrados = clientes.filter(c => {
     if (soloConEmail && !c.email) return false;
     if (filtroClasificacion !== 'todos' && c.clasificacion !== filtroClasificacion) return false;
     if (busqueda.trim()) {
       const q = busqueda.trim().toLowerCase();
-      const matchNombre = c.nombre.toLowerCase().includes(q);
-      const matchTel = c.telefono.toLowerCase().includes(q);
+      const matchNombre = (c.nombre || '').toLowerCase().includes(q);
+      const matchTel = (c.telefono || '').toLowerCase().includes(q);
       const matchEmail = (c.email || '').toLowerCase().includes(q);
-      const matchFolio = c.folios.some(f => f.toLowerCase().includes(q));
+      const matchFolio = (c.folios || []).some(f => (f || '').toLowerCase().includes(q));
       if (!matchNombre && !matchTel && !matchEmail && !matchFolio) return false;
     }
     return true;
@@ -96,16 +108,16 @@ export const CustomerReportModule: React.FC<CustomerReportModuleProps> = ({
   // Ordenación interactiva
   const clientesOrdenados = [...clientesFiltrados].sort((a, b) => {
     if (criterioOrden === 'reservas') {
-      return b.totalReservas - a.totalReservas || b.gastoEstimado - a.gastoEstimado;
+      return (b.totalReservas || 0) - (a.totalReservas || 0) || (b.gastoEstimado || 0) - (a.gastoEstimado || 0);
     }
     if (criterioOrden === 'gasto') {
-      return b.gastoEstimado - a.gastoEstimado || b.totalReservas - a.totalReservas;
+      return (b.gastoEstimado || 0) - (a.gastoEstimado || 0) || (b.totalReservas || 0) - (a.totalReservas || 0);
     }
     if (criterioOrden === 'reciente') {
-      return b.ultimaReserva.localeCompare(a.ultimaReserva);
+      return (b.ultimaReserva || '').localeCompare(a.ultimaReserva || '');
     }
     if (criterioOrden === 'nombre') {
-      return a.nombre.localeCompare(b.nombre);
+      return (a.nombre || '').localeCompare(b.nombre || '');
     }
     return 0;
   });
@@ -136,22 +148,36 @@ export const CustomerReportModule: React.FC<CustomerReportModuleProps> = ({
         return `"${str}"`;
       };
 
-      const rows = clientesOrdenados.map(c => [
-        escapeCsv(c.nombre),
-        escapeCsv(c.telefono),
-        escapeCsv(c.email || 'No registrado'),
-        escapeCsv(c.clasificacion),
-        c.totalReservas,
-        c.reservasIndividuales,
-        c.reservasGrupales,
-        c.totalPersonasAtendidas,
-        c.gastoEstimado,
-        escapeCsv(c.ultimaReserva),
-        escapeCsv(c.serviciosFrecuentes.join('; ')),
-        escapeCsv(c.barberosFrecuentes.join('; ')),
-        escapeCsv(c.sucursalesFrecuentes.join('; ')),
-        escapeCsv(c.folios.join(', '))
-      ].join(','));
+      const rows = clientesOrdenados.map(c => {
+        const serviciosStr = (c as any).serviciosFrecuentes?.join('; ') ||
+          c.serviciosSolicitados?.map(s => s.nombre).join('; ') ||
+          c.servicioFavorito ||
+          'Corte Tradicional';
+
+        const barberosStr = (c as any).barberosFrecuentes?.join('; ') ||
+          c.barberoFavorito ||
+          'Cualquier Barbero';
+
+        const sucursalesStr = (c as any).sucursalesFrecuentes?.join('; ') || 'Sede Principal';
+        const totalPers = c.totalPersonas || (c as any).totalPersonasAtendidas || c.totalReservas || 1;
+
+        return [
+          escapeCsv(c.nombre),
+          escapeCsv(c.telefono),
+          escapeCsv(c.email || 'No registrado'),
+          escapeCsv(c.clasificacion),
+          c.totalReservas,
+          c.reservasIndividuales,
+          c.reservasGrupales,
+          totalPers,
+          c.gastoEstimado,
+          escapeCsv(c.ultimaReserva || 'Sin fecha'),
+          escapeCsv(serviciosStr),
+          escapeCsv(barberosStr),
+          escapeCsv(sucursalesStr),
+          escapeCsv((c.folios || []).join(', '))
+        ].join(',');
+      });
 
       const csvContent = '\uFEFF' + [headers.join(','), ...rows].join('\r\n');
       const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -222,13 +248,16 @@ export const CustomerReportModule: React.FC<CustomerReportModuleProps> = ({
               <RefreshCw className={`w-4 h-4 ${cargando ? 'animate-spin' : ''}`} />
             </button>
 
-            {isModal && onClose && (
+            {onClose && (
               <button
+                id="btn-cerrar-base-clientes"
+                type="button"
                 onClick={onClose}
-                className="p-2 rounded-lg bg-[#FFF8F5] text-[#6F5A4B] hover:text-[#221A14] border border-[#DFCBB5] hover:bg-[#FBEBE1] transition-colors ml-1 cursor-pointer"
-                title="Cerrar ventana"
+                className="px-3 py-1.5 rounded-lg bg-[#FFDAD6] hover:bg-[#FFB4AB] text-[#BA1A1A] border border-[#BA1A1A]/30 text-xs font-mono font-bold transition-all flex items-center gap-1.5 shadow-2xs cursor-pointer ml-1"
+                title="Cerrar ventana de base de clientes"
               >
                 <X className="w-4 h-4" />
+                <span>Cerrar Ventana</span>
               </button>
             )}
           </div>
@@ -557,11 +586,20 @@ export const CustomerReportModule: React.FC<CustomerReportModuleProps> = ({
 
                         {/* 6. Preferencias */}
                         <td className="px-4 py-3 max-w-[180px]">
-                          <div className="truncate text-xs text-[#221A14]" title={cliente.serviciosFrecuentes.join(', ')}>
-                            {cliente.serviciosFrecuentes.slice(0, 2).join(', ') || 'Tradicional'}
+                          <div
+                            className="truncate text-xs text-[#221A14]"
+                            title={(cliente as any).serviciosFrecuentes?.join(', ') || cliente.serviciosSolicitados?.map(s => s.nombre).join(', ') || cliente.servicioFavorito || 'Corte Tradicional'}
+                          >
+                            {(cliente as any).serviciosFrecuentes?.slice(0, 2).join(', ') ||
+                             cliente.servicioFavorito ||
+                             cliente.serviciosSolicitados?.[0]?.nombre ||
+                             'Tradicional'}
                           </div>
-                          <div className="truncate text-[10px] text-[#6F5A4B]" title={cliente.barberosFrecuentes.join(', ')}>
-                            Barbero: {cliente.barberosFrecuentes.slice(0, 1).join(', ') || 'Cualquiera'}
+                          <div
+                            className="truncate text-[10px] text-[#6F5A4B]"
+                            title={(cliente as any).barberosFrecuentes?.join(', ') || cliente.barberoFavorito || 'Cualquier Maestro'}
+                          >
+                            Barbero: {(cliente as any).barberosFrecuentes?.slice(0, 1).join(', ') || cliente.barberoFavorito || 'Cualquiera'}
                           </div>
                         </td>
 
@@ -663,8 +701,21 @@ export const CustomerReportModule: React.FC<CustomerReportModuleProps> = ({
           <div>
             Base de datos compilada de forma dinámica a partir de las reservas de Barbería La Casa del Rey.
           </div>
-          <div>
-            Última actualización: <span className="text-[#221A14] font-bold">{generadoEn || 'En línea'}</span>
+          <div className="flex items-center gap-3">
+            <div>
+              Última actualización: <span className="text-[#221A14] font-bold">{generadoEn || 'En línea'}</span>
+            </div>
+            {onClose && (
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-2.5 py-1 rounded bg-[#FFF8F5] hover:bg-[#FFDAD6] text-[#BA1A1A] border border-[#DFCBB5] hover:border-[#BA1A1A]/30 text-[10px] font-bold cursor-pointer transition-colors flex items-center gap-1"
+                title="Cerrar ventana"
+              >
+                <X className="w-3 h-3" />
+                <span>Cerrar Ventana</span>
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -673,7 +724,14 @@ export const CustomerReportModule: React.FC<CustomerReportModuleProps> = ({
 
   if (isModal) {
     return (
-      <div className="fixed inset-0 z-50 bg-[#221A14]/75 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6 overflow-y-auto animate-fadeIn">
+      <div 
+        onClick={(e) => {
+          if (e.target === e.currentTarget && onClose) {
+            onClose();
+          }
+        }}
+        className="fixed inset-0 z-50 bg-[#221A14]/75 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6 overflow-y-auto animate-fadeIn"
+      >
         <div className="bg-[#FFF8F5] border border-[#DFCBB5] rounded-2xl max-w-6xl w-full max-h-[92vh] overflow-y-auto p-4 sm:p-6 shadow-2xl relative">
           {content}
         </div>

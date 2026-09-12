@@ -209,6 +209,12 @@ export const AppointmentsList: React.FC<AppointmentsListProps> = ({
   // Helpers para resolver sede de cualquier cita (incluso registros sin sucursalId explícito)
   const getCitaSedeId = (c: Cita): string => {
     if (c.sucursalId) return c.sucursalId;
+    if (c.sucursalNombre) {
+      const nom = c.sucursalNombre.toLowerCase();
+      if (nom.includes('usaquén') || nom.includes('usaquen')) return 'suc-usaquen';
+      if (nom.includes('chapinero')) return 'suc-chapinero';
+      if (nom.includes('chicó') || nom.includes('chico')) return 'suc-chico';
+    }
     if (c.barberoId) {
       const b = barberos.find(barb => String(barb.id) === String(c.barberoId));
       if (b?.sucursalId) return b.sucursalId;
@@ -527,7 +533,7 @@ export const AppointmentsList: React.FC<AppointmentsListProps> = ({
             FILTRAR:
           </span>
 
-          {!esCajeroAislado && (
+          {!esCajeroAislado ? (
             <select
               value={filtroSede}
               onChange={(e) => setFiltroSede(e.target.value)}
@@ -544,6 +550,13 @@ export const AppointmentsList: React.FC<AppointmentsListProps> = ({
                 );
               })}
             </select>
+          ) : (
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#FBEBE1] border border-[#DFCBB5] text-xs font-mono font-bold text-[#7C571C]">
+              <span>📍 {getSucursalById(sedeFiltroEfectiva).nombre.toUpperCase()}</span>
+              <span className="text-[9px] px-1.5 py-0.5 bg-[#15803D]/10 text-[#15803D] rounded border border-[#86EFAC] font-bold">
+                CAJA AISLADA
+              </span>
+            </div>
           )}
 
           <select

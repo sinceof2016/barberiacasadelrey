@@ -159,7 +159,7 @@ export const ApiConsole: React.FC = () => {
       icon: 'razor',
       body: JSON.stringify({
         email: "caja@casadelrey.com",
-        password: "caja123"
+        password: "TU_PASSWORD_AQUI"
       }, null, 2),
     },
     {

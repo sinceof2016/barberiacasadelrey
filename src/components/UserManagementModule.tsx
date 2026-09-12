@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Usuario, RolUsuario, Barbero, Sucursal } from '../types';
+import { Usuario, RolUsuario, Barbero, Sucursal, Servicio } from '../types';
 import { 
   getUsuarios, 
   crearUsuario, 
@@ -10,7 +10,9 @@ import {
   getBarberos,
   actualizarBarbero,
   getSucursales,
-  actualizarSucursal
+  actualizarSucursal,
+  getServicios,
+  actualizarServicio
 } from '../services/api';
 import { 
   UserPlus, 
@@ -57,13 +59,14 @@ export const UserManagementModule: React.FC<UserManagementModuleProps> = ({
   usuarioActual,
   onDataUpdated,
 }) => {
-  // Sub-tabs: 'usuarios' | 'barberos' | 'sedes'
-  const [subTab, setSubTab] = useState<'usuarios' | 'barberos' | 'sedes'>('usuarios');
+  // Sub-tabs: 'usuarios' | 'barberos' | 'sedes' | 'servicios'
+  const [subTab, setSubTab] = useState<'usuarios' | 'barberos' | 'sedes' | 'servicios'>('usuarios');
 
   // Estados de datos
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
   const [barberos, setBarberos] = useState<Barbero[]>([]);
   const [sucursales, setSucursales] = useState<Sucursal[]>([]);
+  const [servicios, setServicios] = useState<Servicio[]>([]);
   const [cargando, setCargando] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [mensajeExito, setMensajeExito] = useState<string | null>(null);
@@ -100,6 +103,15 @@ export const UserManagementModule: React.FC<UserManagementModuleProps> = ({
   const [editDescripcionSede, setEditDescripcionSede] = useState<string>('');
   const [guardandoSede, setGuardandoSede] = useState<boolean>(false);
 
+  // Modal / Edición de Servicio
+  const [servicioEnEdicion, setServicioEnEdicion] = useState<Servicio | null>(null);
+  const [editNombreServicio, setEditNombreServicio] = useState<string>('');
+  const [editPrecioServicio, setEditPrecioServicio] = useState<number>(0);
+  const [editDuracionServicio, setEditDuracionServicio] = useState<number>(30);
+  const [editDescripcionServicio, setEditDescripcionServicio] = useState<string>('');
+  const [editCategoriaServicio, setEditCategoriaServicio] = useState<'individual' | 'grupal'>('individual');
+  const [guardandoServicio, setGuardandoServicio] = useState<boolean>(false);
+
   const notificarExito = (msg: string) => {
     setMensajeExito(msg);
     setTimeout(() => setMensajeExito(null), 4000);
@@ -109,14 +121,16 @@ export const UserManagementModule: React.FC<UserManagementModuleProps> = ({
     setCargando(true);
     setError(null);
     try {
-      const [uData, bData, sData] = await Promise.all([
+      const [uData, bData, sData, srvData] = await Promise.all([
         getUsuarios().catch(() => []),
         getBarberos().catch(() => []),
-        getSucursales().catch(() => SUCURSALES_CASA_DEL_REY)
+        getSucursales().catch(() => SUCURSALES_CASA_DEL_REY),
+        getServicios().catch(() => [])
       ]);
       setUsuarios(uData);
       setBarberos(bData);
       setSucursales(sData && sData.length > 0 ? sData : SUCURSALES_CASA_DEL_REY);
+      setServicios(srvData);
     } catch (err: any) {
       setError(err.message || 'Error al cargar datos del módulo de administración');
     } finally {
@@ -327,6 +341,51 @@ export const UserManagementModule: React.FC<UserManagementModuleProps> = ({
     }
   };
 
+  // --- ACCIONES DE SERVICIOS ---
+  const iniciarEdicionServicio = (srv: Servicio) => {
+    setServicioEnEdicion(srv);
+    setEditNombreServicio(srv.nombre);
+    setEditPrecioServicio(srv.precio);
+    setEditDuracionServicio(srv.duracionMinutos);
+    setEditDescripcionServicio(srv.descripcion || '');
+    setEditCategoriaServicio((srv.categoria as any) || 'individual');
+  };
+
+  const handleGuardarEdicionServicio = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!servicioEnEdicion) return;
+    if (!editNombreServicio.trim()) {
+      alert('El nombre del servicio es obligatorio');
+      return;
+    }
+    if (editPrecioServicio <= 0) {
+      alert('El precio debe ser un número mayor a cero');
+      return;
+    }
+
+    setGuardandoServicio(true);
+    try {
+      const servicioActualizado: Servicio = {
+        ...servicioEnEdicion,
+        nombre: editNombreServicio.trim(),
+        precio: Number(editPrecioServicio),
+        duracionMinutos: Number(editDuracionServicio) || 30,
+        descripcion: editDescripcionServicio.trim(),
+        categoria: editCategoriaServicio,
+      };
+
+      const updatedServicios = await actualizarServicio(servicioActualizado);
+      setServicios(updatedServicios);
+      setServicioEnEdicion(null);
+      notificarExito(`✓ Servicio "${servicioActualizado.nombre}" actualizado con éxito`);
+      if (onDataUpdated) onDataUpdated();
+    } catch (err: any) {
+      alert('Error al actualizar el servicio: ' + err.message);
+    } finally {
+      setGuardandoServicio(false);
+    }
+  };
+
   const formatDate = (iso: string) => {
     try {
       return new Date(iso).toLocaleDateString('es-CO', {
@@ -419,6 +478,19 @@ export const UserManagementModule: React.FC<UserManagementModuleProps> = ({
           >
             <Store className="w-4 h-4" />
             <span>Sedes & Sucursales ({sucursales.length})</span>
+          </button>
+
+          <button
+            id="subtab-servicios"
+            onClick={() => setSubTab('servicios')}
+            className={`px-3.5 py-1.5 rounded-lg font-bold transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
+              subTab === 'servicios'
+                ? 'bg-[#7C571C] text-[#FAF6EE] shadow-sm'
+                : 'bg-[#FBEBE1] text-[#6F5A4B] hover:text-[#221A14] border border-[#DFCBB5]'
+            }`}
+          >
+            <Scissors className="w-4 h-4" />
+            <span>Servicios & Precios ({servicios.length})</span>
           </button>
         </div>
       </div>
@@ -882,7 +954,88 @@ export const UserManagementModule: React.FC<UserManagementModuleProps> = ({
       )}
 
       {/* ======================================================== */}
-      {/* MODAL / FORM: EDITAR USUARIO                             */}
+      {/* VISTA 4: GESTIÓN DE SERVICIOS & TARIFAS                  */}
+      {/* ======================================================== */}
+      {subTab === 'servicios' && (
+        <div className="space-y-4 font-mono text-xs">
+          <div className="bg-[#FFF8F5] border border-[#DFCBB5] rounded-xl p-4 sm:p-5 shadow-sm">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#DFCBB5] pb-3 mb-4">
+              <div>
+                <div className="flex items-center gap-2">
+                  <Scissors className="w-5 h-5 text-[#7C571C]" />
+                  <h3 className="font-serif text-base font-bold text-[#221A14] uppercase tracking-wide">
+                    Catálogo de Servicios & Precios Reales
+                  </h3>
+                </div>
+                <p className="text-xs text-[#6F5A4B] mt-0.5">
+                  Modifica los nombres, precios oficiales (COP), duración y descripciones de la carta de servicios
+                </p>
+              </div>
+              <span className="px-3 py-1 bg-[#FBEBE1] text-[#7C571C] text-xs font-bold rounded-full border border-[#DFCBB5] self-start sm:self-center">
+                {servicios.length} Servicios Activos
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {servicios.map(srv => (
+                <div
+                  key={srv.id}
+                  className="bg-[#FFFFFF] border border-[#DFCBB5] rounded-xl p-4 shadow-xs flex flex-col justify-between hover:border-[#7C571C] transition-all"
+                >
+                  <div className="space-y-2">
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <span className="text-[10px] text-[#7C571C] font-bold block uppercase">
+                          ID #{srv.id}
+                        </span>
+                        <h4 className="font-serif text-base font-bold text-[#221A14]">
+                          {srv.nombre}
+                        </h4>
+                      </div>
+                      <span className="px-2 py-0.5 bg-[#FBEBE1] text-[#7C571C] text-[10px] font-bold rounded-full border border-[#DFCBB5]">
+                        {srv.categoria === 'grupal' ? 'GRUPAL' : 'INDIVIDUAL'}
+                      </span>
+                    </div>
+
+                    <div className="flex items-baseline justify-between pt-1 border-t border-[#DFCBB5]/40">
+                      <div>
+                        <span className="text-[10px] text-[#6F5A4B] uppercase block font-bold">Precio Oficial:</span>
+                        <span className="font-serif text-lg font-bold text-[#221A14]">
+                          ${srv.precio.toLocaleString('es-CO')} COP
+                        </span>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-[10px] text-[#6F5A4B] uppercase block font-bold">Duración:</span>
+                        <span className="text-xs font-bold text-[#7C571C]">
+                          {srv.duracionMinutos} min
+                        </span>
+                      </div>
+                    </div>
+
+                    <div>
+                      <span className="text-[10px] text-[#6F5A4B] block uppercase font-bold">Descripción del Ritual:</span>
+                      <p className="text-xs text-[#6F5A4B] italic leading-relaxed line-clamp-3">
+                        {srv.descripcion || 'Ritual artesanal de cuidado masculino con los más altos estándares.'}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 pt-3 border-t border-[#DFCBB5]/60">
+                    <button
+                      type="button"
+                      onClick={() => iniciarEdicionServicio(srv)}
+                      className="w-full py-1.5 px-3 rounded-lg bg-[#7C571C] hover:bg-[#684815] text-[#FAF6EE] text-xs font-bold transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer"
+                    >
+                      <Edit3 className="w-3.5 h-3.5" />
+                      <span>Modificar Nombre, Precio & Descripción</span>
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
       {/* ======================================================== */}
       {usuarioEnEdicion && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
@@ -1191,6 +1344,124 @@ export const UserManagementModule: React.FC<UserManagementModuleProps> = ({
                 >
                   <Save className="w-3.5 h-3.5" />
                   <span>{guardandoSede ? 'Guardando...' : 'Guardar Sede'}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ======================================================== */}
+      {/* MODAL / FORM: EDITAR SERVICIO (PRECIO, NOMBRE, DESC)     */}
+      {/* ======================================================== */}
+      {servicioEnEdicion && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-[#FFF8F5] border border-[#DFCBB5] rounded-2xl w-full max-w-md p-5 shadow-2xl space-y-4 font-mono text-xs animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between border-b border-[#DFCBB5] pb-3">
+              <div className="flex items-center gap-2">
+                <Scissors className="w-4 h-4 text-[#7C571C]" />
+                <h3 className="font-serif text-sm font-bold uppercase text-[#221A14]">
+                  Modificar Servicio & Tarifa
+                </h3>
+              </div>
+              <button
+                onClick={() => setServicioEnEdicion(null)}
+                className="p-1 rounded-lg text-[#6F5A4B] hover:text-[#221A14] hover:bg-[#FBEBE1] cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleGuardarEdicionServicio} className="space-y-3">
+              <div>
+                <label className="text-[10px] text-[#6F5A4B] block uppercase font-bold mb-1">
+                  Nombre del Servicio:
+                </label>
+                <input
+                  type="text"
+                  value={editNombreServicio}
+                  onChange={(e) => setEditNombreServicio(e.target.value)}
+                  required
+                  placeholder="Ej. Corte de Cabello Real"
+                  className="w-full bg-[#FFFFFF] border border-[#DFCBB5] text-[#221A14] rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-[#7C571C]"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[10px] text-[#6F5A4B] block uppercase font-bold mb-1">
+                    Precio Oficial (COP):
+                  </label>
+                  <input
+                    type="number"
+                    value={editPrecioServicio}
+                    onChange={(e) => setEditPrecioServicio(Number(e.target.value))}
+                    required
+                    min={1000}
+                    step={1000}
+                    className="w-full bg-[#FFFFFF] border border-[#DFCBB5] text-[#221A14] rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-[#7C571C] font-bold"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[10px] text-[#6F5A4B] block uppercase font-bold mb-1">
+                    Duración (Minutos):
+                  </label>
+                  <input
+                    type="number"
+                    value={editDuracionServicio}
+                    onChange={(e) => setEditDuracionServicio(Number(e.target.value))}
+                    required
+                    min={10}
+                    max={180}
+                    step={5}
+                    className="w-full bg-[#FFFFFF] border border-[#DFCBB5] text-[#221A14] rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-[#7C571C]"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-[10px] text-[#6F5A4B] block uppercase font-bold mb-1">
+                  Categoría de Servicio:
+                </label>
+                <select
+                  value={editCategoriaServicio}
+                  onChange={(e) => setEditCategoriaServicio(e.target.value as 'individual' | 'grupal')}
+                  className="w-full bg-[#FFFFFF] border border-[#DFCBB5] text-[#221A14] rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-[#7C571C] cursor-pointer"
+                >
+                  <option value="individual">Individual (Turno tradicional)</option>
+                  <option value="grupal">Grupal (Camaradería & Comitivas)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="text-[10px] text-[#6F5A4B] block uppercase font-bold mb-1">
+                  Descripción del Servicio:
+                </label>
+                <textarea
+                  rows={3}
+                  value={editDescripcionServicio}
+                  onChange={(e) => setEditDescripcionServicio(e.target.value)}
+                  placeholder="Detalles del ritual, toallas calientes, productos incluidos..."
+                  className="w-full bg-[#FFFFFF] border border-[#DFCBB5] text-[#221A14] rounded-lg p-2.5 text-xs focus:outline-none focus:border-[#7C571C]"
+                />
+              </div>
+
+              <div className="pt-2 flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setServicioEnEdicion(null)}
+                  className="px-3 py-2 rounded-lg bg-[#FBEBE1] text-[#221A14] hover:bg-[#F5E5DB] font-bold cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={guardandoServicio}
+                  className="px-4 py-2 rounded-lg bg-[#7C571C] hover:bg-[#684815] text-[#FAF6EE] font-bold flex items-center gap-1.5 shadow-sm cursor-pointer disabled:opacity-50"
+                >
+                  <Save className="w-3.5 h-3.5" />
+                  <span>{guardandoServicio ? 'Guardando...' : 'Guardar Servicio'}</span>
                 </button>
               </div>
             </form>

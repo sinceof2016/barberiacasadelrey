@@ -159,6 +159,8 @@ export interface Barbero {
   nombre: string;
   especialidad: string;
   avatar?: string;
+  foto?: string;
+  descripcion?: string;
   sucursalId?: string;
   sucursalNombre?: string;
 }
@@ -768,6 +770,159 @@ app.get('/api/v1/barberia-casa-del-rey/barberos', (req: Request, res: Response) 
     negocio: 'Barbería Casa del Rey',
     total: barberos.length,
     datos: barberos
+  });
+});
+
+// Actualizar sucursal (sede)
+app.put('/api/v1/barberia-casa-del-rey/sucursales/:id', (req: Request, res: Response) => {
+  const { id } = req.params;
+  const { nombre, direccion, telefono, horario, descripcion } = req.body;
+  const sucursal = sucursalesCasaDelRey.find(s => s.id === id);
+  if (!sucursal) {
+    return res.status(404).json({ exito: false, mensaje: 'Sucursal no encontrada' });
+  }
+  if (nombre) sucursal.nombre = String(nombre).trim();
+  if (direccion) sucursal.direccion = String(direccion).trim();
+  if (telefono) sucursal.telefono = String(telefono).trim();
+  if (horario) sucursal.horario = String(horario).trim();
+  if (descripcion !== undefined) sucursal.descripcion = String(descripcion).trim();
+
+  registrarLog(`Sucursal [${sucursal.nombre}] actualizada`, 'info');
+  res.status(200).json({
+    exito: true,
+    mensaje: `Sucursal "${sucursal.nombre}" actualizada exitosamente.`,
+    datos: sucursalesCasaDelRey
+  });
+});
+
+// Actualizar servicio (precio, nombre, descripción, duración)
+app.put('/api/v1/barberia-casa-del-rey/servicios/:id', (req: Request, res: Response) => {
+  const { id } = req.params;
+  const { nombre, precio, duracionMinutos, descripcion, categoria } = req.body;
+  const servicio = serviciosCasaDelRey.find(s => s.id === Number(id));
+  if (!servicio) {
+    return res.status(404).json({ exito: false, mensaje: 'Servicio no encontrado' });
+  }
+  if (nombre) servicio.nombre = String(nombre).trim();
+  if (precio !== undefined && !isNaN(Number(precio))) servicio.precio = Number(precio);
+  if (duracionMinutos !== undefined && !isNaN(Number(duracionMinutos))) servicio.duracionMinutos = Number(duracionMinutos);
+  if (descripcion !== undefined) servicio.descripcion = String(descripcion).trim();
+  if (categoria !== undefined) (servicio as any).categoria = categoria;
+
+  registrarLog(`Servicio [${servicio.nombre}] actualizado (Precio: $${servicio.precio})`, 'info');
+  res.status(200).json({
+    exito: true,
+    mensaje: `Servicio "${servicio.nombre}" actualizado correctamente.`,
+    datos: serviciosCasaDelRey
+  });
+});
+
+// Crear nuevo servicio
+app.post('/api/v1/barberia-casa-del-rey/servicios', (req: Request, res: Response) => {
+  const { nombre, precio, duracionMinutos, descripcion, categoria } = req.body;
+  if (!nombre || precio === undefined) {
+    return res.status(400).json({ exito: false, mensaje: 'Nombre y precio son requeridos.' });
+  }
+  const nuevoId = Math.max(...serviciosCasaDelRey.map(s => s.id), 0) + 1;
+  const nuevoServicio: Servicio = {
+    id: nuevoId,
+    nombre: String(nombre).trim(),
+    precio: Number(precio),
+    duracionMinutos: Number(duracionMinutos) || 30,
+    descripcion: String(descripcion || '').trim(),
+    ...(categoria ? { categoria } : {})
+  };
+  serviciosCasaDelRey.push(nuevoServicio);
+  registrarLog(`Nuevo servicio creado: [${nuevoServicio.nombre}]`, 'info');
+  res.status(201).json({
+    exito: true,
+    mensaje: `Servicio "${nuevoServicio.nombre}" creado exitosamente.`,
+    datos: serviciosCasaDelRey
+  });
+});
+
+// Eliminar servicio
+app.delete('/api/v1/barberia-casa-del-rey/servicios/:id', (req: Request, res: Response) => {
+  const { id } = req.params;
+  const index = serviciosCasaDelRey.findIndex(s => s.id === Number(id));
+  if (index === -1) {
+    return res.status(404).json({ exito: false, mensaje: 'Servicio no encontrado.' });
+  }
+  const [eliminado] = serviciosCasaDelRey.splice(index, 1);
+  registrarLog(`Servicio eliminado: [${eliminado.nombre}]`, 'info');
+  res.status(200).json({
+    exito: true,
+    mensaje: `Servicio "${eliminado.nombre}" eliminado exitosamente.`,
+    datos: serviciosCasaDelRey
+  });
+});
+
+// Actualizar barbero (nombre, descripción, especialidad, sucursal)
+app.put('/api/v1/barberia-casa-del-rey/barberos/:id', (req: Request, res: Response) => {
+  const { id } = req.params;
+  const { nombre, especialidad, descripcion, sucursalId, sucursalNombre, foto } = req.body;
+  const barbero = barberosCasaDelRey.find(b => b.id === Number(id));
+  if (!barbero) {
+    return res.status(404).json({ exito: false, mensaje: 'Barbero no encontrado.' });
+  }
+  if (nombre) barbero.nombre = String(nombre).trim();
+  if (especialidad) barbero.especialidad = String(especialidad).trim();
+  if (descripcion !== undefined) (barbero as any).descripcion = String(descripcion).trim();
+  if (sucursalId) {
+    barbero.sucursalId = String(sucursalId);
+    const suc = sucursalesCasaDelRey.find(s => s.id === sucursalId);
+    if (suc) barbero.sucursalNombre = suc.nombre;
+  }
+  if (sucursalNombre) barbero.sucursalNombre = String(sucursalNombre).trim();
+  if (foto) barbero.foto = String(foto).trim();
+
+  registrarLog(`Barbero [${barbero.nombre}] actualizado`, 'info');
+  res.status(200).json({
+    exito: true,
+    mensaje: `Barbero "${barbero.nombre}" actualizado correctamente.`,
+    datos: barberosCasaDelRey
+  });
+});
+
+// Crear nuevo barbero
+app.post('/api/v1/barberia-casa-del-rey/barberos', (req: Request, res: Response) => {
+  const { nombre, especialidad, descripcion, sucursalId, sucursalNombre, foto } = req.body;
+  if (!nombre) {
+    return res.status(400).json({ exito: false, mensaje: 'El nombre del barbero es obligatorio.' });
+  }
+  const nuevoId = Math.max(...barberosCasaDelRey.map(b => b.id), 0) + 1;
+  const suc = sucursalesCasaDelRey.find(s => s.id === sucursalId);
+  const nuevoBarbero: Barbero = {
+    id: nuevoId,
+    nombre: String(nombre).trim(),
+    especialidad: String(especialidad || 'Cortes Clásicos & Navaja').trim(),
+    descripcion: String(descripcion || '').trim(),
+    sucursalId: sucursalId || 'suc-chico',
+    sucursalNombre: sucursalNombre || (suc ? suc.nombre : 'Sede Chicó Real'),
+    foto: foto || undefined
+  };
+  barberosCasaDelRey.push(nuevoBarbero);
+  registrarLog(`Nuevo barbero registrado: [${nuevoBarbero.nombre}]`, 'info');
+  res.status(201).json({
+    exito: true,
+    mensaje: `Maestro Barbero "${nuevoBarbero.nombre}" registrado exitosamente.`,
+    datos: barberosCasaDelRey
+  });
+});
+
+// Eliminar barbero
+app.delete('/api/v1/barberia-casa-del-rey/barberos/:id', (req: Request, res: Response) => {
+  const { id } = req.params;
+  const index = barberosCasaDelRey.findIndex(b => b.id === Number(id));
+  if (index === -1) {
+    return res.status(404).json({ exito: false, mensaje: 'Barbero no encontrado.' });
+  }
+  const [eliminado] = barberosCasaDelRey.splice(index, 1);
+  registrarLog(`Barbero retirado: [${eliminado.nombre}]`, 'info');
+  res.status(200).json({
+    exito: true,
+    mensaje: `Barbero "${eliminado.nombre}" retirado exitosamente.`,
+    datos: barberosCasaDelRey
   });
 });
 
@@ -2302,6 +2457,37 @@ app.delete('/api/v1/barberia-casa-del-rey/usuarios/:id', (req: Request, res: Res
   res.status(200).json({
     exito: true,
     mensaje: `Usuario ${eliminado.nombre} eliminado satisfactoriamente.`
+  });
+});
+
+// Actualizar datos de usuario (nombre, rol, sucursal, email)
+app.put('/api/v1/barberia-casa-del-rey/usuarios/:id', (req: Request, res: Response) => {
+  const { id } = req.params;
+  const { nombre, rol, sucursalAsignada, email } = req.body;
+  const usuario = usuariosRegistrados.find(u => u.id === id);
+  if (!usuario) {
+    return res.status(404).json({ exito: false, mensaje: 'Usuario no encontrado.' });
+  }
+  if (nombre) usuario.nombre = String(nombre).trim();
+  if (email) usuario.email = String(email).trim().toLowerCase();
+  if (rol && (rol === 'SuperAdmin' || rol === 'Administrador' || rol === 'Cajero')) {
+    usuario.rol = rol;
+    usuario.puedeVerApi = rol === 'SuperAdmin' || usuario.nombre.toLowerCase().includes('david orjuela');
+  }
+  if (sucursalAsignada) {
+    usuario.sucursalAsignada = usuario.rol === 'Cajero' ? sucursalAsignada : 'todas';
+  }
+
+  registrarLog(`Usuario [${usuario.nombre}] (${usuario.rol}) actualizado`, 'info');
+  const usuariosSeguros = usuariosRegistrados.map(({ password: _, ...resto }) => ({
+    ...resto,
+    puedeVerApi: resto.rol === 'SuperAdmin' || resto.nombre.toLowerCase().includes('david orjuela')
+  }));
+
+  res.status(200).json({
+    exito: true,
+    mensaje: `Usuario "${usuario.nombre}" actualizado correctamente.`,
+    datos: usuariosSeguros
   });
 });
 

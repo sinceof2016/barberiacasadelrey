@@ -467,11 +467,11 @@ export async function loginUsuario(email: string, password: string): Promise<{
       body: JSON.stringify({ email, password }),
     });
     if (!res || !res.ok) {
-      return localLoginUsuario(email, password);
+      return await localLoginUsuario(email, password);
     }
     return await res.json();
   } catch {
-    return localLoginUsuario(email, password);
+    return await localLoginUsuario(email, password);
   }
 }
 

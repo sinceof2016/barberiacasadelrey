@@ -138,6 +138,17 @@ export const DailyCutsModule: React.FC<DailyCutsModuleProps> = ({
   const montoBarbero = comisionBruta + (Number(propina) || 0);
   const montoBarberia = precio - comisionBruta;
 
+  const cambiarDia = (offset: number) => {
+    try {
+      const d = new Date(fechaSeleccionada + 'T12:00:00');
+      d.setDate(d.getDate() + offset);
+      const nueva = d.toISOString().split('T')[0];
+      setFechaSeleccionada(nueva);
+    } catch {
+      // fallback
+    }
+  };
+
   const handleCrearCorte = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!clienteNombre.trim()) {
@@ -314,8 +325,10 @@ TOTAL A RECIBIR: ${formatCOP(voucherBarbero.totalNeto)}
   return (
     <div className="space-y-6">
       {/* Header & Date selector con Calendario Optimizado en Despliegue */}
-      <div className="bg-[#FFF8F5] border border-[#DFCBB5] rounded-xl p-4 sm:p-5 shadow-sm relative overflow-hidden">
-        <BarberPoleRibbon className="h-1 absolute top-0 left-0 right-0" />
+      <div className="bg-[#FFF8F5] border border-[#DFCBB5] rounded-xl p-4 sm:p-5 shadow-sm relative z-30">
+        <div className="absolute top-0 left-0 right-0 h-1 overflow-hidden rounded-t-xl">
+          <BarberPoleRibbon className="h-full w-full" />
+        </div>
         
         <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 pt-1">
           <div>
@@ -330,9 +343,29 @@ TOTAL A RECIBIR: ${formatCOP(voucherBarbero.totalNeto)}
             </p>
           </div>
 
-          {/* Despliegue del Calendario Optimizado (align="right" para máxima visibilidad) */}
+          {/* Despliegue del Calendario Optimizado (con navegación directa entre días) */}
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full lg:w-auto">
-            <div className="w-full sm:w-64 relative z-30">
+            {/* Controles de navegación de día directo */}
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => cambiarDia(-1)}
+                className="p-2 rounded-lg bg-[#FBEBE1] hover:bg-[#F5E5DB] text-[#7C571C] border border-[#DFCBB5] font-bold text-xs cursor-pointer transition-colors shadow-2xs"
+                title="Día Anterior"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => cambiarDia(1)}
+                className="p-2 rounded-lg bg-[#FBEBE1] hover:bg-[#F5E5DB] text-[#7C571C] border border-[#DFCBB5] font-bold text-xs cursor-pointer transition-colors shadow-2xs"
+                title="Día Siguiente"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="w-full sm:w-64 relative z-50">
               <VintageDatePicker
                 id="datepicker-cortes-calendario"
                 value={fechaSeleccionada}
@@ -340,6 +373,7 @@ TOTAL A RECIBIR: ${formatCOP(voucherBarbero.totalNeto)}
                 align="right"
               />
             </div>
+
             {fechaSeleccionada !== hoyStr && (
               <button
                 type="button"

@@ -357,6 +357,8 @@ export default function App() {
             {activeTab === 'clientes' && (
               <section className="space-y-4">
                 <CustomerReportModule
+                  isModal={false}
+                  onClose={() => setActiveTab('agenda')}
                   servicios={servicios}
                   barberos={barberos}
                 />

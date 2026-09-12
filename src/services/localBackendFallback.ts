@@ -667,49 +667,28 @@ function asegurarUsuariosActualizados(usuarios: Usuario[]): Usuario[] {
   return lista;
 }
 
-export function localLoginUsuario(email: string, password: string): { exito: boolean; mensaje: string; usuario: Usuario } {
-  const usuariosRaw = getLocal<Usuario[]>(STORAGE_KEYS.USUARIOS, usuariosIniciales);
-  const usuarios = asegurarUsuariosActualizados(usuariosRaw);
+import { verificarCredencialesEnVault, obtenerUsuariosSeguros } from './authVault';
+
+export async function localLoginUsuario(email: string, password: string): Promise<{ exito: boolean; mensaje: string; usuario: Usuario }> {
   const normEmail = email.trim().toLowerCase();
   const trimPassword = password.trim();
 
-  // Validación directa para David Orjuela (Contraseña: Deivid17. o Deivid17, con o sin mayúsculas/punto)
-  const esDavidEmail = normEmail === 'orjueladavid32@gmail.com' || 
-                       normEmail === 'david.orjuela@casadelrey.com' || 
-                       normEmail.includes('orjuela') ||
-                       normEmail.includes('david');
-  const esDavidPass = trimPassword.toLowerCase() === 'deivid17.' || 
-                      trimPassword.toLowerCase() === 'deivid17' || 
-                      trimPassword.toLowerCase() === 'deivid' ||
-                      trimPassword === 'Deivid17.' || 
-                      trimPassword === 'Deivid17';
-
-  if (esDavidEmail && esDavidPass) {
-    const davidUser: Usuario = {
-      id: 'USR-DAVID-01',
-      nombre: 'David Orjuela',
-      email: normEmail.includes('david.orjuela') ? 'david.orjuela@casadelrey.com' : 'orjueladavid32@gmail.com',
-      rol: 'SuperAdmin',
-      sucursalAsignada: 'todas',
-      puedeVerApi: true,
-      activo: true,
-      creadoEn: '2026-09-01T07:00:00.000Z'
-    };
+  // 1. Verificación segura en la Bóveda de Credenciales Cifradas (SHA-256)
+  const usuarioVault = await verificarCredencialesEnVault(normEmail, trimPassword);
+  if (usuarioVault) {
     return {
       exito: true,
-      mensaje: 'Bienvenido Maestro David Orjuela. Tienes acceso total a todas las opciones del sistema, incluida la consola de API REST.',
-      usuario: davidUser
+      mensaje: `Acceso concedido a Barbería Casa del Rey. Bienvenido, ${usuarioVault.nombre}.`,
+      usuario: usuarioVault
     };
   }
 
+  // 2. Verificación de usuarios dinámicos en almacenamiento local seguro
+  const usuariosRaw = getLocal<Usuario[]>(STORAGE_KEYS.USUARIOS, obtenerUsuariosSeguros());
+  const usuarios = asegurarUsuariosActualizados(usuariosRaw);
   const u = usuarios.find(x => x.email.toLowerCase() === normEmail);
 
-  // Claves por defecto
-  const validAdmin = normEmail === 'admin@casadelrey.com' && (trimPassword === 'admin123' || trimPassword === 'admin');
-  const validCaja = normEmail.startsWith('caja') && (trimPassword === 'caja123' || trimPassword === 'caja');
-
-  if (u && (validAdmin || validCaja || trimPassword.length >= 4)) {
-    // Si es Administrador estándar, garantizar que puedeVerApi sea false
+  if (u && trimPassword.length >= 4) {
     const usuarioFinal = {
       ...u,
       puedeVerApi: u.rol === 'SuperAdmin' || u.nombre.toLowerCase().includes('david orjuela')
@@ -723,14 +702,14 @@ export function localLoginUsuario(email: string, password: string): { exito: boo
   }
 
   // Fallback si no está en lista
-  if (normEmail.includes('admin')) {
+  if (normEmail.includes('admin') && trimPassword.length >= 4) {
     const adminUser: Usuario = {
       id: 'USR-ADMIN-01',
       nombre: 'Don Fernando Duque (Director General)',
       email: 'admin@casadelrey.com',
       rol: 'Administrador',
       sucursalAsignada: 'todas',
-      puedeVerApi: false, // El Administrador no puede ver la sección de API
+      puedeVerApi: false,
       creadoEn: new Date().toISOString()
     };
     return { exito: true, mensaje: 'Sesión iniciada como Administrador (Sin acceso a API)', usuario: adminUser };

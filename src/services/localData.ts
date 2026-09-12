@@ -108,55 +108,8 @@ export const HORARIOS_CONFIG = [
   { hora24: '19:00', hora12: '07:00 PM' },
 ];
 
-export const usuariosIniciales: Usuario[] = [
-  {
-    id: 'USR-DAVID-01',
-    nombre: 'David Orjuela',
-    email: 'orjueladavid32@gmail.com',
-    password: 'Deivid17.',
-    rol: 'SuperAdmin',
-    sucursalAsignada: 'todas',
-    creadoEn: '2026-09-01T07:00:00.000Z',
-    puedeVerApi: true
-  },
-  {
-    id: 'USR-DAVID-02',
-    nombre: 'David Orjuela (Corporativo)',
-    email: 'david.orjuela@casadelrey.com',
-    password: 'Deivid17.',
-    rol: 'SuperAdmin',
-    sucursalAsignada: 'todas',
-    creadoEn: '2026-09-01T07:00:00.000Z',
-    puedeVerApi: true
-  },
-  {
-    id: 'USR-ADMIN-01',
-    nombre: 'Don Fernando Duque (Director General)',
-    email: 'admin@casadelrey.com',
-    password: 'admin123',
-    rol: 'Administrador',
-    sucursalAsignada: 'todas',
-    creadoEn: '2026-09-01T08:00:00.000Z',
-    puedeVerApi: false
-  },
-  {
-    id: 'USR-CAJA-01',
-    nombre: 'Valentina Restrepo (Caja Chicó)',
-    email: 'caja.chico@casadelrey.com',
-    password: 'caja123',
-    rol: 'Cajero',
-    sucursalAsignada: 'suc-chico',
-    creadoEn: '2026-09-01T08:15:00.000Z',
-    puedeVerApi: false
-  },
-  {
-    id: 'USR-CAJA-GEN',
-    nombre: 'Caja General (Recepción)',
-    email: 'caja@casadelrey.com',
-    password: 'caja123',
-    rol: 'Cajero',
-    sucursalAsignada: 'suc-chico',
-    creadoEn: '2026-09-01T09:00:00.000Z',
-    puedeVerApi: false
-  }
-];
+import { obtenerUsuariosSeguros } from './authVault';
+
+// Usuarios iniciales protegidos (sin credenciales expuestas en frontend)
+export const usuariosIniciales: Usuario[] = obtenerUsuariosSeguros();
+

@@ -15,6 +15,7 @@ export interface Servicio {
   duracionMinutos: number;
   precio: number;
   descripcion?: string;
+  categoria?: 'individual' | 'grupal';
 }
 
 export interface Barbero {
