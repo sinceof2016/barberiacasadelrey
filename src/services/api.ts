@@ -45,9 +45,13 @@ import {
   localActualizarUsuario,
   localEliminarUsuario,
   localActualizarSucursal,
+  localCrearSucursal,
+  localEliminarSucursal,
   localActualizarServicio,
+  localCrearServicio,
   localEliminarServicio,
   localActualizarBarbero,
+  localCrearBarbero,
   localEliminarBarbero,
   localGetReporteClientes,
   getColombiaDateTimeClient
@@ -540,6 +544,31 @@ export async function actualizarSucursal(sucursal: Sucursal): Promise<Sucursal[]
   return data.datos || localActualizarSucursal(sucursal);
 }
 
+export async function crearSucursal(sucursal: Partial<Sucursal> & { nombre: string }): Promise<Sucursal[]> {
+  const res = await safeFetch(`${BASE_URL}/sucursales`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(sucursal),
+  });
+  if (!res || !res.ok) {
+    const resLocal = localCrearSucursal(sucursal);
+    return resLocal.datos;
+  }
+  const data = await res.json();
+  return data.datos || localCrearSucursal(sucursal).datos;
+}
+
+export async function eliminarSucursal(id: string): Promise<Sucursal[]> {
+  const res = await safeFetch(`${BASE_URL}/sucursales/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+  });
+  if (!res || !res.ok) {
+    return localEliminarSucursal(id);
+  }
+  const data = await res.json();
+  return data.datos || localEliminarSucursal(id);
+}
+
 // Servicios
 export async function actualizarServicio(servicio: Servicio): Promise<Servicio[]> {
   const res = await safeFetch(`${BASE_URL}/servicios/${encodeURIComponent(String(servicio.id))}`, {
@@ -552,6 +581,20 @@ export async function actualizarServicio(servicio: Servicio): Promise<Servicio[]
   }
   const data = await res.json();
   return data.datos || localActualizarServicio(servicio);
+}
+
+export async function crearServicio(servicio: Partial<Servicio> & { nombre: string; precio: number }): Promise<Servicio[]> {
+  const res = await safeFetch(`${BASE_URL}/servicios`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(servicio),
+  });
+  if (!res || !res.ok) {
+    const resLocal = localCrearServicio(servicio);
+    return resLocal.datos;
+  }
+  const data = await res.json();
+  return data.datos || localCrearServicio(servicio).datos;
 }
 
 export async function eliminarServicio(id: number): Promise<Servicio[]> {
@@ -577,6 +620,20 @@ export async function actualizarBarbero(barbero: Barbero): Promise<Barbero[]> {
   }
   const data = await res.json();
   return data.datos || localActualizarBarbero(barbero);
+}
+
+export async function crearBarbero(barbero: Partial<Barbero> & { nombre: string }): Promise<Barbero[]> {
+  const res = await safeFetch(`${BASE_URL}/barberos`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(barbero),
+  });
+  if (!res || !res.ok) {
+    const resLocal = localCrearBarbero(barbero);
+    return resLocal.datos;
+  }
+  const data = await res.json();
+  return data.datos || localCrearBarbero(barbero).datos;
 }
 
 export async function eliminarBarbero(id: number): Promise<Barbero[]> {
