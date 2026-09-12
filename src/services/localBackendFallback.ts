@@ -6,10 +6,7 @@ import {
   Usuario, 
   DisponibilidadResponse, 
   ReporteClientesResponse,
-  MetodoPago,
-  Sucursal,
-  Servicio,
-  Barbero
+  MetodoPago
 } from '../types';
 import { 
   sucursalesCasaDelRey, 
@@ -161,42 +158,6 @@ export function localGuardarSucursales(sucursales: any[]): void {
   setLocal(STORAGE_KEYS.SUCURSALES, sucursales);
 }
 
-export function localCrearSucursal(sucursal: Partial<Sucursal> & { nombre: string }): { exito: boolean; mensaje: string; datos: Sucursal[] } {
-  const lista = localGetSucursales();
-  const slug = sucursal.nombre
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-  const baseId = `suc-${slug || 'nueva'}`;
-  let finalId = sucursal.id || baseId;
-  let counter = 1;
-  while (lista.some((s: any) => s.id === finalId)) {
-    finalId = `${baseId}-${counter++}`;
-  }
-
-  const nueva: Sucursal = {
-    id: finalId,
-    nombre: sucursal.nombre.trim(),
-    ciudad: sucursal.ciudad || 'Bogotá D.C.',
-    direccion: sucursal.direccion?.trim() || 'Bogotá D.C.',
-    telefono: sucursal.telefono?.trim() || '+57 (601) 745-8891',
-    horario: sucursal.horario?.trim() || 'Lun - Sáb: 09:00 AM - 07:00 PM',
-    color: sucursal.color || '#C59B27',
-    descripcion: sucursal.descripcion?.trim() || 'Nueva sede exclusiva de Barbería La Casa del Rey.',
-  };
-  lista.push(nueva);
-  localGuardarSucursales(lista);
-  return { exito: true, mensaje: `Sede "${nueva.nombre}" creada`, datos: lista };
-}
-
-export function localEliminarSucursal(id: string): Sucursal[] {
-  const lista = localGetSucursales().filter((s: any) => s.id !== id);
-  localGuardarSucursales(lista);
-  return lista;
-}
-
 export function localActualizarSucursal(sucursal: any): any[] {
   const lista = localGetSucursales();
   const idx = lista.findIndex((s: any) => s.id === sucursal.id);
@@ -230,22 +191,6 @@ export function localActualizarServicio(servicio: any): any[] {
   return lista;
 }
 
-export function localCrearServicio(servicio: Partial<Servicio> & { nombre: string; precio: number }): { exito: boolean; mensaje: string; datos: Servicio[] } {
-  const lista = localGetServicios();
-  const nuevoId = Math.max(...lista.map((s: any) => s.id), 0) + 1;
-  const nuevo: Servicio = {
-    id: nuevoId,
-    nombre: servicio.nombre.trim(),
-    precio: Number(servicio.precio),
-    duracionMinutos: Number(servicio.duracionMinutos) || 30,
-    descripcion: (servicio.descripcion || '').trim(),
-    categoria: servicio.categoria || 'individual',
-  };
-  lista.push(nuevo);
-  localGuardarServicios(lista);
-  return { exito: true, mensaje: `Servicio "${nuevo.nombre}" creado exitosamente.`, datos: lista };
-}
-
 export function localEliminarServicio(id: number): any[] {
   const lista = localGetServicios().filter((s: any) => s.id !== id);
   localGuardarServicios(lista);
@@ -275,24 +220,6 @@ export function localActualizarBarbero(barbero: any): any[] {
   }
   localGuardarBarberos(lista);
   return lista;
-}
-
-export function localCrearBarbero(barbero: Partial<Barbero> & { nombre: string }): { exito: boolean; mensaje: string; datos: Barbero[] } {
-  const lista = getLocal<Barbero[]>(STORAGE_KEYS.BARBEROS, barberosCasaDelRey);
-  const nuevoId = Math.max(...lista.map((b: any) => b.id), 100) + 1;
-  const nuevo: Barbero = {
-    id: nuevoId,
-    nombre: barbero.nombre.trim(),
-    especialidad: barbero.especialidad?.trim() || 'Cortes Clásicos & Navaja',
-    descripcion: (barbero.descripcion || 'Especialista en estilismo masculino tradicional.').trim(),
-    sucursalId: barbero.sucursalId || 'suc-chico',
-    sucursalNombre: barbero.sucursalNombre || 'Sede Chicó Real',
-    foto: barbero.foto,
-    avatar: barbero.avatar,
-  };
-  lista.push(nuevo);
-  localGuardarBarberos(lista);
-  return { exito: true, mensaje: `Maestro Barbero "${nuevo.nombre}" registrado exitosamente.`, datos: lista };
 }
 
 export function localEliminarBarbero(id: number): any[] {

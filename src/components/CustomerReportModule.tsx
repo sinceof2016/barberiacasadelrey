@@ -733,18 +733,6 @@ export const CustomerReportModule: React.FC<CustomerReportModuleProps> = ({
         className="fixed inset-0 z-50 bg-[#221A14]/75 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6 overflow-y-auto animate-fadeIn"
       >
         <div className="bg-[#FFF8F5] border border-[#DFCBB5] rounded-2xl max-w-6xl w-full max-h-[92vh] overflow-y-auto p-4 sm:p-6 shadow-2xl relative">
-          {onClose && (
-            <button
-              type="button"
-              onClick={onClose}
-              id="btn-cerrar-modal-flotante-clientes"
-              className="absolute top-4 right-4 z-20 w-8 h-8 rounded-full bg-[#FBEBE1] hover:bg-[#FFDAD6] text-[#6F5A4B] hover:text-[#BA1A1A] border border-[#DFCBB5] hover:border-[#BA1A1A]/40 flex items-center justify-center transition-all cursor-pointer shadow-xs"
-              title="Cerrar ventana (Esc)"
-              aria-label="Cerrar ventana de base de clientes"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          )}
           {content}
         </div>
       </div>

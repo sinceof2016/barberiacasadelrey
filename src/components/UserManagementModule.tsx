@@ -9,16 +9,10 @@ import {
   cambiarClaveUsuario,
   getBarberos,
   actualizarBarbero,
-  crearBarbero,
-  eliminarBarbero,
   getSucursales,
   actualizarSucursal,
-  crearSucursal,
-  eliminarSucursal,
   getServicios,
-  actualizarServicio,
-  crearServicio,
-  eliminarServicio
+  actualizarServicio
 } from '../services/api';
 import { 
   UserPlus, 
@@ -46,9 +40,7 @@ import {
   MapPin,
   Phone,
   Clock,
-  FileText,
-  Plus,
-  PlusCircle
+  FileText
 } from 'lucide-react';
 import { 
   VintageCrownIcon, 
@@ -119,32 +111,6 @@ export const UserManagementModule: React.FC<UserManagementModuleProps> = ({
   const [editDescripcionServicio, setEditDescripcionServicio] = useState<string>('');
   const [editCategoriaServicio, setEditCategoriaServicio] = useState<'individual' | 'grupal'>('individual');
   const [guardandoServicio, setGuardandoServicio] = useState<boolean>(false);
-
-  // Modal / Crear Nuevo Servicio
-  const [mostrarModalNuevoServicio, setMostrarModalNuevoServicio] = useState<boolean>(false);
-  const [nuevoNombreServicio, setNuevoNombreServicio] = useState<string>('');
-  const [nuevoPrecioServicio, setNuevoPrecioServicio] = useState<number>(35000);
-  const [nuevoDuracionServicio, setNuevoDuracionServicio] = useState<number>(45);
-  const [nuevoDescripcionServicio, setNuevoDescripcionServicio] = useState<string>('');
-  const [nuevoCategoriaServicio, setNuevoCategoriaServicio] = useState<'individual' | 'grupal'>('individual');
-  const [creandoServicio, setCreandoServicio] = useState<boolean>(false);
-
-  // Modal / Crear Nueva Sucursal
-  const [mostrarModalNuevaSede, setMostrarModalNuevaSede] = useState<boolean>(false);
-  const [nuevoNombreSede, setNuevoNombreSede] = useState<string>('');
-  const [nuevoDireccionSede, setNuevoDireccionSede] = useState<string>('');
-  const [nuevoTelefonoSede, setNuevoTelefonoSede] = useState<string>('');
-  const [nuevoHorarioSede, setNuevoHorarioSede] = useState<string>('Lunes a Sábado: 8:00 AM - 8:00 PM');
-  const [nuevoDescripcionSede, setNuevoDescripcionSede] = useState<string>('');
-  const [creandoSede, setCreandoSede] = useState<boolean>(false);
-
-  // Modal / Crear Nuevo Barbero
-  const [mostrarModalNuevoBarbero, setMostrarModalNuevoBarbero] = useState<boolean>(false);
-  const [nuevoNombreBarbero, setNuevoNombreBarbero] = useState<string>('');
-  const [nuevoEspecialidadBarbero, setNuevoEspecialidadBarbero] = useState<string>('Maestro Barbero & Navaja Libre');
-  const [nuevoDescripcionBarbero, setNuevoDescripcionBarbero] = useState<string>('');
-  const [nuevoSucursalBarbero, setNuevoSucursalBarbero] = useState<string>('suc-chico');
-  const [creandoBarbero, setCreandoBarbero] = useState<boolean>(false);
 
   const notificarExito = (msg: string) => {
     setMensajeExito(msg);
@@ -417,167 +383,6 @@ export const UserManagementModule: React.FC<UserManagementModuleProps> = ({
       alert('Error al actualizar el servicio: ' + err.message);
     } finally {
       setGuardandoServicio(false);
-    }
-  };
-
-  const handleCrearNuevoServicio = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!nuevoNombreServicio.trim()) {
-      alert('El nombre del servicio es obligatorio');
-      return;
-    }
-    if (nuevoPrecioServicio <= 0) {
-      alert('El precio debe ser un número mayor a cero');
-      return;
-    }
-
-    setCreandoServicio(true);
-    try {
-      const nuevoServicioData = {
-        nombre: nuevoNombreServicio.trim(),
-        precio: Number(nuevoPrecioServicio),
-        duracionMinutos: Number(nuevoDuracionServicio) || 45,
-        descripcion: nuevoDescripcionServicio.trim() || 'Servicio clásico de barbería y corte tradicional',
-        categoria: nuevoCategoriaServicio,
-      };
-
-      const updatedServicios = await crearServicio(nuevoServicioData);
-      setServicios(updatedServicios);
-      setMostrarModalNuevoServicio(false);
-      setNuevoNombreServicio('');
-      setNuevoPrecioServicio(35000);
-      setNuevoDuracionServicio(45);
-      setNuevoDescripcionServicio('');
-      setNuevoCategoriaServicio('individual');
-      notificarExito(`✓ Nuevo servicio "${nuevoServicioData.nombre}" añadido con éxito al catálogo`);
-      if (onDataUpdated) onDataUpdated();
-    } catch (err: any) {
-      alert('Error al crear el servicio: ' + err.message);
-    } finally {
-      setCreandoServicio(false);
-    }
-  };
-
-  const handleEliminarServicio = async (id: number, nombre: string) => {
-    if (!window.confirm(`¿Confirmas eliminar el servicio "${nombre}" del catálogo oficial?`)) {
-      return;
-    }
-    try {
-      const updatedServicios = await eliminarServicio(id);
-      setServicios(updatedServicios);
-      notificarExito(`✓ Servicio "${nombre}" eliminado del catálogo`);
-      if (onDataUpdated) onDataUpdated();
-    } catch (err: any) {
-      alert('Error al eliminar servicio: ' + err.message);
-    }
-  };
-
-  // --- CREAR Y ELIMINAR SUCURSAL ---
-  const handleCrearNuevaSede = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!nuevoNombreSede.trim()) {
-      alert('El nombre de la sede es obligatorio');
-      return;
-    }
-    if (!nuevoDireccionSede.trim()) {
-      alert('La dirección de la sede es obligatoria');
-      return;
-    }
-
-    setCreandoSede(true);
-    try {
-      const nuevaSedeData = {
-        nombre: nuevoNombreSede.trim(),
-        direccion: nuevoDireccionSede.trim(),
-        telefono: nuevoTelefonoSede.trim() || '+57 310 000 0000',
-        horario: nuevoHorarioSede.trim() || 'Lunes a Sábado: 8:00 AM - 8:00 PM',
-        descripcion: nuevoDescripcionSede.trim() || 'Sucursal oficial de La Casa del Rey',
-      };
-
-      const updatedSucursales = await crearSucursal(nuevaSedeData);
-      setSucursales(updatedSucursales);
-      setMostrarModalNuevaSede(false);
-      setNuevoNombreSede('');
-      setNuevoDireccionSede('');
-      setNuevoTelefonoSede('');
-      setNuevoHorarioSede('Lunes a Sábado: 8:00 AM - 8:00 PM');
-      setNuevoDescripcionSede('');
-      notificarExito(`✓ Nueva sucursal "${nuevaSedeData.nombre}" inaugurada y habilitada con éxito`);
-      if (onDataUpdated) onDataUpdated();
-    } catch (err: any) {
-      alert('Error al crear la sede: ' + err.message);
-    } finally {
-      setCreandoSede(false);
-    }
-  };
-
-  const handleEliminarSede = async (id: string, nombre: string) => {
-    if (id === 'suc-chico' || id === 'suc-cedritos' || id === 'suc-usaquen') {
-      if (!window.confirm(`La sede "${nombre}" es una de las sedes fundacionales. ¿Estás absolutamente seguro de eliminarla?`)) {
-        return;
-      }
-    } else {
-      if (!window.confirm(`¿Confirmas eliminar la sede "${nombre}"?`)) {
-        return;
-      }
-    }
-
-    try {
-      const updatedSucursales = await eliminarSucursal(id);
-      setSucursales(updatedSucursales);
-      notificarExito(`✓ Sede "${nombre}" eliminada del sistema`);
-      if (onDataUpdated) onDataUpdated();
-    } catch (err: any) {
-      alert('Error al eliminar sede: ' + err.message);
-    }
-  };
-
-  // --- CREAR Y ELIMINAR BARBERO ---
-  const handleCrearNuevoBarbero = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!nuevoNombreBarbero.trim()) {
-      alert('El nombre del barbero es obligatorio');
-      return;
-    }
-
-    setCreandoBarbero(true);
-    try {
-      const sucursalObj = getSucursalById(nuevoSucursalBarbero);
-      const nuevoBarberoData = {
-        nombre: nuevoNombreBarbero.trim(),
-        especialidad: nuevoEspecialidadBarbero.trim() || 'Maestro Barbero',
-        descripcion: nuevoDescripcionBarbero.trim() || 'Especialista en cortes clásicos, degradados y afeitado tradicional a navaja.',
-        sucursalId: nuevoSucursalBarbero,
-        sucursalNombre: sucursalObj?.nombre || 'Sede Chicó'
-      };
-
-      const updatedBarberos = await crearBarbero(nuevoBarberoData);
-      setBarberos(updatedBarberos);
-      setMostrarModalNuevoBarbero(false);
-      setNuevoNombreBarbero('');
-      setNuevoEspecialidadBarbero('Maestro Barbero & Navaja Libre');
-      setNuevoDescripcionBarbero('');
-      setNuevoSucursalBarbero('suc-chico');
-      notificarExito(`✓ Maestro Barbero "${nuevoBarberoData.nombre}" incorporado con éxito`);
-      if (onDataUpdated) onDataUpdated();
-    } catch (err: any) {
-      alert('Error al añadir maestro barbero: ' + err.message);
-    } finally {
-      setCreandoBarbero(false);
-    }
-  };
-
-  const handleEliminarBarbero = async (id: number, nombre: string) => {
-    if (!window.confirm(`¿Confirmas retirar al maestro barbero "${nombre}" de la nómina activa?`)) {
-      return;
-    }
-    try {
-      const updatedBarberos = await eliminarBarbero(id);
-      setBarberos(updatedBarberos);
-      notificarExito(`✓ Maestro barbero "${nombre}" retirado de la nómina`);
-      if (onDataUpdated) onDataUpdated();
-    } catch (err: any) {
-      alert('Error al retirar maestro barbero: ' + err.message);
     }
   };
 
@@ -1000,23 +805,12 @@ export const UserManagementModule: React.FC<UserManagementModuleProps> = ({
                   </h3>
                 </div>
                 <p className="text-xs text-[#6F5A4B] mt-0.5">
-                  Gestiona la nómina, añade nuevos maestros barberos y personaliza sus datos y sedes
+                  Modifica los nombres de los barberos, sus oficios y descripciones que se muestran a los clientes
                 </p>
               </div>
-              <div className="flex items-center gap-2.5 self-start sm:self-center">
-                <span className="px-3 py-1 bg-[#FBEBE1] text-[#7C571C] text-xs font-bold rounded-full border border-[#DFCBB5]">
-                  {barberos.length} Barberos en Nómina
-                </span>
-                <button
-                  type="button"
-                  id="btn-crear-barbero"
-                  onClick={() => setMostrarModalNuevoBarbero(true)}
-                  className="px-3 py-1.5 rounded-lg bg-[#7C571C] hover:bg-[#684815] text-[#FAF6EE] text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>Nuevo Barbero</span>
-                </button>
-              </div>
+              <span className="px-3 py-1 bg-[#FBEBE1] text-[#7C571C] text-xs font-bold rounded-full border border-[#DFCBB5] self-start sm:self-center">
+                {barberos.length} Barberos en Nómina
+              </span>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -1058,22 +852,14 @@ export const UserManagementModule: React.FC<UserManagementModuleProps> = ({
                     </div>
                   </div>
 
-                  <div className="mt-4 pt-3 border-t border-[#DFCBB5]/60 flex items-center justify-between gap-2">
+                  <div className="mt-4 pt-3 border-t border-[#DFCBB5]/60 flex items-center justify-end">
                     <button
                       type="button"
                       onClick={() => iniciarEdicionBarbero(b)}
-                      className="flex-1 py-1.5 px-2.5 rounded-lg bg-[#7C571C] hover:bg-[#684815] text-[#FAF6EE] text-xs font-bold transition-all shadow-xs flex items-center justify-center gap-1 cursor-pointer"
+                      className="w-full py-1.5 px-3 rounded-lg bg-[#7C571C] hover:bg-[#684815] text-[#FAF6EE] text-xs font-bold transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer"
                     >
                       <Edit3 className="w-3.5 h-3.5" />
-                      <span>Modificar</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleEliminarBarbero(b.id, b.nombre)}
-                      className="p-1.5 rounded-lg text-[#BA1A1A] hover:bg-[#FFDAD6] border border-[#BA1A1A]/30 transition-all cursor-pointer"
-                      title="Retirar barbero de nómina"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>Modificar Nombre & Descripción</span>
                     </button>
                   </div>
                 </div>
@@ -1098,26 +884,15 @@ export const UserManagementModule: React.FC<UserManagementModuleProps> = ({
                   </h3>
                 </div>
                 <p className="text-xs text-[#6F5A4B] mt-0.5">
-                  Gestiona las sucursales, apertura nuevas sedes físicas y actualiza sus datos de contacto
+                  Modifica los nombres de las sedes, direcciones físicas, horarios y teléfonos de atención
                 </p>
               </div>
-              <div className="flex items-center gap-2.5 self-start sm:self-center">
-                <span className="px-3 py-1 bg-[#FBEBE1] text-[#7C571C] text-xs font-bold rounded-full border border-[#DFCBB5]">
-                  {sucursales.length} {sucursales.length === 1 ? 'Sede' : 'Sedes'} Registradas
-                </span>
-                <button
-                  type="button"
-                  id="btn-crear-sede"
-                  onClick={() => setMostrarModalNuevaSede(true)}
-                  className="px-3 py-1.5 rounded-lg bg-[#7C571C] hover:bg-[#684815] text-[#FAF6EE] text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>Nueva Sede</span>
-                </button>
-              </div>
+              <span className="px-3 py-1 bg-[#FBEBE1] text-[#7C571C] text-xs font-bold rounded-full border border-[#DFCBB5] self-start sm:self-center">
+                3 Sedes Clásicas
+              </span>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
               {sucursales.map(s => (
                 <div
                   key={s.id}
@@ -1161,22 +936,14 @@ export const UserManagementModule: React.FC<UserManagementModuleProps> = ({
                     )}
                   </div>
 
-                  <div className="pt-3 border-t border-[#DFCBB5]/60 flex items-center justify-between gap-2">
+                  <div className="pt-3 border-t border-[#DFCBB5]/60">
                     <button
                       type="button"
                       onClick={() => iniciarEdicionSede(s)}
-                      className="flex-1 py-1.5 px-2.5 rounded-lg bg-[#7C571C] hover:bg-[#684815] text-[#FAF6EE] text-xs font-bold transition-all shadow-xs flex items-center justify-center gap-1 cursor-pointer"
+                      className="w-full py-1.5 px-3 rounded-lg bg-[#7C571C] hover:bg-[#684815] text-[#FAF6EE] text-xs font-bold transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer"
                     >
                       <Edit3 className="w-3.5 h-3.5" />
-                      <span>Modificar</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleEliminarSede(s.id, s.nombre)}
-                      className="p-1.5 rounded-lg text-[#BA1A1A] hover:bg-[#FFDAD6] border border-[#BA1A1A]/30 transition-all cursor-pointer"
-                      title="Eliminar sucursal"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>Cambiar Nombre de Sede & Datos</span>
                     </button>
                   </div>
                 </div>
@@ -1201,23 +968,12 @@ export const UserManagementModule: React.FC<UserManagementModuleProps> = ({
                   </h3>
                 </div>
                 <p className="text-xs text-[#6F5A4B] mt-0.5">
-                  Gestiona los servicios oficiales, precios (COP), duración y crea nuevas experiencias para los clientes
+                  Modifica los nombres, precios oficiales (COP), duración y descripciones de la carta de servicios
                 </p>
               </div>
-              <div className="flex items-center gap-2.5 self-start sm:self-center">
-                <span className="px-3 py-1 bg-[#FBEBE1] text-[#7C571C] text-xs font-bold rounded-full border border-[#DFCBB5]">
-                  {servicios.length} Servicios Activos
-                </span>
-                <button
-                  type="button"
-                  id="btn-crear-servicio"
-                  onClick={() => setMostrarModalNuevoServicio(true)}
-                  className="px-3 py-1.5 rounded-lg bg-[#7C571C] hover:bg-[#684815] text-[#FAF6EE] text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>Nuevo Servicio</span>
-                </button>
-              </div>
+              <span className="px-3 py-1 bg-[#FBEBE1] text-[#7C571C] text-xs font-bold rounded-full border border-[#DFCBB5] self-start sm:self-center">
+                {servicios.length} Servicios Activos
+              </span>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -1264,22 +1020,14 @@ export const UserManagementModule: React.FC<UserManagementModuleProps> = ({
                     </div>
                   </div>
 
-                  <div className="mt-4 pt-3 border-t border-[#DFCBB5]/60 flex items-center justify-between gap-2">
+                  <div className="mt-4 pt-3 border-t border-[#DFCBB5]/60">
                     <button
                       type="button"
                       onClick={() => iniciarEdicionServicio(srv)}
-                      className="flex-1 py-1.5 px-2.5 rounded-lg bg-[#7C571C] hover:bg-[#684815] text-[#FAF6EE] text-xs font-bold transition-all shadow-xs flex items-center justify-center gap-1 cursor-pointer"
+                      className="w-full py-1.5 px-3 rounded-lg bg-[#7C571C] hover:bg-[#684815] text-[#FAF6EE] text-xs font-bold transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer"
                     >
                       <Edit3 className="w-3.5 h-3.5" />
-                      <span>Modificar</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleEliminarServicio(srv.id, srv.nombre)}
-                      className="p-1.5 rounded-lg text-[#BA1A1A] hover:bg-[#FFDAD6] border border-[#BA1A1A]/30 transition-all cursor-pointer"
-                      title="Eliminar servicio del catálogo"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>Modificar Nombre, Precio & Descripción</span>
                     </button>
                   </div>
                 </div>
@@ -1714,341 +1462,6 @@ export const UserManagementModule: React.FC<UserManagementModuleProps> = ({
                 >
                   <Save className="w-3.5 h-3.5" />
                   <span>{guardandoServicio ? 'Guardando...' : 'Guardar Servicio'}</span>
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* ======================================================== */}
-      {/* MODAL / CREAR NUEVO SERVICIO                             */}
-      {/* ======================================================== */}
-      {mostrarModalNuevoServicio && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-[#FFF8F5] border-2 border-[#7C571C] rounded-2xl p-6 max-w-lg w-full shadow-2xl space-y-4 font-mono">
-            <div className="flex items-center justify-between border-b border-[#DFCBB5] pb-3">
-              <div className="flex items-center gap-2 text-[#7C571C]">
-                <Scissors className="w-5 h-5" />
-                <h3 className="font-serif text-lg font-bold text-[#221A14]">
-                  Añadir Nuevo Servicio al Catálogo
-                </h3>
-              </div>
-              <button
-                type="button"
-                onClick={() => setMostrarModalNuevoServicio(false)}
-                className="p-1 text-[#6F5A4B] hover:text-[#221A14] rounded-lg hover:bg-[#FBEBE1] cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <form onSubmit={handleCrearNuevoServicio} className="space-y-4 text-xs">
-              <div>
-                <label className="text-[10px] text-[#6F5A4B] block uppercase font-bold mb-1">
-                  Nombre Oficial del Servicio:
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={nuevoNombreServicio}
-                  onChange={(e) => setNuevoNombreServicio(e.target.value)}
-                  placeholder="Ej: Corte Ejecutivo & Lavado Especial"
-                  className="w-full bg-[#FFFFFF] border border-[#DFCBB5] text-[#221A14] rounded-lg p-2.5 text-xs focus:outline-none focus:border-[#7C571C]"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-[10px] text-[#6F5A4B] block uppercase font-bold mb-1">
-                    Precio Oficial (COP):
-                  </label>
-                  <input
-                    type="number"
-                    min="1000"
-                    step="1000"
-                    required
-                    value={nuevoPrecioServicio}
-                    onChange={(e) => setNuevoPrecioServicio(Number(e.target.value))}
-                    className="w-full bg-[#FFFFFF] border border-[#DFCBB5] text-[#221A14] rounded-lg p-2.5 text-xs focus:outline-none focus:border-[#7C571C]"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-[10px] text-[#6F5A4B] block uppercase font-bold mb-1">
-                    Duración Estimada (Minutos):
-                  </label>
-                  <input
-                    type="number"
-                    min="5"
-                    step="5"
-                    required
-                    value={nuevoDuracionServicio}
-                    onChange={(e) => setNuevoDuracionServicio(Number(e.target.value))}
-                    className="w-full bg-[#FFFFFF] border border-[#DFCBB5] text-[#221A14] rounded-lg p-2.5 text-xs focus:outline-none focus:border-[#7C571C]"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="text-[10px] text-[#6F5A4B] block uppercase font-bold mb-1">
-                  Modalidad / Categoría:
-                </label>
-                <select
-                  value={nuevoCategoriaServicio}
-                  onChange={(e) => setNuevoCategoriaServicio(e.target.value as 'individual' | 'grupal')}
-                  className="w-full bg-[#FFFFFF] border border-[#DFCBB5] text-[#221A14] rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-[#7C571C] cursor-pointer"
-                >
-                  <option value="individual">Individual (Turno tradicional)</option>
-                  <option value="grupal">Grupal (Camaradería & Comitivas)</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="text-[10px] text-[#6F5A4B] block uppercase font-bold mb-1">
-                  Descripción del Ritual:
-                </label>
-                <textarea
-                  rows={3}
-                  value={nuevoDescripcionServicio}
-                  onChange={(e) => setNuevoDescripcionServicio(e.target.value)}
-                  placeholder="Describe la experiencia, ritual, toalla caliente, navaja libre o productos aplicados..."
-                  className="w-full bg-[#FFFFFF] border border-[#DFCBB5] text-[#221A14] rounded-lg p-2.5 text-xs focus:outline-none focus:border-[#7C571C]"
-                />
-              </div>
-
-              <div className="pt-2 flex items-center justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setMostrarModalNuevoServicio(false)}
-                  className="px-3 py-2 rounded-lg bg-[#FBEBE1] text-[#221A14] hover:bg-[#F5E5DB] font-bold cursor-pointer"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  disabled={creandoServicio}
-                  className="px-4 py-2 rounded-lg bg-[#7C571C] hover:bg-[#684815] text-[#FAF6EE] font-bold flex items-center gap-1.5 shadow-sm cursor-pointer disabled:opacity-50"
-                >
-                  <Save className="w-3.5 h-3.5" />
-                  <span>{creandoServicio ? 'Guardando...' : 'Crear Servicio'}</span>
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* ======================================================== */}
-      {/* MODAL / CREAR NUEVA SUCURSAL / SEDE                      */}
-      {/* ======================================================== */}
-      {mostrarModalNuevaSede && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-[#FFF8F5] border-2 border-[#7C571C] rounded-2xl p-6 max-w-lg w-full shadow-2xl space-y-4 font-mono">
-            <div className="flex items-center justify-between border-b border-[#DFCBB5] pb-3">
-              <div className="flex items-center gap-2 text-[#7C571C]">
-                <Store className="w-5 h-5" />
-                <h3 className="font-serif text-lg font-bold text-[#221A14]">
-                  Aperturar Nueva Sede
-                </h3>
-              </div>
-              <button
-                type="button"
-                onClick={() => setMostrarModalNuevaSede(false)}
-                className="p-1 text-[#6F5A4B] hover:text-[#221A14] rounded-lg hover:bg-[#FBEBE1] cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <form onSubmit={handleCrearNuevaSede} className="space-y-4 text-xs">
-              <div>
-                <label className="text-[10px] text-[#6F5A4B] block uppercase font-bold mb-1">
-                  Nombre de la Sede / Sucursal:
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={nuevoNombreSede}
-                  onChange={(e) => setNuevoNombreSede(e.target.value)}
-                  placeholder="Ej: Sede Rosales, Sede Chapinero Alto..."
-                  className="w-full bg-[#FFFFFF] border border-[#DFCBB5] text-[#221A14] rounded-lg p-2.5 text-xs focus:outline-none focus:border-[#7C571C]"
-                />
-              </div>
-
-              <div>
-                <label className="text-[10px] text-[#6F5A4B] block uppercase font-bold mb-1">
-                  Dirección Física:
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={nuevoDireccionSede}
-                  onChange={(e) => setNuevoDireccionSede(e.target.value)}
-                  placeholder="Ej: Calle 72 # 5-38, Bogotá"
-                  className="w-full bg-[#FFFFFF] border border-[#DFCBB5] text-[#221A14] rounded-lg p-2.5 text-xs focus:outline-none focus:border-[#7C571C]"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-[10px] text-[#6F5A4B] block uppercase font-bold mb-1">
-                    Teléfono de Contacto:
-                  </label>
-                  <input
-                    type="text"
-                    value={nuevoTelefonoSede}
-                    onChange={(e) => setNuevoTelefonoSede(e.target.value)}
-                    placeholder="+57 312 345 6789"
-                    className="w-full bg-[#FFFFFF] border border-[#DFCBB5] text-[#221A14] rounded-lg p-2.5 text-xs focus:outline-none focus:border-[#7C571C]"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-[10px] text-[#6F5A4B] block uppercase font-bold mb-1">
-                    Horario de Atención:
-                  </label>
-                  <input
-                    type="text"
-                    value={nuevoHorarioSede}
-                    onChange={(e) => setNuevoHorarioSede(e.target.value)}
-                    placeholder="Lun - Sáb: 8:00 AM - 8:00 PM"
-                    className="w-full bg-[#FFFFFF] border border-[#DFCBB5] text-[#221A14] rounded-lg p-2.5 text-xs focus:outline-none focus:border-[#7C571C]"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="text-[10px] text-[#6F5A4B] block uppercase font-bold mb-1">
-                  Descripción o Referencia de la Sede:
-                </label>
-                <textarea
-                  rows={2}
-                  value={nuevoDescripcionSede}
-                  onChange={(e) => setNuevoDescripcionSede(e.target.value)}
-                  placeholder="Ambiente distinguido, sillones hidráulicos clásicos y café bar de cortesía..."
-                  className="w-full bg-[#FFFFFF] border border-[#DFCBB5] text-[#221A14] rounded-lg p-2.5 text-xs focus:outline-none focus:border-[#7C571C]"
-                />
-              </div>
-
-              <div className="pt-2 flex items-center justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setMostrarModalNuevaSede(false)}
-                  className="px-3 py-2 rounded-lg bg-[#FBEBE1] text-[#221A14] hover:bg-[#F5E5DB] font-bold cursor-pointer"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  disabled={creandoSede}
-                  className="px-4 py-2 rounded-lg bg-[#7C571C] hover:bg-[#684815] text-[#FAF6EE] font-bold flex items-center gap-1.5 shadow-sm cursor-pointer disabled:opacity-50"
-                >
-                  <Save className="w-3.5 h-3.5" />
-                  <span>{creandoSede ? 'Guardando...' : 'Aperturar Sede'}</span>
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* ======================================================== */}
-      {/* MODAL / CREAR NUEVO MAESTRO BARBERO                      */}
-      {/* ======================================================== */}
-      {mostrarModalNuevoBarbero && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-[#FFF8F5] border-2 border-[#7C571C] rounded-2xl p-6 max-w-lg w-full shadow-2xl space-y-4 font-mono">
-            <div className="flex items-center justify-between border-b border-[#DFCBB5] pb-3">
-              <div className="flex items-center gap-2 text-[#7C571C]">
-                <StraightRazorIcon className="w-5 h-5" />
-                <h3 className="font-serif text-lg font-bold text-[#221A14]">
-                  Incorporar Maestro Barbero a Nómina
-                </h3>
-              </div>
-              <button
-                type="button"
-                onClick={() => setMostrarModalNuevoBarbero(false)}
-                className="p-1 text-[#6F5A4B] hover:text-[#221A14] rounded-lg hover:bg-[#FBEBE1] cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <form onSubmit={handleCrearNuevoBarbero} className="space-y-4 text-xs">
-              <div>
-                <label className="text-[10px] text-[#6F5A4B] block uppercase font-bold mb-1">
-                  Nombre Completo del Barbero:
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={nuevoNombreBarbero}
-                  onChange={(e) => setNuevoNombreBarbero(e.target.value)}
-                  placeholder="Ej: Gabriel 'El Navaja' Méndez"
-                  className="w-full bg-[#FFFFFF] border border-[#DFCBB5] text-[#221A14] rounded-lg p-2.5 text-xs focus:outline-none focus:border-[#7C571C]"
-                />
-              </div>
-
-              <div>
-                <label className="text-[10px] text-[#6F5A4B] block uppercase font-bold mb-1">
-                  Especialidad u Oficio:
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={nuevoEspecialidadBarbero}
-                  onChange={(e) => setNuevoEspecialidadBarbero(e.target.value)}
-                  placeholder="Ej: Maestro Barbero & Navaja Libre"
-                  className="w-full bg-[#FFFFFF] border border-[#DFCBB5] text-[#221A14] rounded-lg p-2.5 text-xs focus:outline-none focus:border-[#7C571C]"
-                />
-              </div>
-
-              <div>
-                <label className="text-[10px] text-[#6F5A4B] block uppercase font-bold mb-1">
-                  Sede Asignada:
-                </label>
-                <select
-                  value={nuevoSucursalBarbero}
-                  onChange={(e) => setNuevoSucursalBarbero(e.target.value)}
-                  className="w-full bg-[#FFFFFF] border border-[#DFCBB5] text-[#221A14] rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-[#7C571C] cursor-pointer"
-                >
-                  {sucursales.map(s => (
-                    <option key={s.id} value={s.id}>
-                      {s.nombre} ({s.id})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="text-[10px] text-[#6F5A4B] block uppercase font-bold mb-1">
-                  Descripción Biográfica:
-                </label>
-                <textarea
-                  rows={3}
-                  value={nuevoDescripcionBarbero}
-                  onChange={(e) => setNuevoDescripcionBarbero(e.target.value)}
-                  placeholder="Años de experiencia, estilos de corte predilectos, destreza con navaja o tijera..."
-                  className="w-full bg-[#FFFFFF] border border-[#DFCBB5] text-[#221A14] rounded-lg p-2.5 text-xs focus:outline-none focus:border-[#7C571C]"
-                />
-              </div>
-
-              <div className="pt-2 flex items-center justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setMostrarModalNuevoBarbero(false)}
-                  className="px-3 py-2 rounded-lg bg-[#FBEBE1] text-[#221A14] hover:bg-[#F5E5DB] font-bold cursor-pointer"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  disabled={creandoBarbero}
-                  className="px-4 py-2 rounded-lg bg-[#7C571C] hover:bg-[#684815] text-[#FAF6EE] font-bold flex items-center gap-1.5 shadow-sm cursor-pointer disabled:opacity-50"
-                >
-                  <Save className="w-3.5 h-3.5" />
-                  <span>{creandoBarbero ? 'Guardando...' : 'Incorporar a Nómina'}</span>
                 </button>
               </div>
             </form>
