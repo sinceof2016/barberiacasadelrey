@@ -795,6 +795,61 @@ app.put('/api/v1/barberia-casa-del-rey/sucursales/:id', (req: Request, res: Resp
   });
 });
 
+// Crear nueva sucursal (sede)
+app.post('/api/v1/barberia-casa-del-rey/sucursales', (req: Request, res: Response) => {
+  const { nombre, direccion, telefono, horario, descripcion, color, ciudad } = req.body;
+  if (!nombre) {
+    return res.status(400).json({ exito: false, mensaje: 'El nombre de la sede es obligatorio.' });
+  }
+  const slug = String(nombre)
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  const baseId = `suc-${slug || 'nueva'}`;
+  let finalId = baseId;
+  let counter = 1;
+  while (sucursalesCasaDelRey.some(s => s.id === finalId)) {
+    finalId = `${baseId}-${counter++}`;
+  }
+
+  const nuevaSucursal: Sucursal = {
+    id: finalId,
+    nombre: String(nombre).trim(),
+    ciudad: String(ciudad || 'Bogotá D.C.').trim(),
+    direccion: String(direccion || 'Bogotá D.C.').trim(),
+    telefono: String(telefono || '+57 (601) 745-8891').trim(),
+    horario: String(horario || 'Lun - Sáb: 09:00 AM - 07:00 PM').trim(),
+    color: color || '#C59B27',
+    descripcion: String(descripcion || 'Nueva sede exclusiva de Barbería La Casa del Rey.').trim(),
+  };
+
+  sucursalesCasaDelRey.push(nuevaSucursal);
+  registrarLog(`Nueva sucursal creada: [${nuevaSucursal.nombre}]`, 'info');
+  res.status(201).json({
+    exito: true,
+    mensaje: `Sede "${nuevaSucursal.nombre}" creada exitosamente.`,
+    datos: sucursalesCasaDelRey
+  });
+});
+
+// Eliminar sucursal (sede)
+app.delete('/api/v1/barberia-casa-del-rey/sucursales/:id', (req: Request, res: Response) => {
+  const { id } = req.params;
+  const index = sucursalesCasaDelRey.findIndex(s => s.id === id);
+  if (index === -1) {
+    return res.status(404).json({ exito: false, mensaje: 'Sucursal no encontrada.' });
+  }
+  const [eliminada] = sucursalesCasaDelRey.splice(index, 1);
+  registrarLog(`Sucursal eliminada: [${eliminada.nombre}]`, 'info');
+  res.status(200).json({
+    exito: true,
+    mensaje: `Sede "${eliminada.nombre}" eliminada exitosamente.`,
+    datos: sucursalesCasaDelRey
+  });
+});
+
 // Actualizar servicio (precio, nombre, descripción, duración)
 app.put('/api/v1/barberia-casa-del-rey/servicios/:id', (req: Request, res: Response) => {
   const { id } = req.params;
