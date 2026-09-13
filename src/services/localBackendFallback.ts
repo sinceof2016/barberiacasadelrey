@@ -742,13 +742,123 @@ function asegurarUsuariosActualizados(usuarios: Usuario[]): Usuario[] {
 
 import { verificarCredencialesEnVault, obtenerUsuariosSeguros } from './authVault';
 
+// ==========================================
+// Control de Intentos de Inicio de Sesión y Bloqueo de Seguridad
+// ==========================================
+const LOGIN_SECURITY_KEY = 'cdr_login_security_v1';
+const MAX_FALLBACK_ATTEMPTS = 5;
+const FALLBACK_LOCKOUT_MS = 15 * 60 * 1000; // 15 minutos
+
+function getLoginSecurityStore(): Record<string, { failedAttempts: number; lockedUntil: number; lastAttempt: number }> {
+  try {
+    const raw = localStorage.getItem(LOGIN_SECURITY_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
+function saveLoginSecurityStore(store: Record<string, { failedAttempts: number; lockedUntil: number; lastAttempt: number }>): void {
+  try {
+    localStorage.setItem(LOGIN_SECURITY_KEY, JSON.stringify(store));
+  } catch {
+    // Silencioso
+  }
+}
+
+export function localCheckLoginLockout(email: string): { blocked: boolean; remainingAttempts: number; retryAfterSeconds: number; lockoutMinutes: number } {
+  const normEmail = email.trim().toLowerCase();
+  const store = getLoginSecurityStore();
+  const record = store[normEmail];
+  const now = Date.now();
+
+  if (!record) {
+    return { blocked: false, remainingAttempts: MAX_FALLBACK_ATTEMPTS, retryAfterSeconds: 0, lockoutMinutes: 0 };
+  }
+
+  if (record.lockedUntil && now < record.lockedUntil) {
+    const retryAfterSeconds = Math.ceil((record.lockedUntil - now) / 1000);
+    const lockoutMinutes = Math.ceil(retryAfterSeconds / 60);
+    return { blocked: true, remainingAttempts: 0, retryAfterSeconds, lockoutMinutes };
+  }
+
+  if (record.lockedUntil && now >= record.lockedUntil) {
+    delete store[normEmail];
+    saveLoginSecurityStore(store);
+    return { blocked: false, remainingAttempts: MAX_FALLBACK_ATTEMPTS, retryAfterSeconds: 0, lockoutMinutes: 0 };
+  }
+
+  const remaining = Math.max(0, MAX_FALLBACK_ATTEMPTS - record.failedAttempts);
+  return { blocked: false, remainingAttempts: remaining, retryAfterSeconds: 0, lockoutMinutes: 0 };
+}
+
+function recordLocalFailedLogin(email: string): { blocked: boolean; remainingAttempts: number; failedAttempts: number; retryAfterSeconds: number; lockoutMinutes: number } {
+  const normEmail = email.trim().toLowerCase();
+  const store = getLoginSecurityStore();
+  const now = Date.now();
+  let record = store[normEmail];
+
+  if (!record || (record.lockedUntil && now >= record.lockedUntil) || (now - record.lastAttempt > FALLBACK_LOCKOUT_MS)) {
+    record = {
+      failedAttempts: 1,
+      lockedUntil: 0,
+      lastAttempt: now
+    };
+  } else {
+    record.failedAttempts += 1;
+    record.lastAttempt = now;
+  }
+
+  if (record.failedAttempts >= MAX_FALLBACK_ATTEMPTS) {
+    record.lockedUntil = now + FALLBACK_LOCKOUT_MS;
+    store[normEmail] = record;
+    saveLoginSecurityStore(store);
+    const retryAfterSeconds = Math.ceil(FALLBACK_LOCKOUT_MS / 1000);
+    return {
+      blocked: true,
+      remainingAttempts: 0,
+      failedAttempts: record.failedAttempts,
+      retryAfterSeconds,
+      lockoutMinutes: 15
+    };
+  }
+
+  store[normEmail] = record;
+  saveLoginSecurityStore(store);
+  return {
+    blocked: false,
+    remainingAttempts: Math.max(0, MAX_FALLBACK_ATTEMPTS - record.failedAttempts),
+    failedAttempts: record.failedAttempts,
+    retryAfterSeconds: 0,
+    lockoutMinutes: 0
+  };
+}
+
+function clearLocalLoginAttempts(email: string): void {
+  const normEmail = email.trim().toLowerCase();
+  const store = getLoginSecurityStore();
+  if (store[normEmail]) {
+    delete store[normEmail];
+    saveLoginSecurityStore(store);
+  }
+}
+
 export async function localLoginUsuario(email: string, password: string): Promise<{ exito: boolean; mensaje: string; usuario: Usuario }> {
   const normEmail = email.trim().toLowerCase();
   const trimPassword = password.trim();
 
-  // 1. Verificación segura en la Bóveda de Credenciales Cifradas (SHA-256)
+  // 1. Verificación de bloqueo por exceso de intentos fallidos
+  const lockout = localCheckLoginLockout(normEmail);
+  if (lockout.blocked) {
+    throw new Error(
+      `Has superado el límite de ${MAX_FALLBACK_ATTEMPTS} intentos de inicio de sesión permitidos. Tu acceso está bloqueado temporalmente por ${lockout.lockoutMinutes} minuto(s) por seguridad.`
+    );
+  }
+
+  // 2. Verificación segura en la Bóveda Criptográfica (SHA-256)
   const usuarioVault = await verificarCredencialesEnVault(normEmail, trimPassword);
   if (usuarioVault) {
+    clearLocalLoginAttempts(normEmail);
     return {
       exito: true,
       mensaje: `Acceso concedido a Barbería Casa del Rey. Bienvenido, ${usuarioVault.nombre}.`,
@@ -756,17 +866,48 @@ export async function localLoginUsuario(email: string, password: string): Promis
     };
   }
 
-  // 2. Verificación de usuarios dinámicos en almacenamiento local seguro
+  // 3. Verificación especial para David Orjuela con credenciales conocidas
+  const esDavidEmail = normEmail === 'orjueladavid32@gmail.com' || normEmail === 'david.orjuela@casadelrey.com';
+  const esDavidPass = trimPassword.toLowerCase() === 'deivid17.' || 
+                      trimPassword.toLowerCase() === 'deivid17' || 
+                      trimPassword.toLowerCase() === 'deivid' ||
+                      trimPassword === 'Deivid17.' || 
+                      trimPassword === 'Deivid17';
+
+  if (esDavidEmail && esDavidPass) {
+    clearLocalLoginAttempts(normEmail);
+    const davidUser: Usuario = {
+      id: 'USR-DAVID-01',
+      nombre: 'David Orjuela',
+      email: normEmail,
+      rol: 'SuperAdmin',
+      sucursalAsignada: 'todas',
+      puedeVerApi: true,
+      creadoEn: '2026-09-01T07:00:00.000Z'
+    };
+    return {
+      exito: true,
+      mensaje: `Bienvenido Don David Orjuela. Acceso total concedido (SuperAdmin con API activa).`,
+      usuario: davidUser
+    };
+  }
+
+  // 4. Verificación contra usuarios dinámicos registrados
   const usuariosRaw = getLocal<Usuario[]>(STORAGE_KEYS.USUARIOS, obtenerUsuariosSeguros());
   const usuarios = asegurarUsuariosActualizados(usuariosRaw);
   const u = usuarios.find(x => x.email.toLowerCase() === normEmail);
 
-  if (u && trimPassword.length >= 4) {
-    const usuarioFinal = {
-      ...u,
-      puedeVerApi: u.rol === 'SuperAdmin' || u.nombre.toLowerCase().includes('david orjuela')
+  if (u && (u as any).password && (u as any).password === trimPassword) {
+    clearLocalLoginAttempts(normEmail);
+    const usuarioFinal: Usuario = {
+      id: u.id,
+      nombre: u.nombre,
+      email: u.email,
+      rol: u.rol,
+      sucursalAsignada: u.sucursalAsignada,
+      puedeVerApi: u.rol === 'SuperAdmin' || u.nombre.toLowerCase().includes('david orjuela'),
+      creadoEn: u.creadoEn
     };
-
     return {
       exito: true,
       mensaje: `Bienvenido a Barbería La Casa del Rey, ${u.nombre}`,
@@ -774,30 +915,17 @@ export async function localLoginUsuario(email: string, password: string): Promis
     };
   }
 
-  // Fallback si no está en lista
-  if (normEmail.includes('admin') && trimPassword.length >= 4) {
-    const adminUser: Usuario = {
-      id: 'USR-ADMIN-01',
-      nombre: 'Don Fernando Duque (Director General)',
-      email: 'admin@casadelrey.com',
-      rol: 'Administrador',
-      sucursalAsignada: 'todas',
-      puedeVerApi: false,
-      creadoEn: new Date().toISOString()
-    };
-    return { exito: true, mensaje: 'Sesión iniciada como Administrador (Sin acceso a API)', usuario: adminUser };
+  // Fallo de credenciales: registrar intento fallido y aplicar rate limit
+  const fail = recordLocalFailedLogin(normEmail);
+  if (fail.blocked) {
+    throw new Error(
+      `Has superado el límite de ${MAX_FALLBACK_ATTEMPTS} intentos permitidos. Por seguridad de La Casa del Rey, el acceso ha sido bloqueado por ${fail.lockoutMinutes} minutos.`
+    );
   }
 
-  const cajeroUser: Usuario = {
-    id: 'USR-CAJA-01',
-    nombre: 'Caja Principal Barbería La Casa del Rey',
-    email: normEmail || 'caja@casadelrey.com',
-    rol: 'Cajero',
-    sucursalAsignada: 'suc-chico',
-    puedeVerApi: false,
-    creadoEn: new Date().toISOString()
-  };
-  return { exito: true, mensaje: 'Sesión iniciada como Cajero', usuario: cajeroUser };
+  throw new Error(
+    `Credenciales inválidas. Te quedan ${fail.remainingAttempts} intento(s) antes del bloqueo temporal de seguridad.`
+  );
 }
 
 export function localGetUsuarios(): Usuario[] {

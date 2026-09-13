@@ -7,7 +7,11 @@ import {
   KeyRound, 
   AlertCircle, 
   CheckCircle2,
-  Sparkles
+  Sparkles,
+  ShieldCheck,
+  ShieldAlert,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 import { BarberPoleRibbon } from './VintageBarberIcons';
 import { LOGO_CASA_DEL_REY } from '../utils/assets';
@@ -25,8 +29,10 @@ export const LoginModal: React.FC<LoginModalProps> = ({
 }) => {
   const [email, setEmail] = useState<string>('');
   const [password, setPassword] = useState<string>('');
+  const [mostrarPassword, setMostrarPassword] = useState<boolean>(false);
   const [cargando, setCargando] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [esBloqueado, setEsBloqueado] = useState<boolean>(false);
   const [mensajeExito, setMensajeExito] = useState<string | null>(null);
 
   if (!isOpen) return null;
@@ -40,6 +46,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
 
     setCargando(true);
     setError(null);
+    setEsBloqueado(false);
     try {
       const res = await loginUsuario(email.trim(), password.trim());
       setMensajeExito(res.mensaje);
@@ -49,14 +56,18 @@ export const LoginModal: React.FC<LoginModalProps> = ({
         setMensajeExito(null);
       }, 700);
     } catch (err: any) {
-      setError(err.message || 'Credenciales incorrectas');
+      const msg = err.message || 'Credenciales incorrectas';
+      setError(msg);
+      if (msg.includes('bloque') || msg.includes('superado') || msg.includes('límite')) {
+        setEsBloqueado(true);
+      }
     } finally {
       setCargando(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#221A14]/75 backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#221A14]/80 backdrop-blur-sm">
       <div className="relative w-full max-w-md rounded-2xl bg-[#FFF8F5] border border-[#DFCBB5] p-6 shadow-2xl font-mono text-xs overflow-hidden">
         {/* Vintage Barber Ribbon Accent */}
         <BarberPoleRibbon className="h-1.5 absolute top-0 left-0" />
@@ -106,8 +117,9 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="ejemplo@casadelrey.com"
                 required
+                disabled={cargando || esBloqueado}
                 autoComplete="email"
-                className="w-full bg-[#FFFFFF] border border-[#DFCBB5] text-[#221A14] placeholder:text-[#A8988B] rounded-lg pl-9 pr-3 py-2 text-xs focus:outline-none focus:border-[#7C571C] focus:ring-1 focus:ring-[#7C571C]"
+                className="w-full bg-[#FFFFFF] border border-[#DFCBB5] text-[#221A14] placeholder:text-[#A8988B] rounded-lg pl-9 pr-3 py-2 text-xs focus:outline-none focus:border-[#7C571C] focus:ring-1 focus:ring-[#7C571C] disabled:bg-[#F2EAE1] disabled:opacity-60"
               />
             </div>
           </div>
@@ -119,21 +131,42 @@ export const LoginModal: React.FC<LoginModalProps> = ({
             <div className="relative">
               <KeyRound className="w-4 h-4 absolute left-3 top-2.5 text-[#7C571C]" />
               <input
-                type="password"
+                type={mostrarPassword ? 'text' : 'password'}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
                 required
+                disabled={cargando || esBloqueado}
                 autoComplete="current-password"
-                className="w-full bg-[#FFFFFF] border border-[#DFCBB5] text-[#221A14] placeholder:text-[#A8988B] rounded-lg pl-9 pr-3 py-2 text-xs focus:outline-none focus:border-[#7C571C] focus:ring-1 focus:ring-[#7C571C]"
+                className="w-full bg-[#FFFFFF] border border-[#DFCBB5] text-[#221A14] placeholder:text-[#A8988B] rounded-lg pl-9 pr-10 py-2 text-xs focus:outline-none focus:border-[#7C571C] focus:ring-1 focus:ring-[#7C571C] disabled:bg-[#F2EAE1] disabled:opacity-60"
               />
+              <button
+                type="button"
+                onClick={() => setMostrarPassword(!mostrarPassword)}
+                className="absolute right-2.5 top-2.5 text-[#8C7667] hover:text-[#221A14] transition-colors"
+                title={mostrarPassword ? 'Ocultar contraseña' : 'Ver contraseña'}
+                aria-label={mostrarPassword ? 'Ocultar contraseña' : 'Ver contraseña'}
+              >
+                {mostrarPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
             </div>
           </div>
 
           {error && (
-            <div className="p-3 rounded-lg bg-[#FDF2F2] border border-[#F87171]/40 text-[#991B1B] text-xs flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 shrink-0" />
-              <span>{error}</span>
+            <div className={`p-3 rounded-lg border text-xs flex items-start gap-2.5 ${
+              esBloqueado 
+                ? 'bg-[#FEF2F2] border-[#EF4444] text-[#991B1B]' 
+                : 'bg-[#FFFBEB] border-[#F59E0B] text-[#92400E]'
+            }`}>
+              {esBloqueado ? (
+                <ShieldAlert className="w-4 h-4 shrink-0 text-[#DC2626] mt-0.5" />
+              ) : (
+                <AlertCircle className="w-4 h-4 shrink-0 text-[#D97706] mt-0.5" />
+              )}
+              <div className="leading-relaxed">
+                <span className="font-bold">{esBloqueado ? 'BLOQUEO TEMPORAL DE SEGURIDAD: ' : 'AVISO: '}</span>
+                <span>{error}</span>
+              </div>
             </div>
           )}
 
@@ -146,11 +179,11 @@ export const LoginModal: React.FC<LoginModalProps> = ({
 
           <button
             type="submit"
-            disabled={cargando}
-            className="w-full py-2.5 bg-[#7C571C] hover:bg-[#684815] text-[#FAF6EE] font-mono font-bold text-xs rounded-lg transition-all shadow-md active:scale-98 disabled:opacity-50 flex items-center justify-center gap-2 tracking-wider uppercase cursor-pointer"
+            disabled={cargando || esBloqueado}
+            className="w-full py-2.5 bg-[#7C571C] hover:bg-[#684815] text-[#FAF6EE] font-mono font-bold text-xs rounded-lg transition-all shadow-md active:scale-98 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 tracking-wider uppercase cursor-pointer"
           >
             <Lock className="w-3.5 h-3.5" />
-            <span>{cargando ? 'VERIFICANDO...' : 'INICIAR SESIÓN'}</span>
+            <span>{cargando ? 'VERIFICANDO...' : esBloqueado ? 'ACCESO BLOQUEADO' : 'INICIAR SESIÓN'}</span>
           </button>
         </form>
 

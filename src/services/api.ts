@@ -465,16 +465,47 @@ export async function loginUsuario(email: string, password: string): Promise<{
   usuario: Usuario;
 }> {
   try {
-    const res = await safeFetch(`${BASE_URL}/auth/login`, {
+    const res = await fetch(`${BASE_URL}/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password }),
     });
-    if (!res || !res.ok) {
+
+    const data = await res.json().catch(() => null);
+
+    if (res.status === 429) {
+      // Bloqueo estricto por exceso de intentos fallidos
+      throw new Error(
+        data?.mensaje || 'Has superado el límite de 5 intentos de inicio de sesión permitidos. Tu acceso ha sido bloqueado temporalmente por 15 minutos por seguridad.'
+      );
+    }
+
+    if (res.status === 401) {
+      // Credenciales inválidas con contador de intentos restantes
+      throw new Error(
+        data?.mensaje || 'Credenciales inválidas. Por favor verifica tu correo electrónico y contraseña.'
+      );
+    }
+
+    if (!res.ok) {
+      if (data?.mensaje) throw new Error(data.mensaje);
       return await localLoginUsuario(email, password);
     }
-    return await res.json();
-  } catch {
+
+    return data;
+  } catch (err: any) {
+    // Si es un error explícito de credenciales o bloqueo de intentos, propagarlo sin enmascarar
+    if (
+      err.message && (
+        err.message.includes('límite') || 
+        err.message.includes('bloque') || 
+        err.message.includes('inválid') || 
+        err.message.includes('quedan') ||
+        err.message.includes('superado')
+      )
+    ) {
+      throw err;
+    }
     return await localLoginUsuario(email, password);
   }
 }

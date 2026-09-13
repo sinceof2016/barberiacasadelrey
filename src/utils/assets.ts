@@ -21,6 +21,42 @@ export const HERITAGE_AVATAR_PROFILE = 'https://lh3.googleusercontent.com/aida-p
 export const HERITAGE_BANNER_MASTER = 'https://lh3.googleusercontent.com/aida-public/AB6AXuBrvFvmIhvCOtxoFPRK9Wcu2IESmM8m0eh2h-SgaPbDsN_zVoWr70ZoG9eyQUK9pjpYCseuO4Fz8ZN-e7KKat7MC-wjwyIVt5goOSp5L3ddscGdRgXx79DbgbzZYmVPr4bY80CNgt9I1gFLvRgiVSTrzqnxlmxgUnAhCbl47Gp-QRQ35SNLTu5YU1KZ7nLk-jj_HiDvUPXTkKUmzIUWROu3E4aoXNR1MjmgqxpaG58b1sbuChIa5fPEAw';
 
 /**
+ * Catálogo curado de avatares fotográficos de maestros barberos estilo vintage
+ */
+export const PRESET_BARBER_AVATARS = [
+  {
+    id: 'avatar-heritage',
+    nombre: 'Maestro Clásico Tradicional',
+    url: HERITAGE_AVATAR_PROFILE,
+  },
+  {
+    id: 'avatar-fade',
+    nombre: 'Lord Fade & Pompadour',
+    url: 'https://images.unsplash.com/photo-1503951914875-452162b0f3f1?auto=format&fit=crop&w=400&q=80',
+  },
+  {
+    id: 'avatar-barba',
+    nombre: 'Maestro Barbero Imperial',
+    url: 'https://images.unsplash.com/photo-1622286342621-4bd786c2447c?auto=format&fit=crop&w=400&q=80',
+  },
+  {
+    id: 'avatar-oldschool',
+    nombre: 'Old School Británico',
+    url: 'https://images.unsplash.com/photo-1517832606589-7629c3397143?auto=format&fit=crop&w=400&q=80',
+  },
+  {
+    id: 'avatar-navaja',
+    nombre: 'Cirujano de Navaja Libre',
+    url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=400&q=80',
+  },
+  {
+    id: 'avatar-estilista',
+    nombre: 'Estilismo & Tijera Clásica',
+    url: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=400&q=80',
+  }
+];
+
+/**
  * Resuelve una ruta pública de forma relativa o prefijada con BASE_URL para entornos GitHub Pages
  */
 export function resolvePublicAsset(fileName: string): string {

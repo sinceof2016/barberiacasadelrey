@@ -9,3 +9,11 @@ coverage/
 firebase-applet-config.json
 *.pem
 *.key
+*.pfx
+*.p12
+*.crt
+credentials.json
+service-account*.json
+client_secret*.json
+.firebase/
+.cache/

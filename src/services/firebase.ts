@@ -1,5 +1,6 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
+import { getStorage } from 'firebase/storage';
 import { 
   getFirestore, 
   doc, 
@@ -21,6 +22,8 @@ const app = initializeApp(firebaseConfig);
 // Initialize Firestore with specific database ID (CRITICAL)
 export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
 export const auth = getAuth(app);
+// Initialize Google Cloud Storage / Firebase Storage
+export const storage = getStorage(app, firebaseConfig.storageBucket ? `gs://${firebaseConfig.storageBucket}` : undefined);
 
 export enum OperationType {
   CREATE = 'create',
