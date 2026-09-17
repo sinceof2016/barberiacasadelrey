@@ -82,6 +82,26 @@
         "actualizadoPor": { "type": "string", "maxLength": 100 }
       },
       "required": ["fecha", "baseInicial"]
+    },
+    "ProductoInventario": {
+      "title": "ProductoInventario",
+      "description": "Catálogo de productos de barbería para venta y control de inventario",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "nombre": { "type": "string", "maxLength": 120 },
+        "categoria": { "type": "string", "enum": ["Pomadas", "Ceras", "Geles", "Perfumería", "Cuidado Barba", "Otros"] },
+        "precio": { "type": "number" },
+        "costo": { "type": "number" },
+        "stock": { "type": "number" },
+        "stockMinimo": { "type": "number" },
+        "sku": { "type": "string", "maxLength": 50 },
+        "marca": { "type": "string", "maxLength": 80 },
+        "descripcion": { "type": "string", "maxLength": 300 },
+        "activo": { "type": "boolean" },
+        "actualizadoEn": { "type": "string" }
+      },
+      "required": ["id", "nombre", "categoria", "precio", "stock"]
     }
   },
   "firestore": {
@@ -100,6 +120,10 @@
     "/caja_arqueos/{fecha}": {
       "schema": "CajaArqueo",
       "description": "Colección de bases iniciales y cierres de caja por fecha"
+    },
+    "/productos/{productoId}": {
+      "schema": "ProductoInventario",
+      "description": "Colección de inventario de productos de venta de la barbería"
     }
   }
 }

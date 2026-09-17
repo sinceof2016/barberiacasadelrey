@@ -88,5 +88,15 @@ service cloud.firestore {
         && incoming().baseInicial is number && incoming().baseInicial >= 0;
       allow delete: if false;
     }
+
+    // Productos e Inventario de Barbería (Pomadas, Ceras, Geles, Perfumería)
+    match /productos/{productoId} {
+      allow read: if isValidId(productoId);
+      allow create, update: if isValidId(productoId)
+        && incoming().nombre is string && incoming().nombre.size() <= 120
+        && incoming().precio is number && incoming().precio >= 0
+        && incoming().stock is number;
+      allow delete: if isValidId(productoId);
+    }
   }
 }

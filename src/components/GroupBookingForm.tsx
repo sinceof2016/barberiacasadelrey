@@ -1,9 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { Servicio, Cita } from '../types';
 import { crearCitaGrupal } from '../services/api';
-import { Users, Plus, Trash2, CheckCircle2, AlertCircle, Copy, Check, Clock, User, Phone, Mail, ShieldCheck, MapPin } from 'lucide-react';
+import { Users, Plus, Trash2, CheckCircle2, AlertCircle, Copy, Check, Clock, User, Phone, Mail, ShieldCheck, MapPin, MessageSquare, Send, ExternalLink } from 'lucide-react';
 import { AddToCalendarButtons } from './AddToCalendarButtons';
-import { WhatsAppConfirmButton } from './WhatsAppConfirmButton';
+import { 
+  WhatsAppConfirmButton, 
+  WHATSAPP_BARBERIA_DISPLAY, 
+  WHATSAPP_BARBERIA_NUMERO,
+  generarTextoMensajeReserva, 
+  generarUrlWhatsAppBarberia,
+  generarUrlWaMeBarberia
+} from './WhatsAppConfirmButton';
 import { VintageDatePicker } from './VintageDatePicker';
 import { useColombiaClock, getColombiaDateTime, isSlotPassedInColombia } from '../utils/colombiaTime';
 import { sucursalesCasaDelRey } from '../services/localData';
@@ -175,6 +182,7 @@ export const GroupBookingForm: React.FC<GroupBookingFormProps> = ({
       if (resp.exito && resp.reserva) {
         setCitaCreada(resp.reserva);
         onBookingSuccess(resp.reserva);
+
         window.scrollTo({ top: 0, behavior: 'smooth' });
         document.documentElement?.scrollTo?.({ top: 0, behavior: 'smooth' });
         document.body?.scrollTo?.({ top: 0, behavior: 'smooth' });
@@ -301,13 +309,6 @@ export const GroupBookingForm: React.FC<GroupBookingFormProps> = ({
         <AddToCalendarButtons
           cita={citaCreada}
           duracionMinutos={citaCreada.totalPersonas * 30}
-          className="mb-4"
-        />
-
-        {/* WhatsApp Direct Confirmation Button */}
-        <WhatsAppConfirmButton
-          cita={citaCreada}
-          precioTotal={totalCalculado}
           className="mb-5"
         />
 

@@ -20,9 +20,12 @@ import { LoginModal } from './components/LoginModal';
 import { UserManagementModule } from './components/UserManagementModule';
 import { GoogleCalendarModal } from './components/GoogleCalendarModal';
 import { CustomerReportModule } from './components/CustomerReportModule';
+import { CookieConsentBanner } from './components/CookieConsentBanner';
+import { CookiePreferencesModal } from './components/CookiePreferencesModal';
+import { registrarEventoAnalitica } from './services/cookieService';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { auth } from './services/firebaseAuth';
-import { MapPin, Phone, Clock, Terminal, Scissors, Coins, Lock, Users, ShieldAlert } from 'lucide-react';
+import { MapPin, Phone, Clock, Terminal, Scissors, Coins, Lock, Users, ShieldAlert, Cookie } from 'lucide-react';
 import { 
   VintageCrownIcon, 
   StraightRazorIcon, 
@@ -89,6 +92,12 @@ export default function App() {
   const [googleUser, setGoogleUser] = useState<User | null>(null);
   const [googleCalendarModalOpen, setGoogleCalendarModalOpen] = useState<boolean>(false);
   const [customerReportModalOpen, setCustomerReportModalOpen] = useState<boolean>(false);
+  const [cookiePreferencesOpen, setCookiePreferencesOpen] = useState<boolean>(false);
+
+  // Registro de analítica anónima según preferencias de cookies
+  useEffect(() => {
+    registrarEventoAnalitica('visita_pestana', { pestana: activeTab });
+  }, [activeTab]);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
@@ -442,6 +451,17 @@ export default function App() {
         barberos={barberos}
       />
 
+      {/* Banner de Aviso de Cookies */}
+      <CookieConsentBanner
+        onOpenPreferences={() => setCookiePreferencesOpen(true)}
+      />
+
+      {/* Modal de Centro de Preferencias de Cookies */}
+      <CookiePreferencesModal
+        isOpen={cookiePreferencesOpen}
+        onClose={() => setCookiePreferencesOpen(false)}
+      />
+
       {/* Heritage Barber Footer */}
       <footer className="border-t border-[#DFCBB5] bg-[#FBEBE1] mt-12 text-xs text-[#4F4539] font-sans relative pb-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -492,15 +512,29 @@ export default function App() {
             </div>
           </div>
 
-          <div className="pt-4 border-t border-[#DFCBB5] flex flex-col sm:flex-row items-center justify-between gap-2 text-[10px] text-[#6F5A4B]">
-            <span>© {new Date().getFullYear()} BARBERÍA LA CASA DEL REY • EST. 2016</span>
+          <div className="pt-4 border-t border-[#DFCBB5] flex flex-col sm:flex-row items-center justify-between gap-3 text-[10px] text-[#6F5A4B]">
+            <div className="flex flex-wrap items-center gap-2">
+              <span>© {new Date().getFullYear()} BARBERÍA LA CASA DEL REY • EST. 2016</span>
+              <span>•</span>
+              <button
+                type="button"
+                id="btn-preferencias-cookies-footer"
+                onClick={() => setCookiePreferencesOpen(true)}
+                className="inline-flex items-center gap-1.5 text-[#7C571C] hover:text-[#221A14] bg-[#FFF8F5] hover:bg-[#F5E5DB] px-2.5 py-1 rounded-lg border border-[#DFCBB5] transition-colors cursor-pointer font-bold font-mono"
+                title="Ajustar permisos y preferencias de cookies"
+              >
+                <Cookie className="w-3 h-3 text-[#7C571C]" />
+                <span>Preferencias de Cookies</span>
+              </button>
+            </div>
+
             <div className="flex items-center gap-3">
               <span className="inline-flex items-center gap-1.5 text-[#15803D] font-mono text-[9px] bg-[#EBF7EE] px-2 py-0.5 rounded-full border border-[#86EFAC]/50">
                 <span className="w-1.5 h-1.5 rounded-full bg-[#15803D] animate-pulse"></span>
                 Servicio Cloud Conectado
               </span>
               <span>•</span>
-              <span>TRADICIÓN & ARTE DE BARBERÍA</span>
+              <span className="font-mono text-[9px] text-[#6F5A4B]">LEY 1581 DE 2012</span>
             </div>
           </div>
         </div>

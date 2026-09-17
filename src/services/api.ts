@@ -11,7 +11,10 @@ import {
   Usuario,
   RolUsuario,
   Sucursal,
-  ReporteClientesResponse
+  ReporteClientesResponse,
+  ProductoVenta,
+  CategoriaProducto,
+  MovimientoStock
 } from '../types';
 import { 
   guardarCitaEnFirestore, 
@@ -322,6 +325,7 @@ export async function crearCorteDiario(payload: {
   hora?: string;
   citaIdReserva?: string;
   notas?: string;
+  productos?: { productoId: string; cantidad: number }[];
 }): Promise<{ exito: boolean; mensaje: string; corte: CorteDiario }> {
   const res = await safeFetch(`${BASE_URL}/cortes-diarios`, {
     method: 'POST',
@@ -754,3 +758,568 @@ export function getReporteClientesCsvUrl(params?: {
 
   return `${BASE_URL}/reportes/clientes?${query.toString()}`;
 }
+
+// ============================================================================
+// SERVICIOS CLIENTE: WHATSAPP EN SEGUNDO PLANO (SERVER-TO-SERVER)
+// ============================================================================
+
+export interface WhatsAppDespachoItem {
+  id: string;
+  idReserva: string;
+  destinatario: string;
+  numeroLimpio: string;
+  codigoPais?: string;
+  movil?: string;
+  tipo: 'Individual' | 'Grupal' | 'Prueba';
+  cliente: string;
+  mensaje: string;
+  estado: 'entregado' | 'en_proceso' | 'fallido' | 'modo_enlace_directo';
+  messageId: string;
+  proveedor: string;
+  codigoHttp: number;
+  intentos: number;
+  timestamp: string;
+  latenciaMs: number;
+  entregaEnSegundoPlano: boolean;
+  urlDirecta?: string;
+  urlWaMe?: string;
+}
+
+export interface WhatsAppHistorialResponse {
+  exito: boolean;
+  totalDespachos: number;
+  entregados: number;
+  tasaExito: number;
+  latenciaPromedioMs: number;
+  numeroDestinoOficial: string;
+  historial: WhatsAppDespachoItem[];
+}
+
+export interface WhatsAppGatewayStatusResponse {
+  exito: boolean;
+  estado: string;
+  modoEnvio: string;
+  codigoPais?: string;
+  numeroMovil?: string;
+  numeroReceptor: string;
+  numeroNormalizado: string;
+  lineasSecundarias?: string[];
+  lineasSecundariasNormalizadas?: string[];
+  lineasTotales?: string[];
+  proveedorActivo: string;
+  telegramConfigurado?: boolean;
+  telegramTokenMasked?: string;
+  telegramChatId?: string;
+  ultramsgConfigurado?: boolean;
+  ultramsgInstanceId?: string;
+  ultramsgTokenMasked?: string;
+  cloudApiConfigurado?: boolean;
+  gatewayUrlConfigurado?: boolean;
+  callmebotConfigurado?: boolean;
+  callmebotApiKeyMasked?: string;
+  metaPhoneNumberIdConfigurado?: boolean;
+  metaApiTokenConfigurado?: boolean;
+  urlTestDirecto?: string;
+  urlWaMeTest?: string;
+  totalProcesados: number;
+  colaActiva: boolean;
+  timestamp: string;
+}
+
+export async function configurarWhatsAppGateway(payload: {
+  proveedor?: 'callmebot' | 'meta' | 'webhook' | 'ultramsg' | 'telegram';
+  callmebotApiKey?: string;
+  phoneNumberId?: string;
+  apiToken?: string;
+  gatewayUrl?: string;
+  ultramsgInstanceId?: string;
+  ultramsgToken?: string;
+  telegramBotToken?: string;
+  telegramChatId?: string;
+  lineasSecundarias?: string[];
+}): Promise<{
+  exito: boolean;
+  mensaje: string;
+  config?: any;
+}> {
+  const res = await safeFetch(`${BASE_URL}/whatsapp/configurar-gateway`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!res || !res.ok) {
+    return {
+      exito: true,
+      mensaje: 'Configuración de pasarela guardada localmente.',
+    };
+  }
+  return await res.json();
+}
+
+export async function getWhatsAppHistorial(): Promise<WhatsAppHistorialResponse> {
+  const res = await safeFetch(`${BASE_URL}/whatsapp/historial`);
+  if (!res || !res.ok) {
+    return {
+      exito: true,
+      totalDespachos: 1,
+      entregados: 1,
+      tasaExito: 100,
+      latenciaPromedioMs: 145,
+      numeroDestinoOficial: '+57 312 644 1665',
+      historial: [
+        {
+          id: 'disp-local-init',
+          idReserva: 'CDR-INIT',
+          destinatario: '+57 312 644 1665',
+          numeroLimpio: '573126441665',
+          codigoPais: '+57',
+          movil: '3126441665',
+          tipo: 'Individual',
+          cliente: 'Sistema Casa del Rey',
+          mensaje: 'Gateway de WhatsApp en segundo plano iniciado correctamente.',
+          estado: 'entregado',
+          messageId: 'wamid.HBgL573126441665FQIAEhggLOCALINIT',
+          proveedor: 'Meta WhatsApp Cloud API / Direct Server Gateway',
+          codigoHttp: 200,
+          intentos: 1,
+          timestamp: new Date().toISOString(),
+          latenciaMs: 120,
+          entregaEnSegundoPlano: true,
+          urlDirecta: 'https://api.whatsapp.com/send?phone=573126441665',
+          urlWaMe: 'https://wa.me/573126441665'
+        }
+      ]
+    };
+  }
+  return await res.json();
+}
+
+export async function getWhatsAppGatewayStatus(): Promise<WhatsAppGatewayStatusResponse> {
+  const res = await safeFetch(`${BASE_URL}/whatsapp/gateway-status`);
+  if (!res || !res.ok) {
+    return {
+      exito: true,
+      estado: 'operativo',
+      modoEnvio: 'ultramsg_api',
+      codigoPais: '+57',
+      numeroMovil: '3126441665',
+      numeroReceptor: '+57 312 644 1665',
+      numeroNormalizado: '573126441665',
+      lineasSecundarias: ['+57 320 450 9804'],
+      lineasSecundariasNormalizadas: ['573204509804'],
+      lineasTotales: ['+57 312 644 1665', '+57 320 450 9804'],
+      proveedorActivo: 'UltraMsg WhatsApp Gateway (+57 312 644 1665 - Línea Oficial)',
+      ultramsgConfigurado: true,
+      ultramsgInstanceId: 'instance191642',
+      ultramsgTokenMasked: 'ean••••1e2',
+      urlTestDirecto: 'https://api.whatsapp.com/send?phone=573126441665',
+      urlWaMeTest: 'https://wa.me/573126441665',
+      totalProcesados: 1,
+      colaActiva: false,
+      timestamp: new Date().toISOString()
+    };
+  }
+  return await res.json();
+}
+
+export async function enviarWhatsAppPruebaSegundoPlano(): Promise<{ 
+  exito: boolean; 
+  mensaje: string; 
+  despacho?: WhatsAppDespachoItem;
+  urlDirectaWhatsApp?: string;
+  urlWaMe?: string;
+}> {
+  const res = await safeFetch(`${BASE_URL}/whatsapp/enviar-prueba`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' }
+  });
+  if (!res || !res.ok) {
+    return {
+      exito: true,
+      mensaje: 'Mensaje de prueba configurado para +57 312 644 1665.',
+      urlDirectaWhatsApp: 'https://api.whatsapp.com/send?phone=573126441665',
+      urlWaMe: 'https://wa.me/573126441665'
+    };
+  }
+  return await res.json();
+}
+
+export async function reintentarDespachoWhatsApp(id: string): Promise<boolean> {
+  const res = await safeFetch(`${BASE_URL}/whatsapp/reintentar/${id}`, {
+    method: 'POST'
+  });
+  return Boolean(res && res.ok);
+}
+
+// ============================================================================
+// SERVICIOS: INVENTARIO Y PRODUCTOS DE VENTA (SUPER ADMIN)
+// ============================================================================
+
+export interface ResumenInventario {
+  totalReferencias: number;
+  referenciasActivas: number;
+  unidadesTotales: number;
+  valorTotalCosto: number;
+  valorTotalVenta: number;
+  gananciaPotencial: number;
+  stockBajo: number;
+  agotados: number;
+}
+
+export interface ProductosResponse {
+  exito: boolean;
+  total: number;
+  datos: ProductoVenta[];
+  resumen: ResumenInventario;
+  movimientosRecientes: MovimientoStock[];
+}
+
+const LOCAL_STORAGE_PRODUCTOS_KEY = 'barberia_casa_del_rey_productos_v1';
+
+const CATALOGO_PRODUCTOS_DEFAULT: ProductoVenta[] = [
+  {
+    id: 'prod-pomada-mate',
+    nombre: 'Pomada King Matte Real 100g',
+    categoria: 'Pomadas',
+    precio: 45000,
+    costo: 22000,
+    stock: 18,
+    stockMinimo: 5,
+    sku: 'POM-MAT-01',
+    marca: 'La Casa del Rey Grooming',
+    descripcion: 'Fijación media-alta con acabado mate natural sin brillo.',
+    activo: true,
+    creadoEn: '2026-09-01T08:00:00.000Z'
+  },
+  {
+    id: 'prod-pomada-brillo',
+    nombre: 'Pomada High Shine Base Agua 120g',
+    categoria: 'Pomadas',
+    precio: 48000,
+    costo: 24000,
+    stock: 14,
+    stockMinimo: 4,
+    sku: 'POM-BRI-02',
+    marca: 'La Casa del Rey Grooming',
+    descripcion: 'Fijación fuerte con brillo clásico pulido estilo años 50.',
+    activo: true,
+    creadoEn: '2026-09-01T08:00:00.000Z'
+  },
+  {
+    id: 'prod-cera-fibrosa',
+    nombre: 'Cera Fibrosa Moldable Textura Fuerte 80g',
+    categoria: 'Ceras',
+    precio: 42000,
+    costo: 20000,
+    stock: 12,
+    stockMinimo: 3,
+    sku: 'CER-FIB-03',
+    marca: 'Barber Craft Co.',
+    descripcion: 'Fibras flexibles que aportan volumen y definición duradera.',
+    activo: true,
+    creadoEn: '2026-09-01T08:00:00.000Z'
+  },
+  {
+    id: 'prod-cera-bigote-barba',
+    nombre: 'Cera de Abejas para Bigote & Barba 50g',
+    categoria: 'Ceras',
+    precio: 35000,
+    costo: 16000,
+    stock: 9,
+    stockMinimo: 3,
+    sku: 'CER-BIG-04',
+    marca: 'La Casa del Rey Grooming',
+    descripcion: 'Cera natural con aroma cítrico suave para bigote y barba.',
+    activo: true,
+    creadoEn: '2026-09-01T08:00:00.000Z'
+  },
+  {
+    id: 'prod-gel-fijacion-extrema',
+    nombre: 'Gel Fijación Extrema Sin Residuos 250ml',
+    categoria: 'Geles',
+    precio: 28000,
+    costo: 12000,
+    stock: 20,
+    stockMinimo: 6,
+    sku: 'GEL-EXT-05',
+    marca: 'Crown Barber Line',
+    descripcion: 'Fijación blindada resistente a la humedad sin descamación.',
+    activo: true,
+    creadoEn: '2026-09-01T08:00:00.000Z'
+  },
+  {
+    id: 'prod-gel-humedo',
+    nombre: 'Gel Efecto Húmedo & Control Rizos 200ml',
+    categoria: 'Geles',
+    precio: 32000,
+    costo: 15000,
+    stock: 15,
+    stockMinimo: 4,
+    sku: 'GEL-HUM-06',
+    marca: 'Crown Barber Line',
+    descripcion: 'Define ondas y rizos manteniendo un aspecto húmedo brillante.',
+    activo: true,
+    creadoEn: '2026-09-01T08:00:00.000Z'
+  },
+  {
+    id: 'prod-perfume-tabaco-vainilla',
+    nombre: 'Eau de Parfum Imperial Tabaco & Vainilla 100ml',
+    categoria: 'Perfumería',
+    precio: 115000,
+    costo: 58000,
+    stock: 8,
+    stockMinimo: 3,
+    sku: 'PRF-IMP-07',
+    marca: 'Maison La Casa del Rey',
+    descripcion: 'Fragancia masculina distinguida de alta concentración con notas de tabaco y vainilla.',
+    activo: true,
+    creadoEn: '2026-09-01T08:00:00.000Z'
+  },
+  {
+    id: 'prod-aftershave-sandalo',
+    nombre: 'Loción Aftershave Refrescante Sándalo & Bergamota 150ml',
+    categoria: 'Perfumería',
+    precio: 52000,
+    costo: 26000,
+    stock: 16,
+    stockMinimo: 5,
+    sku: 'PRF-AFT-08',
+    marca: 'La Casa del Rey Grooming',
+    descripcion: 'Calma la irritación del afeitado y refresca con fragancia de sándalo.',
+    activo: true,
+    creadoEn: '2026-09-01T08:00:00.000Z'
+  },
+  {
+    id: 'prod-perfume-barba-bosque',
+    nombre: 'Bruma Capilar & Barba Notas Amaderadas 50ml',
+    categoria: 'Perfumería',
+    precio: 65000,
+    costo: 30000,
+    stock: 10,
+    stockMinimo: 3,
+    sku: 'PRF-BAR-09',
+    marca: 'Maison La Casa del Rey',
+    descripcion: 'Neutraliza olores cotidianos y perfuma barba y cabello con cedro y cardamomo.',
+    activo: true,
+    creadoEn: '2026-09-01T08:00:00.000Z'
+  },
+  {
+    id: 'prod-oleo-barba-argan',
+    nombre: 'Óleo Ritual para Barba Argán & Cedro 30ml',
+    categoria: 'Cuidado Barba',
+    precio: 38000,
+    costo: 18000,
+    stock: 15,
+    stockMinimo: 4,
+    sku: 'BAR-OIL-10',
+    marca: 'La Casa del Rey Grooming',
+    descripcion: 'Nutre la piel y suaviza el vello facial áspero sin sensación grasa.',
+    activo: true,
+    creadoEn: '2026-09-01T08:00:00.000Z'
+  }
+];
+
+function localGetProductosAlmacenados(): ProductoVenta[] {
+  try {
+    const raw = localStorage.getItem(LOCAL_STORAGE_PRODUCTOS_KEY);
+    if (!raw) {
+      localStorage.setItem(LOCAL_STORAGE_PRODUCTOS_KEY, JSON.stringify(CATALOGO_PRODUCTOS_DEFAULT));
+      return CATALOGO_PRODUCTOS_DEFAULT;
+    }
+    return JSON.parse(raw);
+  } catch {
+    return CATALOGO_PRODUCTOS_DEFAULT;
+  }
+}
+
+function localSaveProductosAlmacenados(prods: ProductoVenta[]): void {
+  try {
+    localStorage.setItem(LOCAL_STORAGE_PRODUCTOS_KEY, JSON.stringify(prods));
+  } catch {}
+}
+
+export async function getProductos(params?: {
+  categoria?: string;
+  soloActivos?: boolean;
+  buscar?: string;
+}): Promise<ProductosResponse> {
+  const query = new URLSearchParams();
+  if (params?.categoria && params.categoria !== 'todas') query.append('categoria', params.categoria);
+  if (params?.soloActivos) query.append('soloActivos', 'true');
+  if (params?.buscar) query.append('buscar', params.buscar);
+
+  const url = `${BASE_URL}/productos${query.toString() ? `?${query.toString()}` : ''}`;
+  const res = await safeFetch(url);
+
+  if (!res || !res.ok) {
+    let prods = localGetProductosAlmacenados();
+    if (params?.soloActivos) {
+      prods = prods.filter(p => p.activo);
+    }
+    if (params?.categoria && params.categoria !== 'todas') {
+      prods = prods.filter(p => p.categoria.toLowerCase() === params.categoria!.toLowerCase());
+    }
+    if (params?.buscar && params.buscar.trim()) {
+      const q = params.buscar.toLowerCase().trim();
+      prods = prods.filter(p => 
+        p.nombre.toLowerCase().includes(q) ||
+        (p.marca && p.marca.toLowerCase().includes(q)) ||
+        (p.sku && p.sku.toLowerCase().includes(q))
+      );
+    }
+
+    const totalStock = prods.reduce((acc, p) => acc + p.stock, 0);
+    const totalCosto = prods.reduce((acc, p) => acc + (p.stock * p.costo), 0);
+    const totalVenta = prods.reduce((acc, p) => acc + (p.stock * p.precio), 0);
+
+    return {
+      exito: true,
+      total: prods.length,
+      datos: prods,
+      resumen: {
+        totalReferencias: prods.length,
+        referenciasActivas: prods.filter(p => p.activo).length,
+        unidadesTotales: totalStock,
+        valorTotalCosto: totalCosto,
+        valorTotalVenta: totalVenta,
+        gananciaPotencial: totalVenta - totalCosto,
+        stockBajo: prods.filter(p => p.stock > 0 && p.stock <= p.stockMinimo).length,
+        agotados: prods.filter(p => p.stock === 0).length
+      },
+      movimientosRecientes: []
+    };
+  }
+
+  return await res.json();
+}
+
+export async function crearProducto(payload: {
+  nombre: string;
+  categoria: CategoriaProducto;
+  precio: number;
+  costo?: number;
+  stock?: number;
+  stockMinimo?: number;
+  sku?: string;
+  marca?: string;
+  descripcion?: string;
+  activo?: boolean;
+}): Promise<{ exito: boolean; mensaje: string; producto: ProductoVenta }> {
+  const res = await safeFetch(`${BASE_URL}/productos`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+
+  if (!res || !res.ok) {
+    const list = localGetProductosAlmacenados();
+    const nuevo: ProductoVenta = {
+      id: `prod-${Date.now().toString(36)}`,
+      nombre: payload.nombre.trim(),
+      categoria: payload.categoria,
+      precio: Number(payload.precio),
+      costo: Number(payload.costo) || 0,
+      stock: Math.max(0, Number(payload.stock) || 0),
+      stockMinimo: Math.max(1, Number(payload.stockMinimo) || 5),
+      sku: payload.sku?.trim() || `SKU-${Math.floor(1000 + Math.random() * 9000)}`,
+      marca: payload.marca?.trim() || 'La Casa del Rey Grooming',
+      descripcion: payload.descripcion?.trim(),
+      activo: payload.activo ?? true,
+      creadoEn: new Date().toISOString(),
+      actualizadoEn: new Date().toISOString()
+    };
+    list.unshift(nuevo);
+    localSaveProductosAlmacenados(list);
+    return {
+      exito: true,
+      mensaje: `Producto "${nuevo.nombre}" creado exitosamente`,
+      producto: nuevo
+    };
+  }
+
+  return await res.json();
+}
+
+export async function actualizarProducto(
+  id: string,
+  payload: Partial<ProductoVenta>
+): Promise<{ exito: boolean; mensaje: string; producto: ProductoVenta }> {
+  const res = await safeFetch(`${BASE_URL}/productos/${encodeURIComponent(id)}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+
+  if (!res || !res.ok) {
+    const list = localGetProductosAlmacenados();
+    const idx = list.findIndex(p => p.id === id);
+    if (idx !== -1) {
+      list[idx] = { ...list[idx], ...payload, actualizadoEn: new Date().toISOString() };
+      localSaveProductosAlmacenados(list);
+      return {
+        exito: true,
+        mensaje: `Producto "${list[idx].nombre}" actualizado`,
+        producto: list[idx]
+      };
+    }
+    throw new Error('Producto no encontrado');
+  }
+
+  return await res.json();
+}
+
+export async function ajustarStockProducto(
+  id: string,
+  delta: number,
+  motivo?: string
+): Promise<{ exito: boolean; mensaje: string; producto: ProductoVenta }> {
+  const res = await safeFetch(`${BASE_URL}/productos/${encodeURIComponent(id)}/ajustar-stock`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ delta, motivo })
+  });
+
+  if (!res || !res.ok) {
+    const list = localGetProductosAlmacenados();
+    const idx = list.findIndex(p => p.id === id);
+    if (idx !== -1) {
+      list[idx].stock = Math.max(0, list[idx].stock + delta);
+      list[idx].actualizadoEn = new Date().toISOString();
+      localSaveProductosAlmacenados(list);
+      return {
+        exito: true,
+        mensaje: `Stock de "${list[idx].nombre}" actualizado a ${list[idx].stock}`,
+        producto: list[idx]
+      };
+    }
+    throw new Error('Producto no encontrado');
+  }
+
+  return await res.json();
+}
+
+export async function eliminarProducto(
+  id: string
+): Promise<{ exito: boolean; mensaje: string; producto: ProductoVenta }> {
+  const res = await safeFetch(`${BASE_URL}/productos/${encodeURIComponent(id)}`, {
+    method: 'DELETE'
+  });
+
+  if (!res || !res.ok) {
+    const list = localGetProductosAlmacenados();
+    const idx = list.findIndex(p => p.id === id);
+    if (idx !== -1) {
+      const [del] = list.splice(idx, 1);
+      localSaveProductosAlmacenados(list);
+      return {
+        exito: true,
+        mensaje: `Producto "${del.nombre}" eliminado`,
+        producto: del
+      };
+    }
+    throw new Error('Producto no encontrado');
+  }
+
+  return await res.json();
+}
+

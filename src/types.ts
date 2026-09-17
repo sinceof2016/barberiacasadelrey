@@ -112,6 +112,14 @@ export interface PruebaResultado {
 
 export type MetodoPago = 'Efectivo' | 'Nequi / Daviplata' | 'Tarjeta / Datáfono';
 
+export interface ItemProductoVendido {
+  productoId: string;
+  productoNombre: string;
+  cantidad: number;
+  precioUnitario: number;
+  subtotal: number;
+}
+
 export interface CorteDiario {
   id: string;
   fecha: string;
@@ -132,6 +140,9 @@ export interface CorteDiario {
   sucursalNombre?: string;
   citaIdReserva?: string;
   notas?: string;
+  productosVendidos?: ItemProductoVendido[];
+  totalProductos?: number;
+  totalCobrado?: number; // precio del servicio + totalProductos
   creadoEn: string;
 }
 
@@ -318,4 +329,46 @@ export interface RegistroAperturaGaveta {
   metodo: MetodoAperturaGaveta;
   exito: boolean;
   mensaje: string;
+}
+
+// ==========================================
+// Inventario y Catálogo de Productos de Venta
+// ==========================================
+export type CategoriaProducto = 
+  | 'Pomadas' 
+  | 'Ceras' 
+  | 'Geles' 
+  | 'Perfumería' 
+  | 'Cuidado Barba' 
+  | 'Otros';
+
+export interface ProductoVenta {
+  id: string;
+  nombre: string;
+  categoria: CategoriaProducto;
+  precio: number; // Precio de venta al público en COP
+  costo: number; // Costo de compra o adquisición en COP
+  stock: number; // Unidades disponibles actuales
+  stockMinimo: number; // Alerta de reabastecimiento
+  sku?: string;
+  marca?: string;
+  descripcion?: string;
+  activo: boolean;
+  creadoEn?: string;
+  actualizadoEn?: string;
+}
+
+export interface MovimientoStock {
+  id: string;
+  productoId: string;
+  productoNombre: string;
+  tipo: 'venta_corte' | 'ingreso_compra' | 'ajuste_manual' | 'merma_muestra';
+  cantidad: number; // negativo si descuenta, positivo si suma
+  stockAnterior: number;
+  stockNuevo: number;
+  motivo: string;
+  fecha: string;
+  hora: string;
+  corteId?: string;
+  usuario?: string;
 }

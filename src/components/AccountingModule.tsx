@@ -26,6 +26,7 @@ import {
   KeyRound,
   Settings,
   CheckCircle2,
+  AlertCircle,
   X,
   Building2,
   Store,
@@ -108,6 +109,24 @@ export const AccountingModule: React.FC<AccountingModuleProps> = ({
   const esAdminOCajero = !usuario || usuario.rol === 'Administrador' || usuario.rol === 'SuperAdmin' || usuario.rol === 'Cajero';
   const visibleGaveta = isGavetaVisible();
 
+  const notificarError = (msg: string) => {
+    setError(msg);
+    setTimeout(() => setError(null), 5000);
+  };
+
+  const notificarExito = (msg: string) => {
+    setGavetaNotif(msg);
+    setTimeout(() => setGavetaNotif(null), 4500);
+  };
+
+  const safeConfirm = (msg: string): boolean => {
+    try {
+      return window.confirm(msg);
+    } catch {
+      return true;
+    }
+  };
+
   const handleAbrirGavetaManual = async () => {
     setAbriendoGaveta(true);
     setGavetaNotif(null);
@@ -117,10 +136,9 @@ export const AccountingModule: React.FC<AccountingModuleProps> = ({
         motivo: `Apertura manual por ${usuario?.nombre || 'Cajero'} en ${sucursalObj.nombre} (Arqueo)`,
         usuario: usuario?.nombre,
       });
-      setGavetaNotif(res.mensaje);
-      setTimeout(() => setGavetaNotif(null), 5000);
+      notificarExito(res.mensaje);
     } catch (err: any) {
-      alert('Error al abrir gaveta: ' + err.message);
+      notificarError('Error al abrir gaveta: ' + err.message);
     } finally {
       setAbriendoGaveta(false);
     }
@@ -175,25 +193,27 @@ export const AccountingModule: React.FC<AccountingModuleProps> = ({
       setGastos(prev => [res.gasto, ...prev]);
       setConceptoGasto('');
       setComprobanteGasto('');
+      notificarExito(`Egreso "${res.gasto.concepto}" registrado correctamente.`);
       await cargarDatosContables(fechaSeleccionada, sucursalSeleccionada);
       if (onDataUpdated) onDataUpdated();
     } catch (err: any) {
-      alert('Error al registrar egreso: ' + err.message);
+      notificarError('Error al registrar egreso: ' + err.message);
     } finally {
       setGuardandoGasto(false);
     }
   };
 
   const handleEliminarGasto = async (id: string, concepto: string) => {
-    if (!window.confirm(`¿Confirmas eliminar el egreso "${concepto}"?`)) return;
+    if (!safeConfirm(`¿Confirmas eliminar el egreso "${concepto}"?`)) return;
 
     try {
       await eliminarEgreso(id);
       setGastos(prev => prev.filter(g => g.id !== id));
+      notificarExito(`Egreso "${concepto}" eliminado.`);
       await cargarDatosContables(fechaSeleccionada, sucursalSeleccionada);
       if (onDataUpdated) onDataUpdated();
     } catch (err: any) {
-      alert('Error al eliminar egreso: ' + err.message);
+      notificarError('Error al eliminar egreso: ' + err.message);
     }
   };
 
@@ -204,10 +224,11 @@ export const AccountingModule: React.FC<AccountingModuleProps> = ({
         : (usuario?.sucursalAsignada || 'suc-chico');
       await actualizarBaseCaja(Number(nuevaBase), sedeParaBase);
       setEditandoBase(false);
+      notificarExito('Base de caja actualizada con éxito.');
       await cargarDatosContables(fechaSeleccionada, sucursalSeleccionada);
       if (onDataUpdated) onDataUpdated();
     } catch (err: any) {
-      alert('Error al actualizar base: ' + err.message);
+      notificarError('Error al actualizar base: ' + err.message);
     }
   };
 
@@ -448,6 +469,31 @@ Generado por el Sistema Contable de La Casa del Rey`;
           </div>
         </div>
       </div>
+
+      {/* Notificaciones Globales de Contabilidad */}
+      {gavetaNotif && (
+        <div className="p-3 bg-[#EBF7EE] border border-[#86EFAC] rounded-xl flex items-center justify-between gap-2 text-xs font-mono text-[#15803D] shadow-xs">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 text-[#15803D] shrink-0" />
+            <span>{gavetaNotif}</span>
+          </div>
+          <button onClick={() => setGavetaNotif(null)} className="text-[#15803D]/70 hover:text-[#15803D] cursor-pointer">
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
+
+      {error && (
+        <div className="p-3 bg-[#FFDAD6] border border-[#BA1A1A]/30 rounded-xl flex items-center justify-between gap-2 text-xs font-mono text-[#BA1A1A] shadow-xs">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 text-[#BA1A1A] shrink-0" />
+            <span>{error}</span>
+          </div>
+          <button onClick={() => setError(null)} className="text-[#BA1A1A]/70 hover:text-[#BA1A1A] cursor-pointer">
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
 
       {/* Selector de Sucursal (Para Administrador) o Vista Aislada (Para Cajero) */}
       {esCajero ? (

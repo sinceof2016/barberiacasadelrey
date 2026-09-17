@@ -1,9 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { Servicio, Barbero, Cita, HorarioSlot } from '../types';
 import { getDisponibilidad, crearCitaIndividual } from '../services/api';
-import { Clock, User, Phone, CheckCircle2, AlertCircle, Copy, Check, Ban, Sparkles, Mail, ShieldCheck, MapPin } from 'lucide-react';
+import { Clock, User, Phone, CheckCircle2, AlertCircle, Copy, Check, Ban, Sparkles, Mail, ShieldCheck, MapPin, MessageSquare, Send, ExternalLink } from 'lucide-react';
 import { AddToCalendarButtons } from './AddToCalendarButtons';
-import { WhatsAppConfirmButton } from './WhatsAppConfirmButton';
+import { 
+  WhatsAppConfirmButton, 
+  WHATSAPP_BARBERIA_DISPLAY, 
+  WHATSAPP_BARBERIA_NUMERO,
+  generarTextoMensajeReserva, 
+  generarUrlWhatsAppBarberia,
+  generarUrlWaMeBarberia
+} from './WhatsAppConfirmButton';
 import { VintageDatePicker } from './VintageDatePicker';
 import { useColombiaClock, getColombiaDateTime, isSlotPassedInColombia } from '../utils/colombiaTime';
 import { sucursalesCasaDelRey } from '../services/localData';
@@ -14,6 +21,12 @@ import {
   BarberPoleRibbon,
   VintageWaxSeal 
 } from './VintageBarberIcons';
+import { 
+  guardarDatosClienteRecurrente, 
+  obtenerDatosClienteRecurrente, 
+  tieneConsentimiento,
+  registrarEventoAnalitica 
+} from '../services/cookieService';
 
 interface IndividualBookingFormProps {
   servicios: Servicio[];
@@ -50,6 +63,42 @@ export const IndividualBookingForm: React.FC<IndividualBookingFormProps> = ({
   const [errorMensaje, setErrorMensaje] = useState<string | null>(null);
   const [citaCreada, setCitaCreada] = useState<Cita | null>(null);
   const [copiado, setCopiado] = useState<boolean>(false);
+  const [cookieFuncionalActiva, setCookieFuncionalActiva] = useState<boolean>(() => tieneConsentimiento('funcionales'));
+  const [datosCargadosDeCookie, setDatosCargadosDeCookie] = useState<boolean>(false);
+
+  // Cargar datos guardados en cookies funcionales para clientes recurrentes
+  useEffect(() => {
+    if (tieneConsentimiento('funcionales')) {
+      const rec = obtenerDatosClienteRecurrente();
+      if (rec) {
+        if (rec.nombre) setClienteNombre(rec.nombre);
+        if (rec.telefono) setClienteTelefono(rec.telefono);
+        if (rec.email) setClienteEmail(rec.email);
+        if (rec.sucursalId) setSucursalId(rec.sucursalId);
+        setDatosCargadosDeCookie(true);
+      }
+    }
+
+    const handler = () => {
+      const activa = tieneConsentimiento('funcionales');
+      setCookieFuncionalActiva(activa);
+      if (activa) {
+        const rec = obtenerDatosClienteRecurrente();
+        if (rec) {
+          if (rec.nombre) setClienteNombre(rec.nombre);
+          if (rec.telefono) setClienteTelefono(rec.telefono);
+          if (rec.email) setClienteEmail(rec.email);
+          if (rec.sucursalId) setSucursalId(rec.sucursalId);
+          setDatosCargadosDeCookie(true);
+        }
+      } else {
+        setDatosCargadosDeCookie(false);
+      }
+    };
+
+    window.addEventListener('cdr_cookie_consent_changed', handler);
+    return () => window.removeEventListener('cdr_cookie_consent_changed', handler);
+  }, []);
 
   useEffect(() => {
     if (preselectedServiceId) setServicioId(preselectedServiceId);
@@ -152,8 +201,24 @@ export const IndividualBookingForm: React.FC<IndividualBookingFormProps> = ({
       });
 
       if (resp.exito && resp.reserva) {
+        // Aplicar persistencia de cookie funcional si el usuario dio consentimiento
+        guardarDatosClienteRecurrente({
+          nombre: clienteNombre.trim(),
+          telefono: clienteTelefono.trim(),
+          email: clienteEmail.trim() || undefined,
+          sucursalId
+        });
+
+        // Registrar analítica anónima si las cookies analíticas están activas
+        registrarEventoAnalitica('reserva_confirmada', {
+          idReserva: resp.reserva.idReserva,
+          sucursalId,
+          servicioId: Number(servicioId)
+        });
+
         setCitaCreada(resp.reserva);
         onBookingSuccess(resp.reserva);
+
         window.scrollTo({ top: 0, behavior: 'smooth' });
         document.documentElement?.scrollTo?.({ top: 0, behavior: 'smooth' });
         document.body?.scrollTo?.({ top: 0, behavior: 'smooth' });
@@ -279,15 +344,6 @@ export const IndividualBookingForm: React.FC<IndividualBookingFormProps> = ({
           servicioNombre={servicioSeleccionado?.nombre}
           barberoNombre={barberoSeleccionado?.nombre}
           duracionMinutos={servicioSeleccionado?.duracionMinutos}
-          className="mb-4"
-        />
-
-        {/* WhatsApp Direct Confirmation Button */}
-        <WhatsAppConfirmButton
-          cita={citaCreada}
-          servicioNombre={servicioSeleccionado?.nombre}
-          barberoNombre={barberoSeleccionado?.nombre}
-          precioTotal={servicioSeleccionado?.precio}
           className="mb-5"
         />
 
@@ -632,9 +688,17 @@ export const IndividualBookingForm: React.FC<IndividualBookingFormProps> = ({
           <label className="block text-[10px] font-mono font-bold uppercase tracking-wider text-[#7C571C]">
             06 // INFORMACIÓN DEL CABALLERO
           </label>
-          <span className="text-[9px] font-mono text-[#6F5A4B]">
-            * Campos obligatorios
-          </span>
+          <div className="flex items-center gap-2">
+            {cookieFuncionalActiva && datosCargadosDeCookie && (
+              <span className="text-[9px] font-mono text-[#15803D] bg-[#EBF7EE] px-2 py-0.5 rounded-full border border-[#86EFAC] flex items-center gap-1 font-semibold">
+                <Sparkles className="w-2.5 h-2.5" />
+                <span>Datos autocompletados (Cookies Funcionales)</span>
+              </span>
+            )}
+            <span className="text-[9px] font-mono text-[#6F5A4B]">
+              * Campos obligatorios
+            </span>
+          </div>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           <div>

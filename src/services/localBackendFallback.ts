@@ -9,7 +9,8 @@ import {
   MetodoPago,
   Sucursal,
   Servicio,
-  Barbero
+  Barbero,
+  ItemProductoVendido
 } from '../types';
 import { 
   sucursalesCasaDelRey, 
@@ -525,6 +526,42 @@ export function localCrearCorteDiario(payload: any): { exito: boolean; mensaje: 
   const barbero = barberosCasaDelRey.find(b => b.id === Number(payload.barberoId));
   const servicio = serviciosCasaDelRey.find(s => s.id === Number(payload.servicioId));
 
+  // Procesar productos vendidos si existen
+  let productosVendidos: ItemProductoVendido[] | undefined = undefined;
+  let totalProductos = 0;
+
+  if (Array.isArray(payload.productos) && payload.productos.length > 0) {
+    const listProds = getLocal<any[]>('local-storage-productos-cdr', []);
+    const itemsVendidos: ItemProductoVendido[] = [];
+
+    for (const item of payload.productos) {
+      const prod = listProds.find((p: any) => p.id === item.productoId);
+      if (prod) {
+        const cant = Math.max(1, Number(item.cantidad) || 1);
+        const subtotal = prod.precio * cant;
+        totalProductos += subtotal;
+        itemsVendidos.push({
+          productoId: prod.id,
+          productoNombre: prod.nombre,
+          cantidad: cant,
+          precioUnitario: prod.precio,
+          subtotal
+        });
+        // Descontar inventario
+        prod.stock = Math.max(0, (prod.stock || 0) - cant);
+        prod.actualizadoEn = new Date().toISOString();
+      }
+    }
+
+    if (itemsVendidos.length > 0) {
+      productosVendidos = itemsVendidos;
+      setLocal('local-storage-productos-cdr', listProds);
+    }
+  }
+
+  const totalCobrado = precio + totalProductos + propina;
+  const montoBarberia = (precio - comision) + totalProductos;
+
   const nuevoCorte: CorteDiario = {
     id: `CORTE-${Date.now().toString().slice(-6)}`,
     fecha: payload.fecha || getColombiaDateTimeClient().fecha,
@@ -538,13 +575,16 @@ export function localCrearCorteDiario(payload: any): { exito: boolean; mensaje: 
     propina,
     porcentajeBarbero: pct,
     montoBarbero: comision + propina,
-    montoBarberia: precio - comision,
+    montoBarberia,
     metodoPago: payload.metodoPago || 'Efectivo',
     liquidadoAlBarbero: false,
     sucursalId: payload.sucursalId || 'suc-chico',
     sucursalNombre: payload.sucursalNombre || 'Sede Chicó Real',
     citaIdReserva: payload.citaIdReserva,
     notas: payload.notas,
+    productosVendidos,
+    totalProductos: totalProductos > 0 ? totalProductos : undefined,
+    totalCobrado,
     creadoEn: new Date().toISOString()
   };
 
@@ -554,7 +594,9 @@ export function localCrearCorteDiario(payload: any): { exito: boolean; mensaje: 
 
   return {
     exito: true,
-    mensaje: 'Corte registrado exitosamente',
+    mensaje: totalProductos > 0
+      ? `Corte registrado exitosamente con ${productosVendidos?.length} producto(s) descontado(s) de inventario`
+      : 'Corte registrado exitosamente',
     corte: nuevoCorte
   };
 }
@@ -576,9 +618,21 @@ export function localToggleLiquidarCorte(id: string): { exito: boolean; mensaje:
 
 export function localEliminarCorteDiario(id: string): { exito: boolean; mensaje: string } {
   let cortes = getLocal<CorteDiario[]>(STORAGE_KEYS.CORTES, []);
+  const corte = cortes.find(c => c.id === id);
+  if (corte?.productosVendidos && corte.productosVendidos.length > 0) {
+    const listProds = getLocal<any[]>('local-storage-productos-cdr', []);
+    for (const pv of corte.productosVendidos) {
+      const prod = listProds.find((p: any) => p.id === pv.productoId);
+      if (prod) {
+        prod.stock = (prod.stock || 0) + pv.cantidad;
+        prod.actualizadoEn = new Date().toISOString();
+      }
+    }
+    setLocal('local-storage-productos-cdr', listProds);
+  }
   cortes = cortes.filter(c => c.id !== id);
   setLocal(STORAGE_KEYS.CORTES, cortes);
-  return { exito: true, mensaje: 'Corte eliminado' };
+  return { exito: true, mensaje: 'Corte eliminado y stock revertido al inventario si aplicaba' };
 }
 
 // Egresos

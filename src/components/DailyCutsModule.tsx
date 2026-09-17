@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { CorteDiario, Servicio, Barbero, Cita, MetodoPago } from '../types';
+import { CorteDiario, Servicio, Barbero, Cita, MetodoPago, ProductoVenta } from '../types';
 import { 
   getCortesDiarios, 
   crearCorteDiario, 
   toggleLiquidarCorte, 
   liquidarBarberoCompleto, 
-  eliminarCorteDiario 
+  eliminarCorteDiario,
+  getProductos
 } from '../services/api';
 import { 
   Plus, 
@@ -28,7 +29,10 @@ import {
   RotateCcw,
   Coins,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Package,
+  ShoppingBag,
+  X
 } from 'lucide-react';
 import { VintageDatePicker } from './VintageDatePicker';
 import { dispararAperturaPorEfectivo } from '../services/cashDrawer';
@@ -72,6 +76,15 @@ export const DailyCutsModule: React.FC<DailyCutsModuleProps> = ({
   const [notas, setNotas] = useState<string>('');
   const [citaSeleccionada, setCitaSeleccionada] = useState<string>('');
 
+  // Productos de venta adicional (Pomadas, ceras, gel, perfumería)
+  const [productosDisponibles, setProductosDisponibles] = useState<ProductoVenta[]>([]);
+  const [productosAgregados, setProductosAgregados] = useState<{
+    producto: ProductoVenta;
+    cantidad: number;
+  }[]>([]);
+  const [productoSeleccionadoId, setProductoSeleccionadoId] = useState<string>('');
+  const [cantidadProducto, setCantidadProducto] = useState<number>(1);
+
   // Voucher modal state
   const [voucherBarbero, setVoucherBarbero] = useState<{
     barbero: Barbero;
@@ -99,9 +112,67 @@ export const DailyCutsModule: React.FC<DailyCutsModuleProps> = ({
     }
   };
 
+  const cargarProductos = async () => {
+    try {
+      const res = await getProductos();
+      const items = res?.datos || [];
+      setProductosDisponibles(items.filter(p => p.activo));
+    } catch (e) {
+      console.error('Error al cargar productos para corte:', e);
+    }
+  };
+
   useEffect(() => {
     cargarCortes(fechaSeleccionada);
+    cargarProductos();
   }, [fechaSeleccionada]);
+
+  const safeConfirm = (msg: string): boolean => {
+    try {
+      return window.confirm(msg);
+    } catch {
+      return true;
+    }
+  };
+
+  const handleAgregarProducto = () => {
+    if (!productoSeleccionadoId) return;
+    const prod = productosDisponibles.find(p => p.id === productoSeleccionadoId);
+    if (!prod) return;
+
+    if (cantidadProducto <= 0) return;
+    if (prod.stock <= 0) {
+      setError(`El producto "${prod.nombre}" no cuenta con stock disponible en este momento.`);
+      setTimeout(() => setError(null), 4000);
+      return;
+    }
+
+    setProductosAgregados(prev => {
+      const existe = prev.find(item => item.producto.id === prod.id);
+      if (existe) {
+        const nuevaCantidad = existe.cantidad + cantidadProducto;
+        if (nuevaCantidad > prod.stock) {
+          setError(`El total solicitado (${nuevaCantidad}) supera las unidades disponibles en inventario (${prod.stock}).`);
+          setTimeout(() => setError(null), 4000);
+          return prev;
+        }
+        return prev.map(item => item.producto.id === prod.id ? { ...item, cantidad: nuevaCantidad } : item);
+      }
+      if (cantidadProducto > prod.stock) {
+        setError(`Solo hay ${prod.stock} unidades disponibles en inventario.`);
+        setTimeout(() => setError(null), 4000);
+        return prev;
+      }
+      return [...prev, { producto: prod, cantidad: cantidadProducto }];
+    });
+
+    setProductoSeleccionadoId('');
+    setCantidadProducto(1);
+  };
+
+  const handleEliminarProductoAgregado = (prodId: string) => {
+    setProductosAgregados(prev => prev.filter(item => item.producto.id !== prodId));
+  };
 
   // When changing service in dropdown, update price
   const handleServicioChange = (id: number) => {
@@ -137,6 +208,8 @@ export const DailyCutsModule: React.FC<DailyCutsModuleProps> = ({
   const comisionBruta = Math.round(precio * (porcentajeBarbero / 100));
   const montoBarbero = comisionBruta + (Number(propina) || 0);
   const montoBarberia = precio - comisionBruta;
+  const totalProductosCobro = productosAgregados.reduce((sum, item) => sum + (item.producto.precio * item.cantidad), 0);
+  const totalGeneralCobro = Number(precio) + totalProductosCobro + (Number(propina) || 0);
 
   const cambiarDia = (offset: number) => {
     try {
@@ -160,6 +233,11 @@ export const DailyCutsModule: React.FC<DailyCutsModuleProps> = ({
     setError(null);
     try {
       const srv = servicios.find(s => s.id === servicioId);
+      const payloadProductos = productosAgregados.map(p => ({
+        productoId: p.producto.id,
+        cantidad: p.cantidad,
+      }));
+
       const res = await crearCorteDiario({
         barberoId,
         servicioId,
@@ -172,16 +250,23 @@ export const DailyCutsModule: React.FC<DailyCutsModuleProps> = ({
         fecha: fechaSeleccionada,
         citaIdReserva: citaSeleccionada || undefined,
         notas: notas.trim() || undefined,
+        productos: payloadProductos.length > 0 ? payloadProductos : undefined,
       });
 
       setCortes(prev => [res.corte, ...prev]);
-      setMensajeExito(`Corte de ${clienteNombre} registrado y dividido con éxito.`);
-      setTimeout(() => setMensajeExito(null), 4000);
+      setMensajeExito(
+        `Corte de ${clienteNombre} registrado con éxito.${
+          payloadProductos.length > 0 
+            ? ` Se vendieron ${payloadProductos.reduce((acc, i) => acc + i.cantidad, 0)} producto(s) y se descontaron automáticamente del inventario.` 
+            : ''
+        }`
+      );
+      setTimeout(() => setMensajeExito(null), 5000);
 
       // Disparador automático de gaveta registradora si se cobra en Efectivo
       if (metodoPago === 'Efectivo') {
         dispararAperturaPorEfectivo(
-          `Cobro en efectivo: ${clienteNombre.trim()} - $${Number(precio).toLocaleString('es-CO')} COP`
+          `Cobro en efectivo: ${clienteNombre.trim()} - $${totalGeneralCobro.toLocaleString('es-CO')} COP`
         );
       }
 
@@ -190,6 +275,10 @@ export const DailyCutsModule: React.FC<DailyCutsModuleProps> = ({
       setPropina(0);
       setNotas('');
       setCitaSeleccionada('');
+      setProductosAgregados([]);
+      setProductoSeleccionadoId('');
+      setCantidadProducto(1);
+      cargarProductos();
       if (onDataUpdated) onDataUpdated();
     } catch (err: any) {
       setError(err.message || 'Error al registrar corte');
@@ -202,36 +291,45 @@ export const DailyCutsModule: React.FC<DailyCutsModuleProps> = ({
     try {
       const res = await toggleLiquidarCorte(id);
       setCortes(prev => prev.map(c => c.id === id ? res.corte : c));
+      setMensajeExito(res.mensaje);
+      setTimeout(() => setMensajeExito(null), 3000);
       if (onDataUpdated) onDataUpdated();
     } catch (err: any) {
-      alert('Error al actualizar liquidación: ' + err.message);
+      setError('Error al actualizar liquidación: ' + err.message);
+      setTimeout(() => setError(null), 5000);
     }
   };
 
   const handleLiquidarBarbero = async (bId: number, bNombre: string) => {
-    if (!window.confirm(`¿Confirmas liquidar y marcar como pagados todos los cortes de ${bNombre} para la fecha ${fechaSeleccionada}?`)) {
+    if (!safeConfirm(`¿Confirmas liquidar y marcar como pagados todos los cortes de ${bNombre} para la fecha ${fechaSeleccionada}?`)) {
       return;
     }
 
     try {
       const res = await liquidarBarberoCompleto(bId, fechaSeleccionada);
-      alert(res.mensaje);
+      setMensajeExito(res.mensaje);
+      setTimeout(() => setMensajeExito(null), 4000);
       cargarCortes(fechaSeleccionada);
       if (onDataUpdated) onDataUpdated();
     } catch (err: any) {
-      alert('Error al liquidar barbero: ' + err.message);
+      setError('Error al liquidar barbero: ' + err.message);
+      setTimeout(() => setError(null), 5000);
     }
   };
 
   const handleEliminarCorte = async (id: string, cliente: string) => {
-    if (!window.confirm(`¿Estás seguro de anular el corte registrado de "${cliente}"?`)) return;
+    if (!safeConfirm(`¿Estás seguro de anular el corte registrado de "${cliente}"?`)) return;
 
     try {
-      await eliminarCorteDiario(id);
+      const res = await eliminarCorteDiario(id);
       setCortes(prev => prev.filter(c => c.id !== id));
+      cargarProductos();
+      setMensajeExito(res.mensaje || `Corte de "${cliente}" anulado exitosamente.`);
+      setTimeout(() => setMensajeExito(null), 4000);
       if (onDataUpdated) onDataUpdated();
     } catch (err: any) {
-      alert('Error al anular corte: ' + err.message);
+      setError('Error al anular corte: ' + err.message);
+      setTimeout(() => setError(null), 5000);
     }
   };
 
@@ -312,9 +410,10 @@ TOTAL A RECIBIR: ${formatCOP(voucherBarbero.totalNeto)}
 
   // Total summary of today's cuts
   const totalCortesDia = cortes.length;
-  const totalBrutoDia = cortes.reduce((sum, c) => sum + c.precio, 0);
+  const totalProductosVendidosDia = cortes.reduce((sum, c) => sum + (c.totalProductos || 0), 0);
+  const totalBrutoDia = cortes.reduce((sum, c) => sum + c.precio + (c.totalProductos || 0), 0);
   const totalBarberosDia = cortes.reduce((sum, c) => sum + c.montoBarbero, 0);
-  const totalBarberiaDia = cortes.reduce((sum, c) => sum + c.montoBarberia, 0);
+  const totalBarberiaDia = cortes.reduce((sum, c) => sum + c.montoBarberia + (c.totalProductos || 0), 0);
 
   // Turnos agendados sincronizados con la fecha seleccionada del calendario interno
   const citasDelDia = citas.filter(
@@ -397,6 +496,11 @@ TOTAL A RECIBIR: ${formatCOP(voucherBarbero.totalNeto)}
           <div className="bg-[#FFFFFF] p-3 rounded-lg border border-[#DFCBB5] shadow-2xs">
             <span className="text-[10px] text-[#6F5A4B] uppercase block font-bold">Total Facturado</span>
             <span className="text-base sm:text-lg font-bold text-[#221A14]">{formatCOP(totalBrutoDia)}</span>
+            {totalProductosVendidosDia > 0 && (
+              <span className="text-[9px] text-[#7C571C] font-bold block mt-0.5">
+                inc. {formatCOP(totalProductosVendidosDia)} productos
+              </span>
+            )}
           </div>
           <div className="bg-[#FFFFFF] p-3 rounded-lg border border-[#DFCBB5] shadow-2xs">
             <span className="text-[10px] text-[#7C571C] uppercase block font-bold">Para Barberos</span>
@@ -772,11 +876,104 @@ TOTAL A RECIBIR: ${formatCOP(voucherBarbero.totalNeto)}
               />
             </div>
 
+            {/* Venta Adicional de Productos (Pomadas, Ceras, Geles, Perfumería) */}
+            <div className="bg-[#FAF6EE] border border-[#DFCBB5] rounded-xl p-3 space-y-2.5">
+              <div className="flex items-center justify-between">
+                <label className="text-[10px] text-[#7C571C] uppercase font-bold flex items-center gap-1.5">
+                  <Package className="w-3.5 h-3.5 text-[#7C571C]" />
+                  <span>Adicionar Productos de Venta (Opcional)</span>
+                </label>
+                {productosAgregados.length > 0 && (
+                  <span className="text-[10px] font-bold text-[#15803D] bg-[#EBF7EE] px-2 py-0.5 rounded border border-[#86EFAC]">
+                    +{formatCOP(totalProductosCobro)}
+                  </span>
+                )}
+              </div>
+
+              {/* Selector de producto y cantidad */}
+              <div className="flex items-center gap-2">
+                <select
+                  value={productoSeleccionadoId}
+                  onChange={(e) => setProductoSeleccionadoId(e.target.value)}
+                  className="flex-1 bg-[#FFFFFF] border border-[#DFCBB5] text-[#221A14] rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:border-[#7C571C] cursor-pointer"
+                >
+                  <option value="">-- Seleccionar producto a llevar --</option>
+                  {productosDisponibles.map(p => (
+                    <option 
+                      key={p.id} 
+                      value={p.id} 
+                      disabled={p.stock <= 0}
+                    >
+                      {p.nombre} ({formatCOP(p.precio)}) {p.stock <= 0 ? '- AGOTADO' : `- Disp: ${p.stock}`}
+                    </option>
+                  ))}
+                </select>
+
+                <input
+                  type="number"
+                  min="1"
+                  max="99"
+                  value={cantidadProducto}
+                  onChange={(e) => setCantidadProducto(Math.max(1, parseInt(e.target.value) || 1))}
+                  className="w-14 bg-[#FFFFFF] border border-[#DFCBB5] text-[#221A14] rounded-lg px-2 py-1.5 text-xs text-center font-bold focus:outline-none focus:border-[#7C571C]"
+                  title="Cantidad a llevar"
+                />
+
+                <button
+                  type="button"
+                  onClick={handleAgregarProducto}
+                  disabled={!productoSeleccionadoId}
+                  className="px-3 py-1.5 bg-[#7C571C] hover:bg-[#684815] text-[#FAF6EE] text-xs font-bold rounded-lg disabled:opacity-40 transition-colors flex items-center gap-1 cursor-pointer shrink-0"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Agregar</span>
+                </button>
+              </div>
+
+              {/* Lista de productos agregados a este corte */}
+              {productosAgregados.length > 0 && (
+                <div className="space-y-1.5 pt-1 border-t border-[#DFCBB5]/60">
+                  {productosAgregados.map(({ producto, cantidad }) => (
+                    <div 
+                      key={producto.id} 
+                      className="flex items-center justify-between bg-[#FFFFFF] px-2.5 py-1.5 rounded-lg border border-[#DFCBB5] text-xs"
+                    >
+                      <div className="flex items-center gap-1.5 truncate">
+                        <ShoppingBag className="w-3.5 h-3.5 text-[#7C571C] shrink-0" />
+                        <span className="font-medium text-[#221A14] truncate">
+                          {producto.nombre}
+                        </span>
+                        <span className="text-[10px] text-[#6F5A4B] shrink-0">
+                          ({cantidad}x {formatCOP(producto.precio)})
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className="font-bold text-[#7C571C]">
+                          {formatCOP(producto.precio * cantidad)}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleEliminarProductoAgregado(producto.id)}
+                          className="p-0.5 text-[#BA1A1A] hover:bg-[#FFDAD6] rounded transition-colors cursor-pointer"
+                          title="Quitar producto"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                  <div className="text-[10px] text-[#6F5A4B] text-right italic">
+                    * El inventario se descontará automáticamente al registrar el corte.
+                  </div>
+                </div>
+              )}
+            </div>
+
             {/* LIVE DIVISION PREVIEW BOX */}
             <div className="rounded-xl bg-[#FFFFFF] border border-[#DFCBB5] p-3 space-y-2 shadow-2xs">
               <div className="flex items-center justify-between text-[11px] text-[#6F5A4B]">
-                <span className="font-bold">DIVISIÓN CALCULADA EN VIVO:</span>
-                <span className="font-bold text-[#7C571C]">{porcentajeBarbero}% / {100 - porcentajeBarbero}%</span>
+                <span className="font-bold">RESUMEN DE COBRO EN VIVO:</span>
+                <span className="font-bold text-[#7C571C]">{porcentajeBarbero}% / {100 - porcentajeBarbero}% (Corte)</span>
               </div>
               <div className="grid grid-cols-2 gap-2 text-xs">
                 <div className="bg-[#FBEBE1] p-2 rounded-lg border border-[#DFCBB5]">
@@ -788,10 +985,18 @@ TOTAL A RECIBIR: ${formatCOP(voucherBarbero.totalNeto)}
                 </div>
                 <div className="bg-[#EBF7EE] p-2 rounded-lg border border-[#86EFAC]">
                   <span className="text-[10px] text-[#15803D] block font-bold">CASA DEL REY:</span>
-                  <span className="text-sm font-bold text-[#15803D]">{formatCOP(montoBarberia)}</span>
-                  <span className="text-[9px] text-[#15803D]/80 block">Margen del salón</span>
+                  <span className="text-sm font-bold text-[#15803D]">{formatCOP(montoBarberia + totalProductosCobro)}</span>
+                  <span className="text-[9px] text-[#15803D]/80 block">
+                    {totalProductosCobro > 0 ? `Corte ${formatCOP(montoBarberia)} + Prod ${formatCOP(totalProductosCobro)}` : 'Margen del salón'}
+                  </span>
                 </div>
               </div>
+              {totalProductosCobro > 0 && (
+                <div className="pt-1.5 border-t border-[#DFCBB5] flex items-center justify-between text-xs font-bold text-[#221A14] bg-[#FAF6EE] p-2 rounded-lg">
+                  <span>TOTAL A COBRAR AL CLIENTE:</span>
+                  <span className="text-sm text-[#7C571C]">{formatCOP(totalGeneralCobro)}</span>
+                </div>
+              )}
             </div>
 
             {error && (
@@ -981,13 +1186,28 @@ TOTAL A RECIBIR: ${formatCOP(voucherBarbero.totalNeto)}
                     <td className="py-2.5">
                       <span className="font-bold text-[#221A14]">{corte.clienteNombre}</span>
                       <span className="text-[10px] text-[#6F5A4B] block">{corte.servicioNombre}</span>
-                      {corte.notas && <span className="text-[9px] text-[#7C571C] italic block">{corte.notas}</span>}
+                      {corte.productosVendidos && corte.productosVendidos.length > 0 && (
+                        <div className="mt-1 flex flex-wrap gap-1">
+                          {corte.productosVendidos.map((pv, idx) => (
+                            <span key={idx} className="inline-flex items-center gap-1 text-[9px] bg-[#FAF3E0] text-[#7C571C] border border-[#DFCBB5] px-1.5 py-0.5 rounded font-bold">
+                              <Package className="w-2.5 h-2.5 text-[#7C571C]" />
+                              <span>{pv.cantidad}x {pv.nombre} ({formatCOP(pv.subtotal)})</span>
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                      {corte.notas && <span className="text-[9px] text-[#7C571C] italic block mt-0.5">{corte.notas}</span>}
                     </td>
                     <td className="py-2.5 whitespace-nowrap text-[11px] text-[#6F5A4B]">
                       {corte.metodoPago}
                     </td>
                     <td className="py-2.5 whitespace-nowrap text-right font-bold text-[#221A14]">
-                      {formatCOP(corte.precio)}
+                      <div>{formatCOP(corte.precio + (corte.totalProductos || 0))}</div>
+                      {corte.totalProductos && corte.totalProductos > 0 ? (
+                        <div className="text-[9px] text-[#6F5A4B] font-normal">
+                          Corte: {formatCOP(corte.precio)} + Prod: {formatCOP(corte.totalProductos)}
+                        </div>
+                      ) : null}
                     </td>
                     <td className="py-2.5 whitespace-nowrap text-right text-[#7C571C] font-bold">
                       {formatCOP(corte.montoBarbero)}
@@ -996,7 +1216,12 @@ TOTAL A RECIBIR: ${formatCOP(voucherBarbero.totalNeto)}
                       )}
                     </td>
                     <td className="py-2.5 whitespace-nowrap text-right text-[#15803D] font-bold">
-                      {formatCOP(corte.montoBarberia)}
+                      <div>{formatCOP(corte.montoBarberia + (corte.totalProductos || 0))}</div>
+                      {corte.totalProductos && corte.totalProductos > 0 ? (
+                        <div className="text-[9px] text-[#15803D]/70 font-normal">
+                          inc. {formatCOP(corte.totalProductos)} prod
+                        </div>
+                      ) : null}
                     </td>
                     <td className="py-2.5 whitespace-nowrap text-center">
                       <button

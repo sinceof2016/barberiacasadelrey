@@ -13,6 +13,7 @@ import {
   Clock, 
   RotateCcw, 
   CheckCircle2,
+  AlertCircle,
   Calendar,
   Sparkles,
   ExternalLink,
@@ -21,11 +22,17 @@ import {
   FileSpreadsheet,
   Building2,
   MapPin,
-  Lock
+  Lock,
+  MessageSquare
 } from 'lucide-react';
 import { User } from 'firebase/auth';
 import { SUCURSALES_CASA_DEL_REY, getSucursalById } from '../data/sucursales';
 import { getGoogleCalendarUrl, downloadAppleCalendarIcs } from './AddToCalendarButtons';
+import { 
+  generarTextoMensajeReserva, 
+  generarUrlWhatsAppBarberia, 
+  WHATSAPP_BARBERIA_DISPLAY 
+} from './WhatsAppConfirmButton';
 import { VintageDatePicker } from './VintageDatePicker';
 import { 
   VintageBarberPole, 
@@ -88,6 +95,20 @@ export const AppointmentsList: React.FC<AppointmentsListProps> = ({
   const [syncedMap, setSyncedMap] = useState<Record<string, { eventId: string; htmlLink?: string }>>({});
   const [sincronizandoCalendar, setSincronizandoCalendar] = useState<boolean>(false);
   const [notifCalendar, setNotifCalendar] = useState<string | null>(null);
+  const [errorNotif, setErrorNotif] = useState<string | null>(null);
+
+  const notificarError = (msg: string) => {
+    setErrorNotif(msg);
+    setTimeout(() => setErrorNotif(null), 5000);
+  };
+
+  const safeConfirm = (msg: string): boolean => {
+    try {
+      return window.confirm(msg);
+    } catch {
+      return true;
+    }
+  };
   const [syncConfirmDialog, setSyncConfirmDialog] = useState<{
     isOpen: boolean;
     mode: 'single' | 'batch';
@@ -121,7 +142,7 @@ export const AppointmentsList: React.FC<AppointmentsListProps> = ({
         timeStr: cita.hora,
       });
     } catch (err: any) {
-      alert(err.message || 'Error al conectar con Google Calendar.');
+      notificarError(err.message || 'Error al conectar con Google Calendar.');
     }
   };
 
@@ -134,7 +155,7 @@ export const AppointmentsList: React.FC<AppointmentsListProps> = ({
       }
       const citasParaSincronizar = citasHoyPendientes.filter(c => !syncedMap[c.idReserva]);
       if (citasParaSincronizar.length === 0) {
-        alert('Todos los turnos pendientes de hoy ya fueron sincronizados o no hay turnos activos.');
+        notificarError('Todos los turnos pendientes de hoy ya fueron sincronizados o no hay turnos activos.');
         return;
       }
       setSyncConfirmDialog({
@@ -145,7 +166,7 @@ export const AppointmentsList: React.FC<AppointmentsListProps> = ({
         dateStr: hoyStr,
       });
     } catch (err: any) {
-      alert(err.message || 'Error al conectar con Google Calendar.');
+      notificarError(err.message || 'Error al conectar con Google Calendar.');
     }
   };
 
@@ -179,7 +200,7 @@ export const AppointmentsList: React.FC<AppointmentsListProps> = ({
       setSyncConfirmDialog(prev => ({ ...prev, isOpen: false }));
       setTimeout(() => setNotifCalendar(null), 4500);
     } catch (err: any) {
-      alert('Error en sincronización: ' + err.message);
+      notificarError('Error en sincronización: ' + err.message);
     } finally {
       setSincronizandoCalendar(false);
     }
@@ -194,13 +215,15 @@ export const AppointmentsList: React.FC<AppointmentsListProps> = ({
   };
 
   const handleCancelar = async (idReserva: string) => {
-    if (!window.confirm(`¿Confirmas cancelar la reserva ${idReserva}?`)) return;
+    if (!safeConfirm(`¿Confirmas cancelar la reserva ${idReserva}?`)) return;
     setCancelandoId(idReserva);
     try {
       await cancelarCita(idReserva);
       onRefresh();
+      setNotifCalendar(`Reserva ${idReserva} cancelada exitosamente.`);
+      setTimeout(() => setNotifCalendar(null), 4500);
     } catch (err: any) {
-      alert('Error al cancelar: ' + err.message);
+      notificarError('Error al cancelar: ' + err.message);
     } finally {
       setCancelandoId(null);
     }
@@ -669,7 +692,20 @@ export const AppointmentsList: React.FC<AppointmentsListProps> = ({
             <CheckCircle2 className="w-4 h-4 text-[#15803D] shrink-0" />
             <span>{notifCalendar}</span>
           </div>
-          <button onClick={() => setNotifCalendar(null)} className="text-[#15803D]/70 hover:text-[#15803D]">
+          <button onClick={() => setNotifCalendar(null)} className="text-[#15803D]/70 hover:text-[#15803D] cursor-pointer">
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
+
+      {/* Error Notification Toast */}
+      {errorNotif && (
+        <div className="p-3 bg-[#FFDAD6] border border-[#BA1A1A]/30 rounded-xl flex items-center justify-between gap-2 text-xs font-mono text-[#BA1A1A] shadow-xs">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 text-[#BA1A1A] shrink-0" />
+            <span>{errorNotif}</span>
+          </div>
+          <button onClick={() => setErrorNotif(null)} className="text-[#BA1A1A]/70 hover:text-[#BA1A1A] cursor-pointer">
             <X className="w-3.5 h-3.5" />
           </button>
         </div>
@@ -865,6 +901,24 @@ export const AppointmentsList: React.FC<AppointmentsListProps> = ({
                               >
                                 <Download className="w-3.5 h-3.5" />
                               </button>
+
+                              {/* Notificación rápida a WhatsApp oficial */}
+                              <a
+                                href={generarUrlWhatsAppBarberia(
+                                  generarTextoMensajeReserva(
+                                    c,
+                                    servicio?.nombre,
+                                    barbero?.nombre,
+                                    servicio?.precio
+                                  )
+                                )}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="p-1.5 rounded-xl bg-[#EBF7EE] hover:bg-[#25D366] text-[#15803D] hover:text-[#0A180E] border border-[#86EFAC] transition-all cursor-pointer shadow-2xs"
+                                title={`Notificar por WhatsApp a ${WHATSAPP_BARBERIA_DISPLAY}`}
+                              >
+                                <MessageSquare className="w-3.5 h-3.5 fill-current" />
+                              </a>
                               <button
                                 onClick={() => handleCancelar(c.idReserva)}
                                 disabled={cancelandoId === c.idReserva}
