@@ -83,7 +83,86 @@ interface WhatsAppConfirmProps {
   autoNotificar?: boolean;
 }
 
-export const WhatsAppConfirmButton: React.FC<WhatsAppConfirmProps> = () => {
-  // Sección invisible para todos los usuarios según requerimiento
-  return null;
+export const WhatsAppConfirmButton: React.FC<WhatsAppConfirmProps> = ({
+  cita,
+  servicioNombre,
+  barberoNombre,
+  precioTotal,
+  className = ''
+}) => {
+  const [enviando, setEnviando] = useState(false);
+  const [despachado, setDespachado] = useState(false);
+  const [errorEnvio, setErrorEnvio] = useState(false);
+
+  const mensajeTexto = generarTextoMensajeReserva(cita, servicioNombre, barberoNombre, precioTotal);
+  const urlWhatsApp = generarUrlWhatsAppBarberia(mensajeTexto);
+
+  const handleReenviar = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setEnviando(true);
+    setErrorEnvio(false);
+
+    try {
+      // Intentar despacho directo vía UltraMsg
+      const { despacharUltraMsgDirecto } = await import('../services/ultraMsgClient');
+      const res = await despacharUltraMsgDirecto({
+        texto: mensajeTexto,
+        idReserva: cita.idReserva,
+        clienteNombre: cita.clienteNombre || cita.responsableNombre || 'Caballero Casa del Rey',
+        tipo: cita.tipo || 'Individual'
+      });
+
+      if (res.exito) {
+        setDespachado(true);
+      } else {
+        setErrorEnvio(true);
+      }
+    } catch {
+      setErrorEnvio(true);
+    } finally {
+      setEnviando(false);
+    }
+  };
+
+  return (
+    <div className={`flex items-center gap-2 ${className}`}>
+      <button
+        type="button"
+        id={`btn-reenviar-whatsapp-${cita.idReserva}`}
+        onClick={handleReenviar}
+        disabled={enviando || despachado}
+        className={`px-3 py-1.5 rounded-lg text-xs font-bold font-mono transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-sm ${
+          despachado
+            ? 'bg-[#EBF7EE] text-[#15803D] border border-[#86EFAC]'
+            : errorEnvio
+            ? 'bg-[#FFDAD6] text-[#BA1A1A] border border-[#BA1A1A]/30 hover:bg-[#FFDAD6]/80'
+            : 'bg-[#15803D] hover:bg-[#166534] text-[#FFFFFF]'
+        }`}
+        title="Reenviar notificación a UltraMsg WhatsApp"
+      >
+        <MessageSquare className="w-3.5 h-3.5 shrink-0" />
+        <span>
+          {enviando
+            ? 'Enviando...'
+            : despachado
+            ? 'Notificado ✓'
+            : errorEnvio
+            ? 'Reintentar UltraMsg'
+            : 'Enviar WhatsApp'}
+        </span>
+      </button>
+
+      <a
+        id={`link-directo-wa-${cita.idReserva}`}
+        href={urlWhatsApp}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="px-2.5 py-1.5 rounded-lg text-xs font-bold font-mono bg-[#FBEBE1] hover:bg-[#F4DCC7] text-[#6F5A4B] hover:text-[#221A14] border border-[#DFCBB5] transition-all flex items-center justify-center gap-1 cursor-pointer"
+        title="Abrir chat directo en WhatsApp Web / App"
+      >
+        <ExternalLink className="w-3.5 h-3.5 shrink-0" />
+        <span className="hidden sm:inline">Abrir Chat</span>
+      </a>
+    </div>
+  );
 };

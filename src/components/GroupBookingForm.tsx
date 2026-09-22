@@ -309,8 +309,20 @@ export const GroupBookingForm: React.FC<GroupBookingFormProps> = ({
         <AddToCalendarButtons
           cita={citaCreada}
           duracionMinutos={citaCreada.totalPersonas * 30}
-          className="mb-5"
+          className="mb-4"
         />
+
+        <div className="p-4 rounded-xl bg-[#FFFFFF] border border-[#DFCBB5] flex flex-col sm:flex-row items-center justify-between gap-3 mb-5">
+          <div>
+            <span className="text-xs font-bold text-[#221A14] block">
+              ¿Deseas confirmar la reserva grupal vía WhatsApp oficial?
+            </span>
+            <span className="text-[11px] text-[#6F5A4B]">
+              Envía los detalles con 1 toque a nuestra línea {WHATSAPP_BARBERIA_DISPLAY}
+            </span>
+          </div>
+          <WhatsAppConfirmButton cita={citaCreada} className="w-full sm:w-auto" />
+        </div>
 
         <button
           onClick={() => setCitaCreada(null)}

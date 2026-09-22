@@ -2427,19 +2427,40 @@ async function despacharWhatsAppSegundoPlano(
         const resultadosUltraMsg: Array<{ numero: string; ok: boolean; status: number; data: any }> = [];
         for (const num of numerosDestino) {
           try {
-            const resUm = await fetch(umUrl, {
+            const formParams = new URLSearchParams();
+            formParams.append('token', tokenClean);
+            formParams.append('to', num);
+            formParams.append('body', texto);
+
+            let resUm = await fetch(umUrl, {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                token: tokenClean,
-                to: num,
-                body: texto
-              })
+              headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+              body: formParams.toString()
             });
-            const umData: any = await resUm.json().catch(() => ({}));
+            let umData: any = await resUm.json().catch(() => ({}));
+            let ok = resUm.ok && (umData.sent === 'true' || umData.sent === true || Boolean(umData.id));
+
+            if (!ok) {
+              const resJson = await fetch(umUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  token: tokenClean,
+                  to: num,
+                  body: texto
+                })
+              });
+              const jsonUmData: any = await resJson.json().catch(() => ({}));
+              if (resJson.ok && (jsonUmData.sent === 'true' || jsonUmData.sent === true || Boolean(jsonUmData.id))) {
+                resUm = resJson;
+                umData = jsonUmData;
+                ok = true;
+              }
+            }
+
             resultadosUltraMsg.push({
               numero: num,
-              ok: resUm.ok && (umData.sent === 'true' || umData.sent === true || Boolean(umData.id)),
+              ok,
               status: resUm.status,
               data: umData
             });

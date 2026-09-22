@@ -260,20 +260,48 @@ export async function despacharUltraMsgDirecto(params: {
 
   for (const num of destinos) {
     try {
-      const res = await fetch(umUrl, {
+      console.log(`[UltraMsg Client] Enviando mensaje a ${num} vía ${umUrl}...`);
+
+      // Intentar primero con application/x-www-form-urlencoded (estándar UltraMsg)
+      const formParams = new URLSearchParams();
+      formParams.append('token', tokenClean);
+      formParams.append('to', num);
+      formParams.append('body', params.texto);
+
+      let res = await fetch(umUrl, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/x-www-form-urlencoded'
         },
-        body: JSON.stringify({
-          token: tokenClean,
-          to: num,
-          body: params.texto
-        })
+        body: formParams.toString()
       });
 
-      const data: any = await res.json().catch(() => ({}));
-      const ok = res.ok && (data.sent === 'true' || data.sent === true || Boolean(data.id));
+      let data: any = await res.json().catch(() => ({}));
+      let ok = res.ok && (data.sent === 'true' || data.sent === true || Boolean(data.id));
+
+      // Si falló con x-www-form-urlencoded, intentar con application/json como respaldo
+      if (!ok) {
+        console.warn(`[UltraMsg Client] Intento urlencoded para ${num} no confirmado, reintentando JSON...`, data);
+        const resJson = await fetch(umUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            token: tokenClean,
+            to: num,
+            body: params.texto
+          })
+        });
+        const dataJson: any = await resJson.json().catch(() => ({}));
+        if (resJson.ok && (dataJson.sent === 'true' || dataJson.sent === true || Boolean(dataJson.id))) {
+          res = resJson;
+          data = dataJson;
+          ok = true;
+        }
+      }
+
+      console.log(`[UltraMsg Client] Resultado para ${num}:`, { ok, status: res.status, data });
 
       resultados.push({
         numero: num,
@@ -282,6 +310,7 @@ export async function despacharUltraMsgDirecto(params: {
         data
       });
     } catch (err: any) {
+      console.error(`[UltraMsg Client] Error de conexión hacia ${num}:`, err);
       resultados.push({
         numero: num,
         ok: false,
@@ -328,20 +357,23 @@ export function despacharCitaWhatsAppClient(
   servicioNombre?: string,
   barberoNombre?: string
 ): void {
-  setTimeout(async () => {
+  // Ejecutar inmediatamente como tarea asíncrona sin demoras para evitar problemas de ciclo de vida del navegador
+  (async () => {
     try {
+      console.log(`[UltraMsg Client] Iniciando despacho automático para reserva ${cita.idReserva}...`);
       const texto = generarTextoMensajeReserva(cita, servicioNombre, barberoNombre);
       const clienteNombre = cita.clienteNombre || cita.responsableNombre || 'Caballero Casa del Rey';
-      await despacharUltraMsgDirecto({
+      const res = await despacharUltraMsgDirecto({
         texto,
         idReserva: cita.idReserva,
         clienteNombre,
         tipo: cita.tipo || 'Individual'
       });
+      console.log(`[UltraMsg Client] Fin de despacho para reserva ${cita.idReserva}. Éxito: ${res.exito}`);
     } catch (e) {
       console.warn('[UltraMsg Client Fallback] Error en despacho en segundo plano:', e);
     }
-  }, 100);
+  })();
 }
 
 /**
