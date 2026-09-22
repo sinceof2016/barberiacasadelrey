@@ -17,6 +17,12 @@ import {
   localLoginUsuario, 
   localGetReporteClientes 
 } from '../services/localBackendFallback';
+import {
+  getWhatsAppGatewayStatusClient,
+  getWhatsAppHistorialClient,
+  enviarPruebaWhatsAppClient,
+  saveWhatsAppConfigClient
+} from '../services/ultraMsgClient';
 import { 
   VintageBarberPole, 
   StraightRazorIcon, 
@@ -218,7 +224,7 @@ export const ApiConsole: React.FC = () => {
     setResponseData(null);
 
     // Ejecutor local para GitHub Pages o entornos sin servidor Express activo
-    const runLocalMock = () => {
+    const runLocalMock = async () => {
       try {
         const cleanPath = selectedEndpoint.split('?')[0];
         const params = new URLSearchParams(selectedEndpoint.includes('?') ? selectedEndpoint.split('?')[1] : '');
@@ -336,6 +342,40 @@ export const ApiConsole: React.FC = () => {
           };
         }
 
+        if (cleanPath === '/whatsapp/gateway-status') {
+          return {
+            status: 200,
+            data: getWhatsAppGatewayStatusClient()
+          };
+        }
+
+        if (cleanPath === '/whatsapp/historial') {
+          return {
+            status: 200,
+            data: getWhatsAppHistorialClient()
+          };
+        }
+
+        if (cleanPath === '/whatsapp/enviar-prueba') {
+          const resultadoPrueba = await enviarPruebaWhatsAppClient();
+          return {
+            status: 200,
+            data: resultadoPrueba
+          };
+        }
+
+        if (cleanPath === '/whatsapp/configurar-gateway') {
+          const nuevaConfig = saveWhatsAppConfigClient(parsedBody);
+          return {
+            status: 200,
+            data: {
+              exito: true,
+              mensaje: 'Pasarela de WhatsApp configurada en almacenamiento local.',
+              config: nuevaConfig
+            }
+          };
+        }
+
         return { status: 200, data: { ok: true, endpoint: selectedEndpoint, mensaje: 'Respuesta simulada GitHub / Local Storage' } };
       } catch (err: any) {
         return { status: 500, data: { error: err.message || 'Error en ejecución local' } };
@@ -360,7 +400,7 @@ export const ApiConsole: React.FC = () => {
       
       if (!res.ok || !contentType.includes('application/json')) {
         // En GitHub Pages o entornos estáticos, invocar mock local
-        const localRes = runLocalMock();
+        const localRes = await runLocalMock();
         setResponseStatus(localRes.status);
         setResponseData(localRes.data);
         return;
@@ -371,7 +411,7 @@ export const ApiConsole: React.FC = () => {
       setResponseData(json);
     } catch {
       // Fallback para GitHub Pages donde no hay Express server
-      const localRes = runLocalMock();
+      const localRes = await runLocalMock();
       setResponseStatus(localRes.status);
       setResponseData(localRes.data);
     } finally {

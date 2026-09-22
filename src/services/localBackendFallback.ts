@@ -26,6 +26,7 @@ import {
   evaluarSlotParaBarbero 
 } from '../utils/barberAvailability';
 import { guardarCitaEnFirestore, guardarCorteEnFirestore, actualizarEstadoCitaEnFirestore } from './firebase';
+import { despacharCitaWhatsAppClient } from './ultraMsgClient';
 
 const STORAGE_KEYS = {
   CITAS: 'cdr_citas_v1',
@@ -466,6 +467,10 @@ export function localCrearCitaIndividual(payload: {
   localSaveCitas(todasCitas);
   guardarCitaEnFirestore(nuevaCita).catch(() => {});
 
+  // Despacho automático por UltraMsg WhatsApp en segundo plano (GitHub Pages / Client Fallback)
+  const servicioInfo = serviciosCasaDelRey.find(s => s.id === payload.servicioId);
+  despacharCitaWhatsAppClient(nuevaCita, servicioInfo?.nombre, barberoFinal?.nombre);
+
   return {
     exito: true,
     mensaje: `Cita agendada con éxito para las ${nuevaCita.hora} con ${barberoFinal?.nombre || 'Maestro Barbero'} en Barbería La Casa del Rey.`,
@@ -506,6 +511,9 @@ export function localCrearCitaGrupal(payload: {
   todasCitas.unshift(nuevaCita);
   localSaveCitas(todasCitas);
   guardarCitaEnFirestore(nuevaCita).catch(() => {});
+
+  // Despacho automático por UltraMsg WhatsApp en segundo plano (GitHub Pages / Client Fallback)
+  despacharCitaWhatsAppClient(nuevaCita);
 
   return {
     exito: true,

@@ -62,6 +62,13 @@ import {
   localActualizarCalendarioBarbero,
   getColombiaDateTimeClient
 } from './localBackendFallback';
+import {
+  saveWhatsAppConfigClient,
+  getWhatsAppGatewayStatusClient,
+  getWhatsAppHistorialClient,
+  enviarPruebaWhatsAppClient,
+  reintentarDespachoWhatsAppClient
+} from './ultraMsgClient';
 
 export const API_BASE_URL = '/api/v1/barberia-casa-del-rey';
 export const BASE_URL = API_BASE_URL;
@@ -869,6 +876,20 @@ export async function configurarWhatsAppGateway(payload: {
   mensaje: string;
   config?: any;
 }> {
+  // Guardar en el almacenamiento local para compatibilidad total con GitHub Pages
+  saveWhatsAppConfigClient({
+    proveedor: payload.proveedor,
+    ultramsgInstanceId: payload.ultramsgInstanceId,
+    ultramsgToken: payload.ultramsgToken,
+    telegramBotToken: payload.telegramBotToken,
+    telegramChatId: payload.telegramChatId,
+    callmebotApiKey: payload.callmebotApiKey,
+    phoneNumberId: payload.phoneNumberId,
+    apiToken: payload.apiToken,
+    gatewayUrl: payload.gatewayUrl,
+    lineasSecundarias: payload.lineasSecundarias
+  });
+
   const res = await safeFetch(`${BASE_URL}/whatsapp/configurar-gateway`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -877,7 +898,8 @@ export async function configurarWhatsAppGateway(payload: {
   if (!res || !res.ok) {
     return {
       exito: true,
-      mensaje: 'Configuración de pasarela guardada localmente.',
+      mensaje: 'Configuración de pasarela guardada localmente (Modo GitHub / Cliente).',
+      config: getWhatsAppGatewayStatusClient()
     };
   }
   return await res.json();
@@ -886,37 +908,7 @@ export async function configurarWhatsAppGateway(payload: {
 export async function getWhatsAppHistorial(): Promise<WhatsAppHistorialResponse> {
   const res = await safeFetch(`${BASE_URL}/whatsapp/historial`);
   if (!res || !res.ok) {
-    return {
-      exito: true,
-      totalDespachos: 1,
-      entregados: 1,
-      tasaExito: 100,
-      latenciaPromedioMs: 145,
-      numeroDestinoOficial: '+57 312 644 1665',
-      historial: [
-        {
-          id: 'disp-local-init',
-          idReserva: 'CDR-INIT',
-          destinatario: '+57 312 644 1665',
-          numeroLimpio: '573126441665',
-          codigoPais: '+57',
-          movil: '3126441665',
-          tipo: 'Individual',
-          cliente: 'Sistema Casa del Rey',
-          mensaje: 'Gateway de WhatsApp en segundo plano iniciado correctamente.',
-          estado: 'entregado',
-          messageId: 'wamid.HBgL573126441665FQIAEhggLOCALINIT',
-          proveedor: 'Meta WhatsApp Cloud API / Direct Server Gateway',
-          codigoHttp: 200,
-          intentos: 1,
-          timestamp: new Date().toISOString(),
-          latenciaMs: 120,
-          entregaEnSegundoPlano: true,
-          urlDirecta: 'https://api.whatsapp.com/send?phone=573126441665',
-          urlWaMe: 'https://wa.me/573126441665'
-        }
-      ]
-    };
+    return getWhatsAppHistorialClient() as WhatsAppHistorialResponse;
   }
   return await res.json();
 }
@@ -924,27 +916,7 @@ export async function getWhatsAppHistorial(): Promise<WhatsAppHistorialResponse>
 export async function getWhatsAppGatewayStatus(): Promise<WhatsAppGatewayStatusResponse> {
   const res = await safeFetch(`${BASE_URL}/whatsapp/gateway-status`);
   if (!res || !res.ok) {
-    return {
-      exito: true,
-      estado: 'operativo',
-      modoEnvio: 'ultramsg_api',
-      codigoPais: '+57',
-      numeroMovil: '3126441665',
-      numeroReceptor: '+57 312 644 1665',
-      numeroNormalizado: '573126441665',
-      lineasSecundarias: ['+57 320 450 9804'],
-      lineasSecundariasNormalizadas: ['573204509804'],
-      lineasTotales: ['+57 312 644 1665', '+57 320 450 9804'],
-      proveedorActivo: 'UltraMsg WhatsApp Gateway (+57 312 644 1665 - Línea Oficial)',
-      ultramsgConfigurado: true,
-      ultramsgInstanceId: 'instance191642',
-      ultramsgTokenMasked: 'ean••••1e2',
-      urlTestDirecto: 'https://api.whatsapp.com/send?phone=573126441665',
-      urlWaMeTest: 'https://wa.me/573126441665',
-      totalProcesados: 1,
-      colaActiva: false,
-      timestamp: new Date().toISOString()
-    };
+    return getWhatsAppGatewayStatusClient() as WhatsAppGatewayStatusResponse;
   }
   return await res.json();
 }
@@ -961,11 +933,13 @@ export async function enviarWhatsAppPruebaSegundoPlano(): Promise<{
     headers: { 'Content-Type': 'application/json' }
   });
   if (!res || !res.ok) {
+    const fallbackRes = await enviarPruebaWhatsAppClient();
     return {
-      exito: true,
-      mensaje: 'Mensaje de prueba configurado para +57 312 644 1665.',
-      urlDirectaWhatsApp: 'https://api.whatsapp.com/send?phone=573126441665',
-      urlWaMe: 'https://wa.me/573126441665'
+      exito: fallbackRes.exito,
+      mensaje: fallbackRes.mensaje,
+      despacho: fallbackRes.despacho as WhatsAppDespachoItem | undefined,
+      urlDirectaWhatsApp: fallbackRes.urlDirectaWhatsApp,
+      urlWaMe: fallbackRes.urlWaMe
     };
   }
   return await res.json();
@@ -975,6 +949,9 @@ export async function reintentarDespachoWhatsApp(id: string): Promise<boolean> {
   const res = await safeFetch(`${BASE_URL}/whatsapp/reintentar/${id}`, {
     method: 'POST'
   });
+  if (!res || !res.ok) {
+    return await reintentarDespachoWhatsAppClient(id);
+  }
   return Boolean(res && res.ok);
 }
 
