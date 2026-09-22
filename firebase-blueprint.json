@@ -102,6 +102,39 @@
         "actualizadoEn": { "type": "string" }
       },
       "required": ["id", "nombre", "categoria", "precio", "stock"]
+    },
+    "Usuario": {
+      "title": "Usuario",
+      "description": "Cuenta de usuario del sistema (SuperAdmin, Administrador, Cajero)",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "nombre": { "type": "string", "maxLength": 120 },
+        "email": { "type": "string", "maxLength": 150 },
+        "rol": { "type": "string", "enum": ["SuperAdmin", "Administrador", "Cajero"] },
+        "sucursalAsignada": { "type": "string", "maxLength": 50 },
+        "puedeVerApi": { "type": "boolean" },
+        "activo": { "type": "boolean" },
+        "creadoEn": { "type": "string" }
+      },
+      "required": ["id", "nombre", "email", "rol"]
+    },
+    "Gasto": {
+      "title": "Gasto",
+      "description": "Registro de egreso operativo de la barbería",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "fecha": { "type": "string", "maxLength": 20 },
+        "hora": { "type": "string", "maxLength": 20 },
+        "concepto": { "type": "string", "maxLength": 200 },
+        "categoria": { "type": "string", "maxLength": 80 },
+        "monto": { "type": "number" },
+        "metodoPago": { "type": "string", "maxLength": 50 },
+        "sucursalId": { "type": "string", "maxLength": 50 },
+        "creadoEn": { "type": "string" }
+      },
+      "required": ["id", "fecha", "concepto", "monto", "metodoPago"]
     }
   },
   "firestore": {
@@ -124,6 +157,14 @@
     "/productos/{productoId}": {
       "schema": "ProductoInventario",
       "description": "Colección de inventario de productos de venta de la barbería"
+    },
+    "/usuarios/{userId}": {
+      "schema": "Usuario",
+      "description": "Colección de perfiles de usuario con RLS y permisos"
+    },
+    "/gastos/{gastoId}": {
+      "schema": "Gasto",
+      "description": "Colección de gastos operativos de la sede con RLS"
     }
   }
 }

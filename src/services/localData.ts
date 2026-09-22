@@ -85,13 +85,195 @@ export const serviciosCasaDelRey: Servicio[] = [
   }
 ];
 
+export const DIAS_SEMANA_NOMBRES = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+
 export const barberosCasaDelRey: Barbero[] = [
-  { id: 101, nombre: 'Carlos "El Maestro"', especialidad: 'Cortes Clásicos & Navaja Libre', sucursalId: 'suc-chico', sucursalNombre: 'Sede Chicó Real' },
-  { id: 102, nombre: 'Mateo "Lord Fade"', especialidad: 'Degradados & Tendencia Urbana', sucursalId: 'suc-chico', sucursalNombre: 'Sede Chicó Real' },
-  { id: 201, nombre: 'Santi "Perfilado"', especialidad: 'Barbas & Toallas Calientes', sucursalId: 'suc-usaquen', sucursalNombre: 'Sede Usaquén Colonial' },
-  { id: 202, nombre: 'Javier "Navaja Real"', especialidad: 'Afeitado Tradicional & Bigote', sucursalId: 'suc-usaquen', sucursalNombre: 'Sede Usaquén Colonial' },
-  { id: 301, nombre: 'Andrés "Old School"', especialidad: 'Pompadour & Estilo Británico', sucursalId: 'suc-chapinero', sucursalNombre: 'Sede Chapinero Vintage' },
-  { id: 302, nombre: 'David "El Cirujano"', especialidad: 'Perfilado Quirúrgico & Barboterapia', sucursalId: 'suc-chapinero', sucursalNombre: 'Sede Chapinero Vintage' }
+  { 
+    id: 101, 
+    nombre: 'Carlos "El Maestro"', 
+    especialidad: 'Cortes Clásicos & Navaja Libre', 
+    sucursalId: 'suc-chico', 
+    sucursalNombre: 'Sede Chicó Real',
+    descripcion: 'Maestro barbero tradicional con más de 15 años de oficio en barberías británicas y bogotanas.',
+    diasLaborales: [1, 2, 3, 4, 5], // Lunes a Viernes
+    diasDescanso: [0, 6], // Domingos y Sábados
+    jornada: {
+      horaInicio: '09:00 AM',
+      horaFin: '06:00 PM',
+      recesoInicio: '01:00 PM',
+      recesoFin: '02:00 PM',
+    },
+    calendario: {
+      barberoId: 101,
+      barberoNombre: 'Carlos "El Maestro"',
+      sucursalId: 'suc-chico',
+      sucursalNombre: 'Sede Chicó Real',
+      diasLaborales: [1, 2, 3, 4, 5],
+      diasDescanso: [0, 6],
+      jornada: {
+        horaInicio: '09:00 AM',
+        horaFin: '06:00 PM',
+        recesoInicio: '01:00 PM',
+        recesoFin: '02:00 PM',
+      },
+      excepciones: []
+    }
+  },
+  { 
+    id: 102, 
+    nombre: 'Mateo "Lord Fade"', 
+    especialidad: 'Degradados & Tendencia Urbana', 
+    sucursalId: 'suc-chico', 
+    sucursalNombre: 'Sede Chicó Real',
+    descripcion: 'Especialista en fades pulidos al milímetro, texturizado moderno y diseños de barba.',
+    diasLaborales: [2, 3, 4, 5, 6], // Martes a Sábado
+    diasDescanso: [0, 1], // Domingos y Lunes
+    jornada: {
+      horaInicio: '11:00 AM',
+      horaFin: '07:00 PM',
+      recesoInicio: '03:00 PM',
+      recesoFin: '04:00 PM',
+    },
+    calendario: {
+      barberoId: 102,
+      barberoNombre: 'Mateo "Lord Fade"',
+      sucursalId: 'suc-chico',
+      sucursalNombre: 'Sede Chicó Real',
+      diasLaborales: [2, 3, 4, 5, 6],
+      diasDescanso: [0, 1],
+      jornada: {
+        horaInicio: '11:00 AM',
+        horaFin: '07:00 PM',
+        recesoInicio: '03:00 PM',
+        recesoFin: '04:00 PM',
+      },
+      excepciones: []
+    }
+  },
+  { 
+    id: 201, 
+    nombre: 'Santi "Perfilado"', 
+    especialidad: 'Barbas & Toallas Calientes', 
+    sucursalId: 'suc-usaquen', 
+    sucursalNombre: 'Sede Usaquén Colonial',
+    descripcion: 'Experto en rituales completos de afeitado con toalla caliente y aceites balsámicos esenciales.',
+    diasLaborales: [0, 3, 4, 5, 6], // Miércoles a Domingo
+    diasDescanso: [1, 2], // Lunes y Martes
+    jornada: {
+      horaInicio: '09:00 AM',
+      horaFin: '05:00 PM',
+      recesoInicio: '01:00 PM',
+      recesoFin: '02:00 PM',
+    },
+    calendario: {
+      barberoId: 201,
+      barberoNombre: 'Santi "Perfilado"',
+      sucursalId: 'suc-usaquen',
+      sucursalNombre: 'Sede Usaquén Colonial',
+      diasLaborales: [0, 3, 4, 5, 6],
+      diasDescanso: [1, 2],
+      jornada: {
+        horaInicio: '09:00 AM',
+        horaFin: '05:00 PM',
+        recesoInicio: '01:00 PM',
+        recesoFin: '02:00 PM',
+      },
+      excepciones: []
+    }
+  },
+  { 
+    id: 202, 
+    nombre: 'Javier "Navaja Real"', 
+    especialidad: 'Afeitado Tradicional & Bigote', 
+    sucursalId: 'suc-usaquen', 
+    sucursalNombre: 'Sede Usaquén Colonial',
+    descripcion: 'Artesano de la navaja libre, perfilado clásico de barba cuadrada y diseño de bigote.',
+    diasLaborales: [1, 2, 3, 4, 5], // Lunes a Viernes
+    diasDescanso: [0, 6], // Domingos y Sábados
+    jornada: {
+      horaInicio: '10:00 AM',
+      horaFin: '07:00 PM',
+      recesoInicio: '02:00 PM',
+      recesoFin: '03:00 PM',
+    },
+    calendario: {
+      barberoId: 202,
+      barberoNombre: 'Javier "Navaja Real"',
+      sucursalId: 'suc-usaquen',
+      sucursalNombre: 'Sede Usaquén Colonial',
+      diasLaborales: [1, 2, 3, 4, 5],
+      diasDescanso: [0, 6],
+      jornada: {
+        horaInicio: '10:00 AM',
+        horaFin: '07:00 PM',
+        recesoInicio: '02:00 PM',
+        recesoFin: '03:00 PM',
+      },
+      excepciones: []
+    }
+  },
+  { 
+    id: 301, 
+    nombre: 'Andrés "Old School"', 
+    especialidad: 'Pompadour & Estilo Británico', 
+    sucursalId: 'suc-chapinero', 
+    sucursalNombre: 'Sede Chapinero Vintage',
+    descripcion: 'Cortes ejecutivos, pompadour pulido y técnicas tradicionales de tijera sobre peine.',
+    diasLaborales: [1, 2, 4, 5, 6], // Lunes, Martes, Jueves, Viernes, Sábado
+    diasDescanso: [0, 3], // Domingos y Miércoles
+    jornada: {
+      horaInicio: '09:00 AM',
+      horaFin: '06:00 PM',
+      recesoInicio: '01:00 PM',
+      recesoFin: '02:00 PM',
+    },
+    calendario: {
+      barberoId: 301,
+      barberoNombre: 'Andrés "Old School"',
+      sucursalId: 'suc-chapinero',
+      sucursalNombre: 'Sede Chapinero Vintage',
+      diasLaborales: [1, 2, 4, 5, 6],
+      diasDescanso: [0, 3],
+      jornada: {
+        horaInicio: '09:00 AM',
+        horaFin: '06:00 PM',
+        recesoInicio: '01:00 PM',
+        recesoFin: '02:00 PM',
+      },
+      excepciones: []
+    }
+  },
+  { 
+    id: 302, 
+    nombre: 'David "El Cirujano"', 
+    especialidad: 'Perfilado Quirúrgico & Barboterapia', 
+    sucursalId: 'suc-chapinero', 
+    sucursalNombre: 'Sede Chapinero Vintage',
+    descripcion: 'Precisión milimétrica en contornos, exfoliación facial y tratamiento profundo para barba.',
+    diasLaborales: [0, 2, 3, 4, 5, 6], // Martes a Domingo
+    diasDescanso: [1], // Lunes
+    jornada: {
+      horaInicio: '10:00 AM',
+      horaFin: '07:00 PM',
+      recesoInicio: '02:00 PM',
+      recesoFin: '03:00 PM',
+    },
+    calendario: {
+      barberoId: 302,
+      barberoNombre: 'David "El Cirujano"',
+      sucursalId: 'suc-chapinero',
+      sucursalNombre: 'Sede Chapinero Vintage',
+      diasLaborales: [0, 2, 3, 4, 5, 6],
+      diasDescanso: [1],
+      jornada: {
+        horaInicio: '10:00 AM',
+        horaFin: '07:00 PM',
+        recesoInicio: '02:00 PM',
+        recesoFin: '03:00 PM',
+      },
+      excepciones: []
+    }
+  }
 ];
 
 export const HORARIOS_CONFIG = [

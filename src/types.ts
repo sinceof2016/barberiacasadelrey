@@ -18,15 +18,47 @@ export interface Servicio {
   categoria?: 'individual' | 'grupal';
 }
 
+export interface HorarioJornadaBarbero {
+  horaInicio: string; // e.g. '09:00 AM'
+  horaFin: string;    // e.g. '06:00 PM'
+  recesoInicio?: string; // e.g. '01:00 PM'
+  recesoFin?: string;    // e.g. '02:00 PM'
+}
+
+export interface ExcepcionCalendarioBarbero {
+  id: string;
+  fecha: string; // YYYY-MM-DD
+  tipo: 'Descanso' | 'Vacaciones' | 'Permiso' | 'TurnoEspecial';
+  motivo?: string;
+  horasEspeciales?: string[];
+}
+
+export interface CalendarioBarbero {
+  barberoId: number;
+  barberoNombre: string;
+  sucursalId: string;
+  sucursalNombre?: string;
+  diasLaborales: number[]; // 0: Dom, 1: Lun, 2: Mar, 3: Mie, 4: Jue, 5: Vie, 6: Sab
+  diasDescanso: number[];  // e.g. [0] o [1]
+  jornada: HorarioJornadaBarbero;
+  excepciones?: ExcepcionCalendarioBarbero[];
+}
+
 export interface Barbero {
   id: number;
   nombre: string;
   especialidad: string;
   avatar?: string;
   foto?: string;
+  fotoUrl?: string;
   descripcion?: string;
   sucursalId?: string;
   sucursalNombre?: string;
+  // Calendario y disponibilidad individualizada
+  diasLaborales?: number[];
+  diasDescanso?: number[];
+  jornada?: HorarioJornadaBarbero;
+  calendario?: CalendarioBarbero;
 }
 
 export interface ParticipanteGrupal {
@@ -76,12 +108,23 @@ export interface GoogleCalendarEventItem {
   status?: string;
 }
 
+export type TipoBloqueoSlot = 
+  | 'disponible' 
+  | 'pasado' 
+  | 'dia_descanso' 
+  | 'fuera_jornada' 
+  | 'receso' 
+  | 'reservado' 
+  | 'sin_barberos';
+
 export interface HorarioSlot {
   hora24: string;
   hora12: string;
   disponible: boolean;
   motivoOcupado?: string;
+  tipoBloqueo?: TipoBloqueoSlot;
   barberoNombre?: string;
+  barberosDisponibles?: { id: number; nombre: string }[];
   esPasado?: boolean;
 }
 
@@ -98,9 +141,16 @@ export interface DisponibilidadResponse {
   exito: boolean;
   negocio: string;
   fecha: string;
+  diaSemana?: number;
+  diaSemanaNombre?: string;
+  esDiaDescansoBarbero?: boolean;
+  mensajeEstado?: string;
   barberoId: string;
+  barberoNombre?: string;
+  sucursalId?: string;
   horariosDisponibles: string[];
   slots?: HorarioSlot[];
+  calendarioBarbero?: CalendarioBarbero;
   relojColombia?: RelojColombiaInfo;
 }
 
@@ -225,6 +275,8 @@ export interface Usuario {
   avatarUrl?: string;
   puedeVerApi?: boolean;
   activo?: boolean;
+  token?: string;
+  tokenExpiresAt?: number;
 }
 
 /**

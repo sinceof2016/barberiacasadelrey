@@ -26,6 +26,7 @@ export type TabType =
   | 'servicios' 
   | 'barberos'
   | 'agenda' 
+  | 'registrar-corte'
   | 'cortes' 
   | 'contabilidad' 
   | 'usuarios' 
@@ -64,7 +65,8 @@ export const Navbar: React.FC<NavbarProps> = ({
       case 'reservar': return 'RESERVA DE TURNO';
       case 'barberos': return 'MAESTROS BARBEROS';
       case 'agenda': return 'LIBRO DE TURNOS';
-      case 'cortes': return 'CORTES DEL DÍA';
+      case 'registrar-corte': return 'REGISTRAR CORTE';
+      case 'cortes': return 'LIBRO DE CORTES & LIQUIDACIÓN';
       case 'contabilidad': return 'CAJA & FINANZAS';
       case 'clientes': return 'DIRECTORIO DE CLIENTES';
       case 'usuarios': return 'GESTIÓN DE USUARIOS';
@@ -222,6 +224,19 @@ export const Navbar: React.FC<NavbarProps> = ({
 
             <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5 w-full lg:w-auto">
               <button
+                id="nav-tab-registrar-corte"
+                onClick={() => setActiveTab('registrar-corte')}
+                className={`px-3 py-1 text-xs rounded-lg font-medium transition-all shrink-0 cursor-pointer flex items-center gap-1.5 ${
+                  activeTab === 'registrar-corte'
+                    ? 'bg-[#7C571C] text-[#FFFFFF] shadow-sm font-semibold'
+                    : 'bg-[#FFF8F5] text-[#7C571C] hover:bg-[#F5E5DB] border border-[#DFCBB5] font-bold'
+                }`}
+              >
+                <Scissors className="w-3.5 h-3.5" />
+                <span>+ Registrar Corte</span>
+              </button>
+
+              <button
                 id="nav-tab-agenda"
                 onClick={() => setActiveTab('agenda')}
                 className={`px-3 py-1 text-xs rounded-lg font-medium transition-all shrink-0 cursor-pointer flex items-center gap-1.5 ${
@@ -249,7 +264,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 }`}
               >
                 <Scissors className="w-3.5 h-3.5" />
-                <span>Cortes & Barberos</span>
+                <span>Libro & Liquidación</span>
               </button>
 
               <button

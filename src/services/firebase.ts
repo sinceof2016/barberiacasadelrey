@@ -15,6 +15,7 @@ import {
 } from 'firebase/firestore';
 import { firebaseConfig } from './firebaseConfig';
 import { Cita, Barbero, CorteDiario } from '../types';
+import { encryptSensitiveCitaData } from './dbEncryption';
 
 // Initialize Firebase App
 const app = initializeApp(firebaseConfig);
@@ -98,8 +99,9 @@ export async function guardarCitaEnFirestore(cita: Cita): Promise<void> {
   const id = cita.idReserva || (cita as any).id || `CITA-${Date.now()}`;
   const path = `citas/${id}`;
   try {
+    const citaEncriptada = await encryptSensitiveCitaData(cita);
     const sanitizedData: Record<string, any> = {};
-    for (const [key, value] of Object.entries(cita)) {
+    for (const [key, value] of Object.entries(citaEncriptada)) {
       if (value !== undefined) {
         sanitizedData[key] = value;
       }

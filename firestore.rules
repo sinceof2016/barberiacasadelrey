@@ -2,12 +2,12 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Default deny catch-all
+    // 1. Red de Seguridad Global (Default Deny)
     match /{document=**} {
       allow read, write: if false;
     }
 
-    // Helper functions
+    // 2. Funciones Primitivas de Validación y RLS (Row-Level Security)
     function isValidId(id) {
       return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
     }
@@ -20,18 +20,35 @@ service cloud.firestore {
       return resource.data;
     }
 
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        request.auth.token.email == 'orjueladavid32@gmail.com' ||
+        request.auth.token.email == 'david.orjuela@casadelrey.com' ||
+        request.auth.token.email == 'admin@casadelrey.com' ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+
     // Ping / connection check
     match /test/connection {
       allow read: if true;
     }
 
-    // Barberos: Lectura pública para visualización en el catálogo y agendamiento
+    // Barberos: Catálogo público con nombres, experiencia y disponibilidad
     match /barberos/{barberoId} {
       allow read: if isValidId(barberoId);
-      allow write: if false; // Solo administradores a través del backend seguro
+      allow write: if isAdmin();
     }
 
-    // Helper de validación para Citas (Individuales y Grupales)
+    // Helper de validación de datos para Citas (Individuales y Grupales)
     function isValidCita(data) {
       return (
         (!('idReserva' in data) || isValidId(data.idReserva))
@@ -55,48 +72,64 @@ service cloud.firestore {
       );
     }
 
-    // Citas: Lectura pública del calendario y creación/actualización de reservas
+    // Citas: Row-Level Security (RLS)
+    // - Un usuario anónimo puede consultar únicamente SU cita por ID específico (get) o crear una nueva reserva válida.
+    // - La lectura masiva (list) de citas está estrictamente reservada para personal autenticado (previene raspado de teléfonos de clientes).
     match /citas/{citaId} {
-      allow read: if isValidId(citaId);
+      allow get: if isValidId(citaId);
+      allow list: if isSignedIn();
       allow create: if isValidId(citaId) && isValidCita(incoming());
       allow update: if isValidId(citaId) && (
-        isValidCita(incoming()) ||
-        incoming().estado in [
-          'Confirmada', 'confirmada', 
-          'En Espera', 'en_espera', 'en_curso', 
-          'Cancelada', 'cancelada', 
-          'Completada', 'completada'
-        ]
+        isAdmin() ||
+        (isSignedIn() && isValidCita(incoming())) ||
+        (!isSignedIn() && incoming().diff(existing()).affectedKeys().hasOnly(['estado']) && incoming().estado in ['Cancelada', 'cancelada'])
       );
-      allow delete: if false;
+      allow delete: if isAdmin();
     }
 
-    // Cortes Diarios: Registros de servicios efectuados
+    // Cortes Diarios: RLS estricto para colaboradores de barbería
     match /cortes_diarios/{corteId} {
-      allow read: if isValidId(corteId);
-      allow create: if isValidId(corteId)
+      allow get, list: if isSignedIn();
+      allow create: if isSignedIn()
+        && isValidId(corteId)
         && incoming().clienteNombre is string && incoming().clienteNombre.size() <= 120
         && (incoming().barberoId is string || incoming().barberoId is number)
         && incoming().precio is number && incoming().precio >= 0;
-      allow update, delete: if false;
+      allow update, delete: if isAdmin();
     }
 
-    // Caja y Arqueos diarios
+    // Caja y Arqueos diarios: RLS para personal de caja y gerencia
     match /caja_arqueos/{fechaId} {
-      allow read: if isValidId(fechaId);
-      allow create, update: if isValidId(fechaId)
+      allow get, list: if isSignedIn();
+      allow create, update: if isSignedIn()
+        && isValidId(fechaId)
         && incoming().baseInicial is number && incoming().baseInicial >= 0;
-      allow delete: if false;
+      allow delete: if isAdmin();
     }
 
-    // Productos e Inventario de Barbería (Pomadas, Ceras, Geles, Perfumería)
+    // Gastos Operativos: RLS para administración y caja
+    match /gastos/{gastoId} {
+      allow get, list: if isSignedIn();
+      allow create, update: if isSignedIn() && isValidId(gastoId);
+      allow delete: if isAdmin();
+    }
+
+    // Usuarios del Sistema: RLS Estricto (Lectura de propio perfil o SuperAdmin)
+    match /usuarios/{userId} {
+      allow get: if isOwner(userId) || isAdmin();
+      allow list: if isAdmin();
+      allow create, update, delete: if isAdmin();
+    }
+
+    // Productos e Inventario de Barbería
     match /productos/{productoId} {
       allow read: if isValidId(productoId);
-      allow create, update: if isValidId(productoId)
+      allow create, update: if isSignedIn()
+        && isValidId(productoId)
         && incoming().nombre is string && incoming().nombre.size() <= 120
         && incoming().precio is number && incoming().precio >= 0
         && incoming().stock is number;
-      allow delete: if isValidId(productoId);
+      allow delete: if isAdmin();
     }
   }
 }

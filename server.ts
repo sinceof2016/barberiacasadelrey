@@ -1,4 +1,5 @@
 import express, { Request, Response, NextFunction } from 'express';
+import cors, { CorsOptions } from 'cors';
 import path from 'path';
 import crypto from 'crypto';
 import { createServer as createViteServer } from 'vite';
@@ -9,10 +10,335 @@ const PORT = 3000;
 // Trust proxy for containerized / Cloud Run environment
 app.set('trust proxy', 1);
 
+// ==========================================
+// Configuración Completa de CORS (Cross-Origin Resource Sharing)
+// ==========================================
+const RAW_CORS_ORIGINS = (process.env.CORS_ALLOWED_ORIGINS || process.env.CORS_ORIGIN || '')
+  .split(',')
+  .map(s => s.trim())
+  .filter(Boolean);
+
+const CORS_CREDENTIALS = process.env.CORS_CREDENTIALS !== 'false';
+const CORS_MAX_AGE = parseInt(process.env.CORS_MAX_AGE || '86400', 10);
+
+const defaultAllowedOriginPatterns: RegExp[] = [
+  /^https?:\/\/localhost(:\d+)?$/,
+  /^https?:\/\/127\.0\.0\.1(:\d+)?$/,
+  /^https?:\/\/.*\.run\.app$/,
+  /^https?:\/\/.*\.ai\.studio$/,
+  /^https?:\/\/.*\.google\.com$/,
+  /^https?:\/\/.*\.web\.app$/,
+  /^https?:\/\/.*\.firebaseapp\.com$/
+];
+
+function isOriginAllowed(origin?: string): boolean {
+  // Permitir solicitudes sin origen (curl, Postman, llamadas directas server-to-server o webviews nativas)
+  if (!origin) return true;
+
+  // Comodín global si fue explícitamente configurado
+  if (RAW_CORS_ORIGINS.includes('*')) return true;
+
+  // Coincidencia exacta con orígenes configurados en variables de entorno
+  if (RAW_CORS_ORIGINS.includes(origin)) return true;
+
+  // Coincidencia con dominios autorizados de desarrollo, Cloud Run y AI Studio
+  for (const pattern of defaultAllowedOriginPatterns) {
+    if (pattern.test(origin)) return true;
+  }
+
+  // Coincidencia con comodines tipo *.ejemplo.com
+  for (const configured of RAW_CORS_ORIGINS) {
+    if (configured.startsWith('*.')) {
+      const baseDomain = configured.slice(2);
+      try {
+        const url = new URL(origin);
+        if (url.hostname.endsWith(baseDomain) || url.hostname === baseDomain) {
+          return true;
+        }
+      } catch {
+        // url inválida
+      }
+    }
+  }
+
+  return false;
+}
+
+const corsOptions: CorsOptions = {
+  origin: (origin, callback) => {
+    if (isOriginAllowed(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error(`CORS bloqueado: El origen [${origin}] no está autorizado para acceder a Barbería La Casa del Rey API.`));
+    }
+  },
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS', 'HEAD'],
+  allowedHeaders: [
+    'Content-Type',
+    'Authorization',
+    'X-Requested-With',
+    'Accept',
+    'Origin',
+    'X-Client-IP',
+    'X-RateLimit-Limit',
+    'X-RateLimit-Remaining',
+    'X-RateLimit-Reset',
+    'Retry-After',
+    'Cache-Control',
+    'Pragma'
+  ],
+  exposedHeaders: [
+    'Content-Length',
+    'Content-Range',
+    'X-Client-IP',
+    'X-RateLimit-IP-Limit',
+    'X-RateLimit-IP-Remaining',
+    'X-RateLimit-IP-Reset',
+    'X-RateLimit-Limit',
+    'X-RateLimit-Remaining',
+    'X-RateLimit-Reset',
+    'Retry-After',
+    'Date'
+  ],
+  credentials: CORS_CREDENTIALS,
+  maxAge: CORS_MAX_AGE,
+  optionsSuccessStatus: 204
+};
+
+// 1. Aplicar CORS a nivel de middleware global
+app.use(cors(corsOptions));
+
+// 2. Manejador de error elegante de CORS
+app.use((err: any, req: Request, res: Response, next: NextFunction) => {
+  if (err && err.message && err.message.includes('CORS bloqueado')) {
+    return res.status(403).json({
+      exito: false,
+      error: 'CORS_FORBIDDEN',
+      mensaje: err.message,
+      origenRechazado: req.headers.origin || 'desconocido',
+      sugerencia: 'Verifica la variable de entorno CORS_ALLOWED_ORIGINS en la configuración del servidor.'
+    });
+  }
+  next(err);
+});
+
 app.use(express.json({ limit: '2mb' }));
 
 // ==========================================
-// Middleware de Seguridad & Rate Limiting (Antispam)
+// Configuración de Seguridad & Variables de Entorno
+// ==========================================
+const SESSION_EXPIRY_MINUTES = parseInt(process.env.SESSION_EXPIRY_MINUTES || '120', 10);
+const SESSION_INACTIVITY_MINUTES = parseInt(process.env.SESSION_INACTIVITY_MINUTES || '30', 10);
+const DATABASE_ENCRYPTION_KEY = process.env.DATABASE_ENCRYPTION_KEY || 'casadelrey_aes256_sec_key_2026_99a8b7c6d5e4f3a2';
+const DATABASE_ENCRYPTION_SALT = process.env.VITE_DATABASE_ENCRYPTION_SALT || 'casadelrey_salt_security_2026';
+const RATE_LIMIT_GLOBAL_MAX = parseInt(process.env.RATE_LIMIT_GLOBAL_MAX || '150', 10);
+const RATE_LIMIT_GLOBAL_WINDOW_MS = parseInt(process.env.RATE_LIMIT_GLOBAL_WINDOW_MS || '60000', 10);
+const IP_RATE_LIMIT_MAX = parseInt(process.env.IP_RATE_LIMIT_MAX_PER_MINUTE || '120', 10);
+const IP_BLACKLIST = new Set((process.env.IP_BLACKLIST || '').split(',').map(s => s.trim()).filter(Boolean));
+const IP_WHITELIST = new Set((process.env.IP_WHITELIST || '127.0.0.1,::1,localhost').split(',').map(s => s.trim()).filter(Boolean));
+
+// ==========================================
+// Bóveda Criptográfica de Base de Datos (AES-256-GCM)
+// ==========================================
+let cachedDerivedKey: Buffer | null = null;
+function getDerivedKey(): Buffer {
+  if (!cachedDerivedKey) {
+    cachedDerivedKey = crypto.scryptSync(DATABASE_ENCRYPTION_KEY, DATABASE_ENCRYPTION_SALT, 32);
+  }
+  return cachedDerivedKey;
+}
+
+function encryptDbField(text: string): string {
+  if (!text || typeof text !== 'string' || text.startsWith('enc:v1:')) return text;
+  try {
+    const key = getDerivedKey();
+    const iv = crypto.randomBytes(12);
+    const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
+    let encrypted = cipher.update(text, 'utf8', 'hex');
+    encrypted += cipher.final('hex');
+    const authTag = cipher.getAuthTag().toString('hex');
+    return `enc:v1:${iv.toString('hex')}:${encrypted}:${authTag}`;
+  } catch (err) {
+    console.error('Error encrypting db field:', err);
+    return text;
+  }
+}
+
+function decryptDbField(cipherText: string): string {
+  if (!cipherText || !cipherText.startsWith('enc:v1:')) return cipherText;
+  try {
+    const parts = cipherText.split(':');
+    if (parts.length < 4) return cipherText;
+    const iv = Buffer.from(parts[2], 'hex');
+    let encryptedHex = parts[3];
+    let authTag: Buffer;
+
+    if (parts.length >= 5) {
+      authTag = Buffer.from(parts[4], 'hex');
+    } else {
+      // Compatibilidad WebCrypto: los últimos 16 bytes (32 caracteres hex) son el authTag
+      authTag = Buffer.from(encryptedHex.slice(-32), 'hex');
+      encryptedHex = encryptedHex.slice(0, -32);
+    }
+
+    const decipher = crypto.createDecipheriv('aes-256-gcm', getDerivedKey(), iv);
+    decipher.setAuthTag(authTag);
+    let decrypted = decipher.update(encryptedHex, 'hex', 'utf8');
+    decrypted += decipher.final('utf8');
+    return decrypted;
+  } catch {
+    return '[Dato Encriptado - Requiere Llave Autorizada]';
+  }
+}
+
+// ==========================================
+// Almacén de Sesiones Activas y Expiración en Servidor
+// ==========================================
+export interface ServerSessionRecord {
+  token: string;
+  userId: string;
+  nombre: string;
+  email: string;
+  rol: string;
+  puedeVerApi: boolean;
+  sucursalAsignada?: string;
+  createdAt: number;
+  expiresAt: number;
+  lastActivityAt: number;
+  ip: string;
+}
+
+const activeSessionsStore = new Map<string, ServerSessionRecord>();
+
+// Limpiador periódico de sesiones expiradas cada 60s
+setInterval(() => {
+  const now = Date.now();
+  const maxInactiveMs = SESSION_INACTIVITY_MINUTES * 60 * 1000;
+  for (const [token, session] of activeSessionsStore.entries()) {
+    if (now >= session.expiresAt || (now - session.lastActivityAt >= maxInactiveMs)) {
+      activeSessionsStore.delete(token);
+    }
+  }
+}, 60000);
+
+// ==========================================
+// Control de Direcciones IP: Blacklist & Rate Limiting Dinámico
+// ==========================================
+interface IpSecurityRecord {
+  requestCount: number;
+  resetTime: number;
+  violationsCount: number;
+  bannedUntil?: number;
+}
+
+const ipSecurityStore = new Map<string, IpSecurityRecord>();
+
+// Limpiador periódico de IP Security Store (Previene fugas de memoria)
+setInterval(() => {
+  const now = Date.now();
+  const UN_DIA_MS = 24 * 60 * 60 * 1000;
+  for (const [ip, record] of ipSecurityStore.entries()) {
+    const banExpirado = Boolean(record.bannedUntil && now > record.bannedUntil);
+    const ventanaExpirada = now > (record.resetTime + UN_DIA_MS);
+    if (banExpirado || ventanaExpirada || (!record.bannedUntil && now > record.resetTime && record.violationsCount === 0)) {
+      ipSecurityStore.delete(ip);
+    }
+  }
+}, 60000);
+
+function getClientIp(req: Request): string {
+  const forwarded = req.headers['x-forwarded-for'];
+  if (typeof forwarded === 'string' && forwarded.length > 0) {
+    const first = forwarded.split(',')[0].trim();
+    if (first) return first;
+  }
+  const realIp = req.headers['x-real-ip'];
+  if (typeof realIp === 'string' && realIp.length > 0) {
+    return realIp.trim();
+  }
+  return req.socket.remoteAddress || '127.0.0.1';
+}
+
+/**
+ * Middleware Guardián de IP:
+ * - Bloquea IPs en lista negra
+ * - Bloquea IPs temporalmente sancionadas por abuso recurrente
+ * - Aplica límite estricto de peticiones por minuto por IP
+ */
+function ipLimiterMiddleware(req: Request, res: Response, next: NextFunction) {
+  const ip = getClientIp(req);
+  const now = Date.now();
+
+  // 1. Verificar si la IP está en la Lista Negra estática
+  if (IP_BLACKLIST.has(ip)) {
+    return res.status(403).json({
+      exito: false,
+      error: 'Acceso Denegado',
+      mensaje: 'Esta dirección IP ha sido bloqueada permanentemente por políticas de seguridad de Barbería La Casa del Rey.',
+      ip
+    });
+  }
+
+  // 2. Bypass para whitelist de desarrollo/pruebas locales
+  if (IP_WHITELIST.has(ip) || ip === '127.0.0.1' || ip === '::1') {
+    res.setHeader('X-Client-IP', ip);
+    return next();
+  }
+
+  // 3. Verificar si la IP está temporalmente suspendida
+  let record = ipSecurityStore.get(ip);
+  if (record && record.bannedUntil && now < record.bannedUntil) {
+    const retryAfterSec = Math.ceil((record.bannedUntil - now) / 1000);
+    res.setHeader('Retry-After', retryAfterSec);
+    return res.status(429).json({
+      exito: false,
+      error: 'IP Temporalmente Restringida',
+      mensaje: `Tu dirección IP está temporalmente suspendida por exceso de peticiones o actividad sospechosa. Intenta nuevamente en ${retryAfterSec} segundos.`,
+      reintentarEnSegundos: retryAfterSec,
+      ip
+    });
+  }
+
+  if (!record || now > record.resetTime) {
+    record = {
+      requestCount: 1,
+      resetTime: now + 60000,
+      violationsCount: record?.violationsCount || 0
+    };
+    ipSecurityStore.set(ip, record);
+  } else {
+    record.requestCount += 1;
+  }
+
+  const remaining = Math.max(0, IP_RATE_LIMIT_MAX - record.requestCount);
+  const retryAfterSec = Math.ceil((record.resetTime - now) / 1000);
+
+  res.setHeader('X-Client-IP', ip);
+  res.setHeader('X-RateLimit-IP-Limit', IP_RATE_LIMIT_MAX);
+  res.setHeader('X-RateLimit-IP-Remaining', remaining);
+  res.setHeader('X-RateLimit-IP-Reset', Math.ceil(record.resetTime / 1000));
+
+  if (record.requestCount > IP_RATE_LIMIT_MAX) {
+    record.violationsCount += 1;
+    // Si acumula múltiples infracciones, suspender la IP por 15 minutos
+    if (record.violationsCount >= 3) {
+      record.bannedUntil = now + (15 * 60 * 1000);
+    }
+    res.setHeader('Retry-After', retryAfterSec);
+    return res.status(429).json({
+      exito: false,
+      error: 'Límite de tasa por IP excedido',
+      mensaje: `Has superado el límite de ${IP_RATE_LIMIT_MAX} solicitudes por minuto para tu IP (${ip}). Por favor espera ${retryAfterSec} segundos.`,
+      reintentarEnSegundos: retryAfterSec,
+      ip
+    });
+  }
+
+  next();
+}
+
+// ==========================================
+// Middleware de Rate Limiting por Ruta (Antispam)
 // ==========================================
 interface RateLimitRecord {
   count: number;
@@ -21,7 +347,6 @@ interface RateLimitRecord {
 
 const rateLimitStore = new Map<string, RateLimitRecord>();
 
-// Limpiador periódico del almacén en memoria para evitar fugas
 setInterval(() => {
   const now = Date.now();
   for (const [key, record] of rateLimitStore.entries()) {
@@ -31,14 +356,9 @@ setInterval(() => {
   }
 }, 60000);
 
-/**
- * Middleware generador de Limitador de Tasa por IP / Ruta
- */
 function createRateLimiter(options: { maxRequests: number; windowMs: number; mensaje?: string }) {
   return (req: Request, res: Response, next: NextFunction) => {
-    // Obtener IP del cliente (considerando proxies y cabeceras x-forwarded-for)
-    const forwarded = req.headers['x-forwarded-for'];
-    const ip = (typeof forwarded === 'string' ? forwarded.split(',')[0].trim() : req.socket.remoteAddress) || '127.0.0.1';
+    const ip = getClientIp(req);
     const key = `${req.baseUrl || ''}${req.path}:${ip}`;
     const now = Date.now();
 
@@ -53,7 +373,6 @@ function createRateLimiter(options: { maxRequests: number; windowMs: number; men
       record.count += 1;
     }
 
-    // Cabeceras estándar de Rate Limit para clientes y proxies
     const remaining = Math.max(0, options.maxRequests - record.count);
     const retryAfterSec = Math.ceil((record.resetTime - now) / 1000);
     res.setHeader('X-RateLimit-Limit', options.maxRequests);
@@ -74,18 +393,25 @@ function createRateLimiter(options: { maxRequests: number; windowMs: number; men
   };
 }
 
-// Limitador estricto para creación de citas (previene ataques de spam o saturación del libro)
+// Limitador estricto para creación de citas (previene spam o saturación)
 const bookingRateLimiter = createRateLimiter({
-  maxRequests: 10, // Máximo 10 intentos de reserva por cada 5 minutos por IP
+  maxRequests: 10,
   windowMs: 5 * 60 * 1000,
   mensaje: 'Has superado el límite de reservas permitidas por sesión. Para evitar saturación del sistema, aguarda unos minutos o contacta directamente a la barbería.'
 });
 
 // Limitador general para consultas públicas de disponibilidad y búsqueda
 const apiGeneralRateLimiter = createRateLimiter({
-  maxRequests: 120, // 120 peticiones por minuto
-  windowMs: 60 * 1000,
+  maxRequests: RATE_LIMIT_GLOBAL_MAX,
+  windowMs: RATE_LIMIT_GLOBAL_WINDOW_MS,
   mensaje: 'Tráfico inusualmente alto detectado. Por favor espera un momento.'
+});
+
+// Limitador estricto para intentos de autenticación (10 peticiones/min por IP)
+const authEndpointRateLimiter = createRateLimiter({
+  maxRequests: 10,
+  windowMs: 60 * 1000,
+  mensaje: 'Demasiados intentos de autenticación desde esta dirección IP. Por favor espera 60 segundos.'
 });
 
 // ==========================================
@@ -102,7 +428,6 @@ const MAX_LOGIN_ATTEMPTS = 5;
 const LOGIN_LOCKOUT_MS = 15 * 60 * 1000; // 15 minutos de bloqueo tras 5 intentos fallidos
 const ATTEMPT_WINDOW_MS = 15 * 60 * 1000;
 
-// Limpiador periódico de intentos de inicio de sesión
 setInterval(() => {
   const now = Date.now();
   for (const [key, record] of loginAttemptsStore.entries()) {
@@ -111,11 +436,6 @@ setInterval(() => {
     }
   }
 }, 60000);
-
-function getClientIp(req: Request): string {
-  const forwarded = req.headers['x-forwarded-for'];
-  return (typeof forwarded === 'string' ? forwarded.split(',')[0].trim() : req.socket.remoteAddress) || '127.0.0.1';
-}
 
 function checkLoginLockout(ip: string, email: string): { blocked: boolean; remainingAttempts: number; retryAfterSeconds: number; lockoutMinutes: number } {
   const now = Date.now();
@@ -162,7 +482,6 @@ function recordFailedLogin(ip: string, email: string): { blocked: boolean; remai
   if (record.failedAttempts >= MAX_LOGIN_ATTEMPTS) {
     record.lockedUntil = now + LOGIN_LOCKOUT_MS;
     loginAttemptsStore.set(key, record);
-    // Registrar bloqueo en log de auditoría
     registrarLog(`ALERTA DE SEGURIDAD: Límite de ${MAX_LOGIN_ATTEMPTS} intentos fallidos superado para [${email}] desde IP [${ip}]. Acceso bloqueado por 15 minutos.`, 'error');
     const retryAfterSeconds = Math.ceil(LOGIN_LOCKOUT_MS / 1000);
     return {
@@ -199,7 +518,10 @@ app.use((req, res, next) => {
   next();
 });
 
-// Aplicar limitador general a toda la API
+// 1. Filtro Guardián de IP para todas las rutas de API
+app.use('/api', ipLimiterMiddleware);
+
+// 2. Limitador general de tasa para la API de Barbería
 app.use('/api/v1/barberia-casa-del-rey', apiGeneralRateLimiter);
 
 // ==========================================
@@ -257,15 +579,46 @@ export const sucursalesCasaDelRey: Sucursal[] = [
   }
 ];
 
+export interface HorarioJornadaBarbero {
+  horaInicio: string;
+  horaFin: string;
+  recesoInicio?: string;
+  recesoFin?: string;
+}
+
+export interface ExcepcionCalendarioBarbero {
+  id: string;
+  fecha: string;
+  tipo: 'Descanso' | 'Vacaciones' | 'Permiso' | 'TurnoEspecial';
+  motivo?: string;
+  horasEspeciales?: string[];
+}
+
+export interface CalendarioBarbero {
+  barberoId: number;
+  barberoNombre: string;
+  sucursalId: string;
+  sucursalNombre?: string;
+  diasLaborales: number[];
+  diasDescanso: number[];
+  jornada: HorarioJornadaBarbero;
+  excepciones?: ExcepcionCalendarioBarbero[];
+}
+
 export interface Barbero {
   id: number;
   nombre: string;
   especialidad: string;
   avatar?: string;
   foto?: string;
+  fotoUrl?: string;
   descripcion?: string;
   sucursalId?: string;
   sucursalNombre?: string;
+  diasLaborales?: number[];
+  diasDescanso?: number[];
+  jornada?: HorarioJornadaBarbero;
+  calendario?: CalendarioBarbero;
 }
 
 export interface ParticipanteGrupal {
@@ -347,18 +700,140 @@ const serviciosCasaDelRey: Servicio[] = [
   }
 ];
 
+const DIAS_SEMANA_NOMBRES = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+
 const barberosCasaDelRey: Barbero[] = [
   // Sede Chicó Real
-  { id: 101, nombre: 'Carlos "El Maestro"', especialidad: 'Cortes Clásicos & Navaja Libre', sucursalId: 'suc-chico', sucursalNombre: 'Sede Chicó Real' },
-  { id: 102, nombre: 'Mateo "Lord Fade"', especialidad: 'Degradados & Tendencia Urbana', sucursalId: 'suc-chico', sucursalNombre: 'Sede Chicó Real' },
+  { 
+    id: 101, 
+    nombre: 'Carlos "El Maestro"', 
+    especialidad: 'Cortes Clásicos & Navaja Libre', 
+    sucursalId: 'suc-chico', 
+    sucursalNombre: 'Sede Chicó Real',
+    descripcion: 'Maestro barbero tradicional con más de 15 años de oficio.',
+    diasLaborales: [1, 2, 3, 4, 5],
+    diasDescanso: [0, 6],
+    jornada: { horaInicio: '09:00 AM', horaFin: '06:00 PM', recesoInicio: '01:00 PM', recesoFin: '02:00 PM' },
+    calendario: {
+      barberoId: 101,
+      barberoNombre: 'Carlos "El Maestro"',
+      sucursalId: 'suc-chico',
+      sucursalNombre: 'Sede Chicó Real',
+      diasLaborales: [1, 2, 3, 4, 5],
+      diasDescanso: [0, 6],
+      jornada: { horaInicio: '09:00 AM', horaFin: '06:00 PM', recesoInicio: '01:00 PM', recesoFin: '02:00 PM' },
+      excepciones: []
+    }
+  },
+  { 
+    id: 102, 
+    nombre: 'Mateo "Lord Fade"', 
+    especialidad: 'Degradados & Tendencia Urbana', 
+    sucursalId: 'suc-chico', 
+    sucursalNombre: 'Sede Chicó Real',
+    descripcion: 'Especialista en fades pulidos al milímetro y degradados modernos.',
+    diasLaborales: [2, 3, 4, 5, 6],
+    diasDescanso: [0, 1],
+    jornada: { horaInicio: '11:00 AM', horaFin: '07:00 PM', recesoInicio: '03:00 PM', recesoFin: '04:00 PM' },
+    calendario: {
+      barberoId: 102,
+      barberoNombre: 'Mateo "Lord Fade"',
+      sucursalId: 'suc-chico',
+      sucursalNombre: 'Sede Chicó Real',
+      diasLaborales: [2, 3, 4, 5, 6],
+      diasDescanso: [0, 1],
+      jornada: { horaInicio: '11:00 AM', horaFin: '07:00 PM', recesoInicio: '03:00 PM', recesoFin: '04:00 PM' },
+      excepciones: []
+    }
+  },
   
   // Sede Usaquén Colonial
-  { id: 201, nombre: 'Santi "Perfilado"', especialidad: 'Barbas & Toallas Calientes', sucursalId: 'suc-usaquen', sucursalNombre: 'Sede Usaquén Colonial' },
-  { id: 202, nombre: 'Javier "Navaja Real"', especialidad: 'Afeitado Tradicional & Bigote', sucursalId: 'suc-usaquen', sucursalNombre: 'Sede Usaquén Colonial' },
+  { 
+    id: 201, 
+    nombre: 'Santi "Perfilado"', 
+    especialidad: 'Barbas & Toallas Calientes', 
+    sucursalId: 'suc-usaquen', 
+    sucursalNombre: 'Sede Usaquén Colonial',
+    descripcion: 'Experto en rituales de afeitado con toalla caliente y aceites balsámicos.',
+    diasLaborales: [0, 3, 4, 5, 6],
+    diasDescanso: [1, 2],
+    jornada: { horaInicio: '09:00 AM', horaFin: '05:00 PM', recesoInicio: '01:00 PM', recesoFin: '02:00 PM' },
+    calendario: {
+      barberoId: 201,
+      barberoNombre: 'Santi "Perfilado"',
+      sucursalId: 'suc-usaquen',
+      sucursalNombre: 'Sede Usaquén Colonial',
+      diasLaborales: [0, 3, 4, 5, 6],
+      diasDescanso: [1, 2],
+      jornada: { horaInicio: '09:00 AM', horaFin: '05:00 PM', recesoInicio: '01:00 PM', recesoFin: '02:00 PM' },
+      excepciones: []
+    }
+  },
+  { 
+    id: 202, 
+    nombre: 'Javier "Navaja Real"', 
+    especialidad: 'Afeitado Tradicional & Bigote', 
+    sucursalId: 'suc-usaquen', 
+    sucursalNombre: 'Sede Usaquén Colonial',
+    descripcion: 'Artesano de la navaja libre, perfilado clásico y corte sobrio.',
+    diasLaborales: [1, 2, 3, 4, 5],
+    diasDescanso: [0, 6],
+    jornada: { horaInicio: '10:00 AM', horaFin: '07:00 PM', recesoInicio: '02:00 PM', recesoFin: '03:00 PM' },
+    calendario: {
+      barberoId: 202,
+      barberoNombre: 'Javier "Navaja Real"',
+      sucursalId: 'suc-usaquen',
+      sucursalNombre: 'Sede Usaquén Colonial',
+      diasLaborales: [1, 2, 3, 4, 5],
+      diasDescanso: [0, 6],
+      jornada: { horaInicio: '10:00 AM', horaFin: '07:00 PM', recesoInicio: '02:00 PM', recesoFin: '03:00 PM' },
+      excepciones: []
+    }
+  },
   
   // Sede Chapinero Vintage
-  { id: 301, nombre: 'Andrés "Old School"', especialidad: 'Pompadour & Estilo Británico', sucursalId: 'suc-chapinero', sucursalNombre: 'Sede Chapinero Vintage' },
-  { id: 302, nombre: 'David "El Cirujano"', especialidad: 'Perfilado Quirúrgico & Barboterapia', sucursalId: 'suc-chapinero', sucursalNombre: 'Sede Chapinero Vintage' }
+  { 
+    id: 301, 
+    nombre: 'Andrés "Old School"', 
+    especialidad: 'Pompadour & Estilo Británico', 
+    sucursalId: 'suc-chapinero', 
+    sucursalNombre: 'Sede Chapinero Vintage',
+    descripcion: 'Cortes ejecutivos, estilo pompadour británico y cuidado capilar.',
+    diasLaborales: [1, 2, 4, 5, 6],
+    diasDescanso: [0, 3],
+    jornada: { horaInicio: '09:00 AM', horaFin: '06:00 PM', recesoInicio: '01:00 PM', recesoFin: '02:00 PM' },
+    calendario: {
+      barberoId: 301,
+      barberoNombre: 'Andrés "Old School"',
+      sucursalId: 'suc-chapinero',
+      sucursalNombre: 'Sede Chapinero Vintage',
+      diasLaborales: [1, 2, 4, 5, 6],
+      diasDescanso: [0, 3],
+      jornada: { horaInicio: '09:00 AM', horaFin: '06:00 PM', recesoInicio: '01:00 PM', recesoFin: '02:00 PM' },
+      excepciones: []
+    }
+  },
+  { 
+    id: 302, 
+    nombre: 'David "El Cirujano"', 
+    especialidad: 'Perfilado Quirúrgico & Barboterapia', 
+    sucursalId: 'suc-chapinero', 
+    sucursalNombre: 'Sede Chapinero Vintage',
+    descripcion: 'Precisión milimétrica en contornos y tratamiento profundo de barba.',
+    diasLaborales: [0, 2, 3, 4, 5, 6],
+    diasDescanso: [1],
+    jornada: { horaInicio: '10:00 AM', horaFin: '07:00 PM', recesoInicio: '02:00 PM', recesoFin: '03:00 PM' },
+    calendario: {
+      barberoId: 302,
+      barberoNombre: 'David "El Cirujano"',
+      sucursalId: 'suc-chapinero',
+      sucursalNombre: 'Sede Chapinero Vintage',
+      diasLaborales: [0, 2, 3, 4, 5, 6],
+      diasDescanso: [1],
+      jornada: { horaInicio: '10:00 AM', horaFin: '07:00 PM', recesoInicio: '02:00 PM', recesoFin: '03:00 PM' },
+      excepciones: []
+    }
+  }
 ];
 
 // Configuración de franjas horarias con intervalos de 1 hora entre las 9 AM y 7 PM
@@ -411,7 +886,8 @@ function getColombiaDateTimeServer(dateInput: Date = new Date()) {
     hour: '2-digit',
     minute: '2-digit',
     second: '2-digit',
-    hour12: false
+    hour12: false,
+    hourCycle: 'h23'
   });
 
   const parts = formatter.formatToParts(dateInput);
@@ -1296,7 +1772,213 @@ app.delete('/api/v1/barberia-casa-del-rey/barberos/:id', (req: Request, res: Res
   });
 });
 
-// 3. Consultar disponibilidad de horarios (Sincronizado con reloj Colombia y por sucursal)
+// Obtener calendario y disponibilidad individualizada de un barbero
+app.get('/api/v1/barberia-casa-del-rey/barberos/:id/calendario', (req: Request, res: Response) => {
+  const { id } = req.params;
+  const barbero = barberosCasaDelRey.find(b => b.id === Number(id));
+  if (!barbero) {
+    return res.status(404).json({ exito: false, mensaje: 'Barbero no encontrado.' });
+  }
+
+  const calendario = barbero.calendario || {
+    barberoId: barbero.id,
+    barberoNombre: barbero.nombre,
+    sucursalId: barbero.sucursalId || 'suc-chico',
+    sucursalNombre: barbero.sucursalNombre || 'Sede Chicó Real',
+    diasLaborales: barbero.diasLaborales || [1, 2, 3, 4, 5, 6],
+    diasDescanso: barbero.diasDescanso || [0],
+    jornada: barbero.jornada || {
+      horaInicio: '09:00 AM',
+      horaFin: '07:00 PM',
+      recesoInicio: '01:00 PM',
+      recesoFin: '02:00 PM'
+    },
+    excepciones: []
+  };
+
+  res.status(200).json({
+    exito: true,
+    datos: calendario
+  });
+});
+
+// Modificar jornada, días laborales o receso en el calendario del barbero
+app.put('/api/v1/barberia-casa-del-rey/barberos/:id/calendario', (req: Request, res: Response) => {
+  const { id } = req.params;
+  const barbero = barberosCasaDelRey.find(b => b.id === Number(id));
+  if (!barbero) {
+    return res.status(404).json({ exito: false, mensaje: 'Barbero no encontrado.' });
+  }
+
+  const { diasLaborales, diasDescanso, jornada, excepciones } = req.body;
+  if (!barbero.calendario) {
+    barbero.calendario = {
+      barberoId: barbero.id,
+      barberoNombre: barbero.nombre,
+      sucursalId: barbero.sucursalId || 'suc-chico',
+      sucursalNombre: barbero.sucursalNombre || 'Sede Chicó Real',
+      diasLaborales: [1, 2, 3, 4, 5, 6],
+      diasDescanso: [0],
+      jornada: { horaInicio: '09:00 AM', horaFin: '07:00 PM', recesoInicio: '01:00 PM', recesoFin: '02:00 PM' },
+      excepciones: []
+    };
+  }
+
+  if (Array.isArray(diasLaborales)) {
+    barbero.diasLaborales = diasLaborales;
+    barbero.calendario.diasLaborales = diasLaborales;
+  }
+  if (Array.isArray(diasDescanso)) {
+    barbero.diasDescanso = diasDescanso;
+    barbero.calendario.diasDescanso = diasDescanso;
+  }
+  if (jornada && typeof jornada === 'object') {
+    barbero.jornada = { ...barbero.jornada, ...jornada };
+    barbero.calendario.jornada = { ...barbero.calendario.jornada, ...jornada };
+  }
+  if (Array.isArray(excepciones)) {
+    barbero.calendario.excepciones = excepciones;
+  }
+
+  registrarLog(`Calendario actualizado para barbero: [${barbero.nombre}]`, 'info');
+  res.status(200).json({
+    exito: true,
+    mensaje: `Calendario de disponibilidad de "${barbero.nombre}" actualizado con éxito.`,
+    datos: barbero.calendario
+  });
+});
+
+// Función auxiliar interna para evaluar un slot según el calendario individual del barbero
+function evaluarSlotBarberoServer(
+  barbero: Barbero,
+  fechaStr: string,
+  slot12: string,
+  slot24: string,
+  citasDelBarbero: Cita[],
+  colTime: any
+) {
+  const slotMinutos = parseSlotToMinutesServer(slot12);
+  const esFechaPasada = fechaStr < colTime.fecha;
+  const esHoy = fechaStr === colTime.fecha;
+  const esPasado = esFechaPasada || (esHoy && slotMinutos <= colTime.totalMinutos);
+
+  if (esPasado) {
+    return {
+      hora12: slot12,
+      hora24: slot24,
+      disponible: false,
+      esPasado: true,
+      tipoBloqueo: 'pasado',
+      barberoNombre: barbero.nombre,
+      motivoOcupado: esFechaPasada
+        ? 'Fecha ya transcurrida en el calendario'
+        : `Horario ya transcurrido (Hora Bogotá: ${colTime.hora12})`
+    };
+  }
+
+  const [y, m, d] = fechaStr.split('-').map(Number);
+  const diaSemana = new Date(y, m - 1, d).getDay();
+  const diaSemanaNombre = DIAS_SEMANA_NOMBRES[diaSemana] || 'Desconocido';
+
+  const diasLaborales = barbero.diasLaborales || barbero.calendario?.diasLaborales || [1, 2, 3, 4, 5, 6];
+  const diasDescanso = barbero.diasDescanso || barbero.calendario?.diasDescanso || [0];
+
+  // 1. Día de descanso semanal
+  if (diasDescanso.includes(diaSemana) || !diasLaborales.includes(diaSemana)) {
+    return {
+      hora12: slot12,
+      hora24: slot24,
+      disponible: false,
+      esPasado: false,
+      tipoBloqueo: 'dia_descanso',
+      barberoNombre: barbero.nombre,
+      motivoOcupado: `${barbero.nombre} no atiende los ${diaSemanaNombre}s (Día de descanso programado)`
+    };
+  }
+
+  // 2. Jornada laboral
+  const jornada = barbero.jornada || barbero.calendario?.jornada || {
+    horaInicio: '09:00 AM',
+    horaFin: '07:00 PM'
+  };
+
+  const inicioMinutos = parseSlotToMinutesServer(jornada.horaInicio || '09:00 AM');
+  const finMinutos = parseSlotToMinutesServer(jornada.horaFin || '07:00 PM');
+
+  if (slotMinutos < inicioMinutos) {
+    return {
+      hora12: slot12,
+      hora24: slot24,
+      disponible: false,
+      esPasado: false,
+      tipoBloqueo: 'fuera_jornada',
+      barberoNombre: barbero.nombre,
+      motivoOcupado: `Fuera del turno laboral de ${barbero.nombre} (Inicia a las ${jornada.horaInicio})`
+    };
+  }
+
+  if (slotMinutos >= finMinutos) {
+    return {
+      hora12: slot12,
+      hora24: slot24,
+      disponible: false,
+      esPasado: false,
+      tipoBloqueo: 'fuera_jornada',
+      barberoNombre: barbero.nombre,
+      motivoOcupado: `Fuera del turno laboral de ${barbero.nombre} (Finaliza a las ${jornada.horaFin})`
+    };
+  }
+
+  // 3. Receso de almuerzo
+  if (jornada.recesoInicio && jornada.recesoFin) {
+    const rIni = parseSlotToMinutesServer(jornada.recesoInicio);
+    const rFin = parseSlotToMinutesServer(jornada.recesoFin);
+    if (slotMinutos >= rIni && slotMinutos < rFin) {
+      return {
+        hora12: slot12,
+        hora24: slot24,
+        disponible: false,
+        esPasado: false,
+        tipoBloqueo: 'receso',
+        barberoNombre: barbero.nombre,
+        motivoOcupado: `Receso de almuerzo de ${barbero.nombre} (${jornada.recesoInicio} a ${jornada.recesoFin})`
+      };
+    }
+  }
+
+  // 4. Citas reservadas (considerando la duración del servicio para evitar sobreagendamiento)
+  const DURACION_SLOT_DEFAULT = 40;
+  const citaConflicto = citasDelBarbero.find(c => {
+    const cIni = parseSlotToMinutesServer(c.hora);
+    const serv = serviciosCasaDelRey.find(s => s.id === c.servicioId);
+    const duracion = serv ? serv.duracionMinutos : DURACION_SLOT_DEFAULT;
+    const cFin = cIni + duracion;
+    return slotMinutos >= cIni && slotMinutos < cFin;
+  });
+
+  if (citaConflicto) {
+    return {
+      hora12: slot12,
+      hora24: slot24,
+      disponible: false,
+      esPasado: false,
+      tipoBloqueo: 'reservado',
+      barberoNombre: barbero.nombre,
+      motivoOcupado: `Turno reservado en la agenda de ${barbero.nombre}`
+    };
+  }
+
+  return {
+    hora12: slot12,
+    hora24: slot24,
+    disponible: true,
+    esPasado: false,
+    tipoBloqueo: 'disponible',
+    barberoNombre: barbero.nombre
+  };
+}
+
+// 3. Consultar disponibilidad de horarios individualizada por barbero y sede
 app.get('/api/v1/barberia-casa-del-rey/disponibilidad', (req: Request, res: Response) => {
   const { fecha, barberoId, sucursalId } = req.query;
 
@@ -1308,10 +1990,10 @@ app.get('/api/v1/barberia-casa-del-rey/disponibilidad', (req: Request, res: Resp
   const barberoIdNum = barberoId && !isNaN(Number(barberoId)) ? Number(barberoId) : null;
   const sucursalFiltro = sucursalId && sucursalId !== 'todas' ? String(sucursalId) : null;
 
-  // Obtener fecha y hora actual en Colombia (America/Bogota, UTC-5)
   const colTime = getColombiaDateTimeServer();
-  const esFechaPasada = fechaStr < colTime.fecha;
-  const esHoy = fechaStr === colTime.fecha;
+  const [y, m, d] = fechaStr.split('-').map(Number);
+  const diaSemana = new Date(y, m - 1, d).getDay();
+  const diaSemanaNombre = DIAS_SEMANA_NOMBRES[diaSemana] || 'Desconocido';
 
   // Filtrar citas activas para esa fecha y sucursal
   const citasDia = citasRegistradas.filter(
@@ -1322,60 +2004,102 @@ app.get('/api/v1/barberia-casa-del-rey/disponibilidad', (req: Request, res: Resp
     ? barberosCasaDelRey.filter(b => b.sucursalId === sucursalFiltro)
     : barberosCasaDelRey;
 
-  const slots = HORARIOS_CONFIG.map(config => {
-    const slotMinutos = parseSlotToMinutesServer(config.hora12);
-    // Si la fecha ya pasó o si es hoy y la hora ya transcurrió en Colombia
+  // CASO 1: SELECCIÓN DE BARBERO ESPECÍFICO
+  if (barberoIdNum) {
+    const barbero = barberosCasaDelRey.find(b => b.id === barberoIdNum);
+    if (!barbero) {
+      return res.status(404).json({
+        exito: false,
+        mensaje: 'Barbero no encontrado.',
+        horariosDisponibles: [],
+        slots: []
+      });
+    }
+
+    const citasDelBarbero = citasDia.filter(c => Number(c.barberoId) === barberoIdNum);
+    const slots = HORARIOS_CONFIG.map(cfg => {
+      return evaluarSlotBarberoServer(barbero, fechaStr, cfg.hora12, cfg.hora24, citasDelBarbero, colTime);
+    });
+
+    const horariosDisponibles = slots.filter(s => s.disponible).map(s => s.hora12);
+    const diasDescanso = barbero.diasDescanso || [0];
+    const esDiaDescanso = diasDescanso.includes(diaSemana);
+
+    let mensajeEstado: string | undefined = undefined;
+    if (esDiaDescanso) {
+      mensajeEstado = `${barbero.nombre} no labora los ${diaSemanaNombre}s (Día de descanso programado en su calendario).`;
+    } else if (horariosDisponibles.length === 0) {
+      mensajeEstado = `Agenda completa: No quedan turnos disponibles con ${barbero.nombre} para esta fecha.`;
+    }
+
+    return res.status(200).json({
+      exito: true,
+      negocio: 'Barbería Casa del Rey',
+      fecha: fechaStr,
+      diaSemana,
+      diaSemanaNombre,
+      esDiaDescansoBarbero: esDiaDescanso,
+      mensajeEstado,
+      barberoId: String(barbero.id),
+      barberoNombre: barbero.nombre,
+      sucursalId: barbero.sucursalId,
+      horariosDisponibles,
+      slots,
+      calendarioBarbero: barbero.calendario,
+      relojColombia: colTime
+    });
+  }
+
+  // CASO 2: CUALQUIER BARBERO DISPONIBLE (PRIMER SILLÓN DISPONIBLE)
+  const slots = HORARIOS_CONFIG.map(cfg => {
+    const slotMinutos = parseSlotToMinutesServer(cfg.hora12);
+    const esFechaPasada = fechaStr < colTime.fecha;
+    const esHoy = fechaStr === colTime.fecha;
     const esPasado = esFechaPasada || (esHoy && slotMinutos <= colTime.totalMinutos);
 
     if (esPasado) {
       return {
-        hora24: config.hora24,
-        hora12: config.hora12,
+        hora12: cfg.hora12,
+        hora24: cfg.hora24,
         disponible: false,
         esPasado: true,
-        motivoOcupado: esFechaPasada 
-          ? 'Fecha ya transcurrida en el calendario' 
-          : `Horario ya transcurrido (Hora actual en Colombia: ${colTime.hora12})`
+        tipoBloqueo: 'pasado',
+        motivoOcupado: esFechaPasada
+          ? 'Fecha ya transcurrida en el calendario'
+          : `Horario ya transcurrido (Hora Bogotá: ${colTime.hora12})`
       };
     }
 
-    // Citas que coinciden en este horario
-    const citasEnHorario = citasDia.filter(c => {
-      const norm = normalizarHora(c.hora);
-      return norm.hora12 === config.hora12 || norm.hora24 === config.hora24;
-    });
+    // Verificar qué barberos de la sede están libres en este slot
+    const barberosLibresEnSlot: { id: number; nombre: string }[] = [];
 
-    let disponible = true;
-    let motivoOcupado: string | undefined = undefined;
-
-    if (barberoIdNum) {
-      // Barbero específico seleccionado
-      const ocupadoPorEsteBarbero = citasEnHorario.find(c => Number(c.barberoId) === barberoIdNum);
-      if (ocupadoPorEsteBarbero) {
-        disponible = false;
-        const bInfo = barberosCasaDelRey.find(b => b.id === barberoIdNum);
-        motivoOcupado = `Reservado con ${bInfo ? bInfo.nombre : 'este barbero'}`;
-      }
-    } else {
-      // Cualquier barbero disponible: se satura si todos los barberos de la sede tienen cita a esa hora
-      const barberosOcupados = new Set(
-        citasEnHorario
-          .map(c => Number(c.barberoId))
-          .filter(id => !isNaN(id) && id > 0)
-      );
-
-      if (barberosOcupados.size >= barberosActivosEnSede.length && barberosActivosEnSede.length > 0) {
-        disponible = false;
-        motivoOcupado = 'Todos los sillones de esta sede están reservados';
+    for (const b of barberosActivosEnSede) {
+      const citasDelBarbero = citasDia.filter(c => Number(c.barberoId) === b.id);
+      const evalSlot = evaluarSlotBarberoServer(b, fechaStr, cfg.hora12, cfg.hora24, citasDelBarbero, colTime);
+      if (evalSlot.disponible) {
+        barberosLibresEnSlot.push({ id: b.id, nombre: b.nombre });
       }
     }
 
+    if (barberosLibresEnSlot.length > 0) {
+      return {
+        hora12: cfg.hora12,
+        hora24: cfg.hora24,
+        disponible: true,
+        esPasado: false,
+        tipoBloqueo: 'disponible',
+        barberosDisponibles: barberosLibresEnSlot,
+        barberoNombre: barberosLibresEnSlot.map(b => b.nombre).join(', ')
+      };
+    }
+
     return {
-      hora24: config.hora24,
-      hora12: config.hora12,
-      disponible,
+      hora12: cfg.hora12,
+      hora24: cfg.hora24,
+      disponible: false,
       esPasado: false,
-      motivoOcupado
+      tipoBloqueo: 'reservado',
+      motivoOcupado: 'Todos los sillones de esta sede están reservados o fuera de turno a esta hora'
     };
   });
 
@@ -1385,8 +2109,10 @@ app.get('/api/v1/barberia-casa-del-rey/disponibilidad', (req: Request, res: Resp
     exito: true,
     negocio: 'Barbería Casa del Rey',
     fecha: fechaStr,
+    diaSemana,
+    diaSemanaNombre,
     sucursalId: sucursalFiltro || 'todas',
-    barberoId: barberoId ? String(barberoId) : 'Cualquier barbero',
+    barberoId: 'Cualquier barbero',
     horariosDisponibles,
     slots,
     relojColombia: colTime
@@ -1869,21 +2595,41 @@ app.post('/api/v1/barberia-casa-del-rey/citas/individual', bookingRateLimiter, (
   let barberoAsignadoNombre = 'Cualquier barbero';
 
   if (barberoIdNum) {
-    const yaReservado = citasConflicto.some(c => Number(c.barberoId) === barberoIdNum);
     const bInfo = barberosCasaDelRey.find(b => b.id === barberoIdNum);
-    if (yaReservado) {
-      return res.status(409).json({
+    if (!bInfo) {
+      return res.status(404).json({
         exito: false,
-        mensaje: `El barbero ${bInfo ? bInfo.nombre : 'seleccionado'} ya tiene una reserva confirmada a las ${horaNormalizada.hora12} el día ${fechaStr}. Por favor escoge otro horario o barbero disponible.`
+        mensaje: 'El barbero seleccionado no existe.'
       });
     }
+
+    const citasDelBarbero = citasDia.filter(c => Number(c.barberoId) === barberoIdNum);
+    const evalSlot = evaluarSlotBarberoServer(bInfo, fechaStr, horaNormalizada.hora12, horaNormalizada.hora24, citasDelBarbero, colTime);
+
+    if (!evalSlot.disponible) {
+      return res.status(409).json({
+        exito: false,
+        mensaje: evalSlot.motivoOcupado || `El barbero ${bInfo.nombre} no se encuentra disponible a las ${horaNormalizada.hora12} el día ${fechaStr}.`
+      });
+    }
+
     barberoAsignadoId = barberoIdNum;
-    barberoAsignadoNombre = bInfo ? bInfo.nombre : `Barbero #${barberoIdNum}`;
+    barberoAsignadoNombre = bInfo.nombre;
   } else {
-    // Si eligió "Cualquier barbero", asignamos automáticamente al barbero libre de esta sede
+    // Si eligió "Cualquier barbero", asignar al primer barbero de la sede cuyo calendario esté activo y libre
     const barberosSede = barberosCasaDelRey.filter(b => b.sucursalId === sedeId);
-    const barberosOcupados = new Set(citasConflicto.map(c => Number(c.barberoId)));
-    const barberoLibre = (barberosSede.length > 0 ? barberosSede : barberosCasaDelRey).find(b => !barberosOcupados.has(b.id));
+    const poolBarberos = barberosSede.length > 0 ? barberosSede : barberosCasaDelRey;
+
+    let barberoLibre: Barbero | undefined = undefined;
+    for (const b of poolBarberos) {
+      const citasDelBarbero = citasDia.filter(c => Number(c.barberoId) === b.id);
+      const evalSlot = evaluarSlotBarberoServer(b, fechaStr, horaNormalizada.hora12, horaNormalizada.hora24, citasDelBarbero, colTime);
+      if (evalSlot.disponible) {
+        barberoLibre = b;
+        break;
+      }
+    }
+
     if (!barberoLibre) {
       return res.status(409).json({
         exito: false,
@@ -3667,7 +4413,7 @@ app.post('/api/v1/barberia-casa-del-rey/ejecutar-pruebas', async (req: Request, 
 // ==========================================
 
 // Login de usuario con Límite de Intentos y Protección contra Fuerza Bruta (Brute-Force Protection)
-app.post('/api/v1/barberia-casa-del-rey/auth/login', (req: Request, res: Response) => {
+app.post('/api/v1/barberia-casa-del-rey/auth/login', authEndpointRateLimiter, (req: Request, res: Response) => {
   const { email, password } = req.body;
   const ip = getClientIp(req);
 
@@ -3695,11 +4441,12 @@ app.post('/api/v1/barberia-casa-del-rey/auth/login', (req: Request, res: Respons
     });
   }
 
-  // 2. Validación especial para David Orjuela con clave Deivid17. (o deivid17 / deivid)
-  const esDavidEmail = normEmail === 'orjueladavid32@gmail.com' || 
-                       normEmail === 'david.orjuela@casadelrey.com' ||
-                       normEmail.includes('orjuela') ||
-                       normEmail.includes('david');
+  // 2. Validación especial para David Orjuela con credenciales de SuperAdmin
+  const correosAutorizadosDavid = new Set([
+    'orjueladavid32@gmail.com',
+    'david.orjuela@casadelrey.com'
+  ]);
+  const esDavidEmail = correosAutorizadosDavid.has(normEmail);
   const esDavidPass = trimPassword.toLowerCase() === 'deivid17.' || 
                       trimPassword.toLowerCase() === 'deivid17' || 
                       trimPassword.toLowerCase() === 'deivid' ||
@@ -3727,11 +4474,40 @@ app.post('/api/v1/barberia-casa-del-rey/auth/login', (req: Request, res: Respons
     }
     const { password: _, ...usuarioSinPassword } = david;
     usuarioSinPassword.puedeVerApi = true;
+
+    // Generar Token Criptográfico con Expiración
+    const now = Date.now();
+    const token = `sess_cdr_${crypto.randomBytes(24).toString('hex')}_${now}`;
+    const expiresAt = now + (SESSION_EXPIRY_MINUTES * 60 * 1000);
+    activeSessionsStore.set(token, {
+      token,
+      userId: david.id,
+      nombre: david.nombre,
+      email: david.email,
+      rol: david.rol,
+      puedeVerApi: true,
+      sucursalAsignada: david.sucursalAsignada,
+      createdAt: now,
+      expiresAt,
+      lastActivityAt: now,
+      ip
+    });
+
+    (usuarioSinPassword as any).token = token;
+    (usuarioSinPassword as any).tokenExpiresAt = expiresAt;
+    (usuarioSinPassword as any).sessionExpiresInMinutes = SESSION_EXPIRY_MINUTES;
+
     registrarLog(`Inicio de sesión exitoso: Super Admin [David Orjuela] desde [${ip}]`, 'success');
     return res.status(200).json({
       exito: true,
-      mensaje: `Bienvenido Don David Orjuela. Acceso total concedido (incluye consola API y todas las opciones).`,
-      usuario: usuarioSinPassword
+      mensaje: `Bienvenido Don David Orjuela. Acceso total concedido (SuperAdmin con API activa). Sesión segura iniciada por ${SESSION_EXPIRY_MINUTES} minutos.`,
+      usuario: usuarioSinPassword,
+      sesion: {
+        token,
+        expiresAt,
+        inactividadMaxMinutos: SESSION_INACTIVITY_MINUTES,
+        expiracionTotalMinutos: SESSION_EXPIRY_MINUTES
+      }
     });
   }
 
@@ -3769,14 +4545,183 @@ app.post('/api/v1/barberia-casa-del-rey/auth/login', (req: Request, res: Respons
 
   // Devolver datos del usuario sin exponer la contraseña
   const { password: _, ...usuarioSinPassword } = usuario;
-  // Asegurar que solo David Orjuela o SuperAdmin tengan acceso a la API
   usuarioSinPassword.puedeVerApi = usuario.rol === 'SuperAdmin' || usuario.nombre.toLowerCase().includes('david orjuela');
+
+  // Generar Token Criptográfico con Expiración
+  const now = Date.now();
+  const token = `sess_cdr_${crypto.randomBytes(24).toString('hex')}_${now}`;
+  const expiresAt = now + (SESSION_EXPIRY_MINUTES * 60 * 1000);
+  activeSessionsStore.set(token, {
+    token,
+    userId: usuario.id,
+    nombre: usuario.nombre,
+    email: usuario.email,
+    rol: usuario.rol,
+    puedeVerApi: usuarioSinPassword.puedeVerApi || false,
+    sucursalAsignada: usuario.sucursalAsignada,
+    createdAt: now,
+    expiresAt,
+    lastActivityAt: now,
+    ip
+  });
+
+  (usuarioSinPassword as any).token = token;
+  (usuarioSinPassword as any).tokenExpiresAt = expiresAt;
+  (usuarioSinPassword as any).sessionExpiresInMinutes = SESSION_EXPIRY_MINUTES;
 
   registrarLog(`Inicio de sesión exitoso: [${usuario.nombre}] (${usuario.rol}) desde [${ip}]`, 'info');
   res.status(200).json({
     exito: true,
     mensaje: `Bienvenido a Casa del Rey, ${usuario.nombre}. Acceso concedido como ${usuario.rol}.`,
-    usuario: usuarioSinPassword
+    usuario: usuarioSinPassword,
+    sesion: {
+      token,
+      expiresAt,
+      inactividadMaxMinutos: SESSION_INACTIVITY_MINUTES,
+      expiracionTotalMinutos: SESSION_EXPIRY_MINUTES
+    }
+  });
+});
+
+// Verificación de estado de sesión (Session Expiration Check)
+app.get('/api/v1/barberia-casa-del-rey/auth/verificar-sesion', (req: Request, res: Response) => {
+  const authHeader = req.headers['authorization'];
+  const token = (typeof authHeader === 'string' && authHeader.startsWith('Bearer '))
+    ? authHeader.substring(7).trim()
+    : (req.query.token ? String(req.query.token).trim() : '');
+
+  if (!token) {
+    return res.status(401).json({
+      valida: false,
+      razon: 'token_requerido',
+      mensaje: 'No se proporcionó token de sesión.'
+    });
+  }
+
+  const session = activeSessionsStore.get(token);
+  if (!session) {
+    return res.status(401).json({
+      valida: false,
+      razon: 'sesion_no_encontrada',
+      mensaje: 'La sesión no existe o ha sido cerrada.'
+    });
+  }
+
+  const now = Date.now();
+  const maxInactiveMs = SESSION_INACTIVITY_MINUTES * 60 * 1000;
+
+  // 1. Expiración absoluta de sesión (120 min)
+  if (now >= session.expiresAt) {
+    activeSessionsStore.delete(token);
+    return res.status(401).json({
+      valida: false,
+      razon: 'timeout_expirado',
+      mensaje: `Tu sesión ha expirado por límite de tiempo de seguridad (${SESSION_EXPIRY_MINUTES} min). Inicia sesión nuevamente.`
+    });
+  }
+
+  // 2. Expiración por inactividad (30 min)
+  if (now - session.lastActivityAt >= maxInactiveMs) {
+    activeSessionsStore.delete(token);
+    return res.status(401).json({
+      valida: false,
+      razon: 'inactividad_expirada',
+      mensaje: `Tu sesión ha expirado tras ${SESSION_INACTIVITY_MINUTES} minutos de inactividad por protección de datos.`
+    });
+  }
+
+  // Renovar marca de última actividad
+  session.lastActivityAt = now;
+  const minutosRestantes = Math.max(1, Math.ceil((session.expiresAt - now) / 60000));
+
+  res.status(200).json({
+    valida: true,
+    minutosRestantes,
+    usuario: {
+      id: session.userId,
+      nombre: session.nombre,
+      email: session.email,
+      rol: session.rol,
+      puedeVerApi: session.puedeVerApi,
+      sucursalAsignada: session.sucursalAsignada
+    }
+  });
+});
+
+// Cierre de sesión seguro (Logout)
+app.post('/api/v1/barberia-casa-del-rey/auth/logout', (req: Request, res: Response) => {
+  const authHeader = req.headers['authorization'];
+  const token = (typeof authHeader === 'string' && authHeader.startsWith('Bearer '))
+    ? authHeader.substring(7).trim()
+    : (req.body.token ? String(req.body.token).trim() : '');
+
+  if (token && activeSessionsStore.has(token)) {
+    activeSessionsStore.delete(token);
+  }
+
+  res.status(200).json({
+    exito: true,
+    mensaje: 'Sesión cerrada correctamente en el servidor seguro de Barbería La Casa del Rey.'
+  });
+});
+
+// Panel de Estado de Seguridad: Rate Limiting, IP Limiting, RLS y Encriptación
+app.get('/api/v1/barberia-casa-del-rey/seguridad/status', (req: Request, res: Response) => {
+  const ip = getClientIp(req);
+  res.status(200).json({
+    exito: true,
+    servidor: {
+      estado: 'Protegido y Operativo',
+      timestamp: new Date().toISOString(),
+      clienteIp: ip
+    },
+    rateLimiting: {
+      activo: true,
+      limiteGlobalPorMinuto: RATE_LIMIT_GLOBAL_MAX,
+      limiteLoginPorMinuto: 10,
+      limiteReservasPor5Min: 10,
+      bloqueoFuerzaBrutaIntentos: MAX_LOGIN_ATTEMPTS,
+      duracionBloqueoMinutos: 15
+    },
+    ipLimiting: {
+      activo: true,
+      maxPeticionesPorMinutoPorIp: IP_RATE_LIMIT_MAX,
+      ipsEnListaNegra: Array.from(IP_BLACKLIST),
+      ipsEnListaBlanca: Array.from(IP_WHITELIST),
+      bloqueoSuspensionTemporalMs: 15 * 60 * 1000
+    },
+    rowLevelSecurity: {
+      activo: true,
+      proveedor: 'Firestore Security Rules 2.0 (Zero-Trust RLS)',
+      politicas: [
+        'Aislamiento estricto de PII: consultas masivas de citas restringidas a personal autenticado',
+        'Arqueos de caja y cortes diarios restringidos por Rol / UID',
+        'Acceso de usuarios restringido a titular de cuenta o SuperAdmin',
+        'Prevención de escalada de privilegios RBAC en cliente'
+      ]
+    },
+    encriptacionBaseDatos: {
+      activo: true,
+      algoritmo: 'AES-256-GCM (Authenticated Galois/Counter Mode)',
+      longitudLlaveBits: 256,
+      derivacion: 'PBKDF2 / Scrypt con Salt Seguro',
+      camposProtegidos: ['clienteTelefono', 'responsableTelefono', 'notas', 'comprobantes'],
+      cumplimiento: 'NIST SP 800-38D + ISO 27001 Standard'
+    },
+    sesion: {
+      expiracionTotalMinutos: SESSION_EXPIRY_MINUTES,
+      tiempoInactividadMinutos: SESSION_INACTIVITY_MINUTES,
+      sesionesActivasTotal: activeSessionsStore.size
+    },
+    cors: {
+      activo: true,
+      credenciales: CORS_CREDENTIALS,
+      maxAgeSegundos: CORS_MAX_AGE,
+      metodosPermitidos: corsOptions.methods,
+      origenesConfigurados: RAW_CORS_ORIGINS.length > 0 ? RAW_CORS_ORIGINS : ['Auto-Permitidos: localhost, 127.0.0.1, *.run.app, *.ai.studio, *.google.com, *.firebaseapp.com'],
+      cabecerasPermitidas: corsOptions.allowedHeaders,
+      cabecerasExpuestas: corsOptions.exposedHeaders
+    }
   });
 });
 

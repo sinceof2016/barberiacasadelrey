@@ -14,7 +14,8 @@ import {
   ReporteClientesResponse,
   ProductoVenta,
   CategoriaProducto,
-  MovimientoStock
+  MovimientoStock,
+  CalendarioBarbero
 } from '../types';
 import { 
   guardarCitaEnFirestore, 
@@ -57,6 +58,8 @@ import {
   localCrearBarbero,
   localEliminarBarbero,
   localGetReporteClientes,
+  localGetCalendarioBarbero,
+  localActualizarCalendarioBarbero,
   getColombiaDateTimeClient
 } from './localBackendFallback';
 
@@ -119,6 +122,30 @@ export async function getDisponibilidad(fecha: string, barberoId?: number | stri
   const res = await safeFetch(`${BASE_URL}/disponibilidad?${params.toString()}`);
   if (!res || !res.ok) {
     return localGetDisponibilidad(fecha, barberoId, sucursalId);
+  }
+  return await res.json();
+}
+
+export async function getCalendarioBarbero(barberoId: number): Promise<CalendarioBarbero | null> {
+  const res = await safeFetch(`${BASE_URL}/barberos/${barberoId}/calendario`);
+  if (!res || !res.ok) {
+    return localGetCalendarioBarbero(barberoId);
+  }
+  const data = await res.json();
+  return data.datos || localGetCalendarioBarbero(barberoId);
+}
+
+export async function actualizarCalendarioBarbero(
+  barberoId: number, 
+  datos: Partial<CalendarioBarbero>
+): Promise<{ exito: boolean; mensaje: string; datos?: CalendarioBarbero }> {
+  const res = await safeFetch(`${BASE_URL}/barberos/${barberoId}/calendario`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(datos)
+  });
+  if (!res || !res.ok) {
+    return localActualizarCalendarioBarbero(barberoId, datos);
   }
   return await res.json();
 }

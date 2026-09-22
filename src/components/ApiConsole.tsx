@@ -181,6 +181,27 @@ export const ApiConsole: React.FC = () => {
       icon: 'mustache',
       body: '',
     },
+    {
+      name: 'Estado de Seguridad (Rate Limit, IP, RLS, AES-256)',
+      method: 'GET',
+      path: '/seguridad/status',
+      icon: 'razor',
+      body: '',
+    },
+    {
+      name: 'Verificar Sesión Activa & Expiración',
+      method: 'GET',
+      path: '/auth/verificar-sesion',
+      icon: 'pole',
+      body: '',
+    },
+    {
+      name: 'Cerrar Sesión Activa (Logout)',
+      method: 'POST',
+      path: '/auth/logout',
+      icon: 'scissors',
+      body: JSON.stringify({ token: "" }, null, 2),
+    },
   ];
 
   const handleSelectPreset = (preset: typeof sampleEndpoints[0]) => {
@@ -274,6 +295,44 @@ export const ApiConsole: React.FC = () => {
                 { id: 'GAP-DEMO-2', hora: '11:15 AM', usuario: 'David Orjuela (SuperAdmin)', motivo: 'Arqueo de caja' }
               ]
             }
+          };
+        }
+
+        if (cleanPath === '/seguridad/status') {
+          return {
+            status: 200,
+            data: {
+              exito: true,
+              servidor: { estado: 'Protegido y Operativo', modo: 'Bóveda Criptográfica Local / Express Activo' },
+              rateLimiting: { activo: true, limiteGlobalPorMinuto: 150, limiteLoginPorMinuto: 10, intentosMaxFuerzaBruta: 5 },
+              ipLimiting: { activo: true, maxPeticionesPorMinutoPorIp: 120, duracionSuspensionMinutos: 15 },
+              rowLevelSecurity: { activo: true, proveedor: 'Firestore Security Rules 2.0 (Zero-Trust RLS)' },
+              encriptacionBaseDatos: { activo: true, algoritmo: 'AES-256-GCM', longitudLlaveBits: 256 },
+              sesion: { expiracionTotalMinutos: 120, inactividadMinutos: 30 },
+              cors: {
+                activo: true,
+                credenciales: true,
+                maxAgeSegundos: 86400,
+                metodosPermitidos: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS', 'HEAD'],
+                origenesPermitidos: ['http://localhost:3000', 'http://127.0.0.1:3000', '*.run.app', '*.ai.studio']
+              }
+            }
+          };
+        }
+        if (cleanPath === '/auth/verificar-sesion') {
+          return {
+            status: 200,
+            data: {
+              valida: true,
+              minutosRestantes: 118,
+              usuario: { nombre: 'David Orjuela', rol: 'SuperAdmin', puedeVerApi: true }
+            }
+          };
+        }
+        if (cleanPath === '/auth/logout') {
+          return {
+            status: 200,
+            data: { exito: true, mensaje: 'Sesión finalizada con éxito.' }
           };
         }
 

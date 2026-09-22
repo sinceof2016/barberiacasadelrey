@@ -10,6 +10,7 @@ import {
   Sucursal,
   Servicio,
   Barbero,
+  CalendarioBarbero,
   ItemProductoVendido
 } from '../types';
 import { 
@@ -19,6 +20,11 @@ import {
   HORARIOS_CONFIG, 
   usuariosIniciales 
 } from './localData';
+import { 
+  calcularDisponibilidadConCalendarios, 
+  isBarberoLaborandoEnFecha, 
+  evaluarSlotParaBarbero 
+} from '../utils/barberAvailability';
 import { guardarCitaEnFirestore, guardarCorteEnFirestore, actualizarEstadoCitaEnFirestore } from './firebase';
 
 const STORAGE_KEYS = {
@@ -311,74 +317,80 @@ export function localSaveCitas(citas: Cita[]): void {
   setLocal(STORAGE_KEYS.CITAS, citas);
 }
 
-export function localGetDisponibilidad(fecha: string, barberoId?: number | string, sucursalId?: string): DisponibilidadResponse {
-  const colTime = getColombiaDateTimeClient();
-  const esFechaPasada = fecha < colTime.fecha;
-  const esHoy = fecha === colTime.fecha;
+export function localGetCalendarioBarbero(barberoId: number): CalendarioBarbero | null {
+  const barberos = getLocal<Barbero[]>(STORAGE_KEYS.BARBEROS, barberosCasaDelRey);
+  const b = barberos.find(barb => barb.id === Number(barberoId));
+  if (!b) return null;
+  return b.calendario || {
+    barberoId: b.id,
+    barberoNombre: b.nombre,
+    sucursalId: b.sucursalId || 'suc-chico',
+    sucursalNombre: b.sucursalNombre || 'Sede Chicó Real',
+    diasLaborales: b.diasLaborales || [1, 2, 3, 4, 5, 6],
+    diasDescanso: b.diasDescanso || [0],
+    jornada: b.jornada || {
+      horaInicio: '09:00 AM',
+      horaFin: '07:00 PM',
+      recesoInicio: '01:00 PM',
+      recesoFin: '02:00 PM'
+    },
+    excepciones: []
+  };
+}
 
-  const todasCitas = localGetAllCitas();
-  const citasDia = todasCitas.filter(
-    c => c.fecha === fecha && c.estado !== 'Cancelada' && (!sucursalId || sucursalId === 'todas' || c.sucursalId === sucursalId)
-  );
+export function localActualizarCalendarioBarbero(
+  barberoId: number, 
+  datosCalendario: Partial<CalendarioBarbero>
+): { exito: boolean; mensaje: string; datos?: CalendarioBarbero } {
+  const barberos = getLocal<Barbero[]>(STORAGE_KEYS.BARBEROS, barberosCasaDelRey);
+  const idx = barberos.findIndex(b => b.id === Number(barberoId));
+  if (idx < 0) {
+    return { exito: false, mensaje: 'Barbero no encontrado.' };
+  }
 
-  const barberoIdNum = barberoId && !isNaN(Number(barberoId)) ? Number(barberoId) : null;
-  const barberosActivos = sucursalId && sucursalId !== 'todas'
-    ? barberosCasaDelRey.filter(b => b.sucursalId === sucursalId)
-    : barberosCasaDelRey;
+  const barbero = barberos[idx];
+  const calExistente = barbero.calendario || localGetCalendarioBarbero(barberoId)!;
 
-  const slots = HORARIOS_CONFIG.map(config => {
-    const slotMin = parseSlotToMinutes(config.hora12);
-    const esPasado = esFechaPasada || (esHoy && slotMin <= colTime.totalMinutos);
-
-    if (esPasado) {
-      return {
-        hora24: config.hora24,
-        hora12: config.hora12,
-        disponible: false,
-        esPasado: true,
-        motivoOcupado: esFechaPasada 
-          ? 'Fecha ya transcurrida' 
-          : `Horario ya transcurrido (Hora Bogotá: ${colTime.hora12})`
-      };
+  const calendarioActualizado: CalendarioBarbero = {
+    ...calExistente,
+    ...datosCalendario,
+    barberoId: barbero.id,
+    barberoNombre: barbero.nombre,
+    sucursalId: barbero.sucursalId || 'suc-chico',
+    jornada: {
+      ...calExistente.jornada,
+      ...(datosCalendario.jornada || {})
     }
+  };
 
-    const citasEnHorario = citasDia.filter(c => c.hora === config.hora12 || c.hora === config.hora24);
-    let disponible = true;
-    let motivoOcupado: string | undefined = undefined;
+  barbero.calendario = calendarioActualizado;
+  if (datosCalendario.diasLaborales) barbero.diasLaborales = datosCalendario.diasLaborales;
+  if (datosCalendario.diasDescanso) barbero.diasDescanso = datosCalendario.diasDescanso;
+  if (datosCalendario.jornada) barbero.jornada = calendarioActualizado.jornada;
 
-    if (barberoIdNum) {
-      const ocupadoPorEsteBarbero = citasEnHorario.find(c => Number(c.barberoId) === barberoIdNum);
-      if (ocupadoPorEsteBarbero) {
-        disponible = false;
-        const b = barberosCasaDelRey.find(x => x.id === barberoIdNum);
-        motivoOcupado = `Reservado con ${b ? b.nombre : 'este barbero'}`;
-      }
-    } else {
-      const ocupados = new Set(citasEnHorario.map(c => Number(c.barberoId)).filter(id => id > 0));
-      if (ocupados.size >= barberosActivos.length && barberosActivos.length > 0) {
-        disponible = false;
-        motivoOcupado = 'Todos los sillones de esta sede están reservados';
-      }
-    }
-
-    return {
-      hora24: config.hora24,
-      hora12: config.hora12,
-      disponible,
-      esPasado: false,
-      motivoOcupado
-    };
-  });
+  barberos[idx] = barbero;
+  localGuardarBarberos(barberos);
 
   return {
     exito: true,
-    negocio: 'Barbería La Casa del Rey',
-    fecha,
-    barberoId: barberoId ? String(barberoId) : 'Cualquier barbero',
-    horariosDisponibles: slots.filter(s => s.disponible).map(s => s.hora12),
-    slots,
-    relojColombia: colTime
+    mensaje: `Calendario de disponibilidad de "${barbero.nombre}" actualizado correctamente.`,
+    datos: calendarioActualizado
   };
+}
+
+export function localGetDisponibilidad(fecha: string, barberoId?: number | string, sucursalId?: string): DisponibilidadResponse {
+  const colTime = getColombiaDateTimeClient();
+  const todosLosBarberos = localGetBarberos();
+  const todasLasCitas = localGetAllCitas();
+
+  return calcularDisponibilidadConCalendarios(
+    fecha,
+    barberoId,
+    sucursalId,
+    todosLosBarberos,
+    todasLasCitas,
+    colTime
+  );
 }
 
 export function localCrearCitaIndividual(payload: {
@@ -393,10 +405,16 @@ export function localCrearCitaIndividual(payload: {
   sucursalNombre?: string;
 }): { exito: boolean; mensaje: string; reserva: Cita } {
   const todasCitas = localGetAllCitas();
+  const barberosDisponibles = localGetBarberos();
+  const colTime = getColombiaDateTimeClient();
+
   let sedeId = payload.sucursalId;
   let sedeNombre = payload.sucursalNombre;
-  if (!sedeId && payload.barberoId) {
-    const b = barberosCasaDelRey.find(barb => String(barb.id) === String(payload.barberoId));
+  let barberoAsignadoId = payload.barberoId && !isNaN(Number(payload.barberoId)) ? Number(payload.barberoId) : null;
+
+  // Si no se especificó sede pero sí barbero, inferir sede del barbero
+  if (!sedeId && barberoAsignadoId) {
+    const b = barberosDisponibles.find(barb => barb.id === barberoAsignadoId);
     if (b?.sucursalId) {
       sedeId = b.sucursalId;
       sedeNombre = b.sucursalNombre;
@@ -406,6 +424,28 @@ export function localCrearCitaIndividual(payload: {
   const sucursalInfo = sucursalesCasaDelRey.find(s => s.id === sedeId);
   if (!sedeNombre) sedeNombre = sucursalInfo?.nombre || 'Sede Chicó Real';
 
+  // Si no seleccionó barbero específico (Cualquier Barbero / Primer disponible),
+  // buscar automáticamente un barbero de la sede cuyo calendario esté en turno y libre para esa fecha y hora
+  if (!barberoAsignadoId) {
+    const barberosSede = barberosDisponibles.filter(b => b.sucursalId === sedeId);
+    const citasDia = todasCitas.filter(c => c.fecha === payload.fecha && c.estado !== 'Cancelada');
+
+    const barberoLibre = barberosSede.find(b => {
+      const citasDelBarbero = citasDia.filter(c => Number(c.barberoId) === b.id);
+      const evalSlot = evaluarSlotParaBarbero(b, payload.fecha, payload.hora, payload.hora, citasDelBarbero, colTime);
+      return evalSlot.disponible;
+    });
+
+    if (barberoLibre) {
+      barberoAsignadoId = barberoLibre.id;
+    } else {
+      // Fallback a primer barbero de la sede
+      barberoAsignadoId = barberosSede[0]?.id || 101;
+    }
+  }
+
+  const barberoFinal = barberosDisponibles.find(b => b.id === barberoAsignadoId);
+
   const nuevaCita: Cita = {
     idReserva: `CDR-${Date.now().toString().slice(-6)}`,
     tipo: 'Individual',
@@ -413,7 +453,7 @@ export function localCrearCitaIndividual(payload: {
     clienteTelefono: payload.clienteTelefono.trim(),
     clienteEmail: payload.clienteEmail?.trim(),
     servicioId: payload.servicioId,
-    barberoId: payload.barberoId || 101,
+    barberoId: barberoAsignadoId,
     sucursalId: sedeId,
     sucursalNombre: sedeNombre,
     fecha: payload.fecha,
@@ -428,7 +468,7 @@ export function localCrearCitaIndividual(payload: {
 
   return {
     exito: true,
-    mensaje: `Cita agendada con éxito para las ${nuevaCita.hora} en Barbería La Casa del Rey.`,
+    mensaje: `Cita agendada con éxito para las ${nuevaCita.hora} con ${barberoFinal?.nombre || 'Maestro Barbero'} en Barbería La Casa del Rey.`,
     reserva: nuevaCita
   };
 }
@@ -913,10 +953,16 @@ export async function localLoginUsuario(email: string, password: string): Promis
   const usuarioVault = await verificarCredencialesEnVault(normEmail, trimPassword);
   if (usuarioVault) {
     clearLocalLoginAttempts(normEmail);
+    const token = `sess_cdr_${Math.random().toString(36).substring(2)}_${Date.now()}`;
+    const tokenExpiresAt = Date.now() + (120 * 60 * 1000);
     return {
       exito: true,
       mensaje: `Acceso concedido a Barbería Casa del Rey. Bienvenido, ${usuarioVault.nombre}.`,
-      usuario: usuarioVault
+      usuario: {
+        ...usuarioVault,
+        token,
+        tokenExpiresAt
+      }
     };
   }
 
@@ -930,6 +976,8 @@ export async function localLoginUsuario(email: string, password: string): Promis
 
   if (esDavidEmail && esDavidPass) {
     clearLocalLoginAttempts(normEmail);
+    const token = `sess_cdr_${Math.random().toString(36).substring(2)}_${Date.now()}`;
+    const tokenExpiresAt = Date.now() + (120 * 60 * 1000);
     const davidUser: Usuario = {
       id: 'USR-DAVID-01',
       nombre: 'David Orjuela',
@@ -937,7 +985,9 @@ export async function localLoginUsuario(email: string, password: string): Promis
       rol: 'SuperAdmin',
       sucursalAsignada: 'todas',
       puedeVerApi: true,
-      creadoEn: '2026-09-01T07:00:00.000Z'
+      creadoEn: '2026-09-01T07:00:00.000Z',
+      token,
+      tokenExpiresAt
     };
     return {
       exito: true,
@@ -953,6 +1003,8 @@ export async function localLoginUsuario(email: string, password: string): Promis
 
   if (u && (u as any).password && (u as any).password === trimPassword) {
     clearLocalLoginAttempts(normEmail);
+    const token = `sess_cdr_${Math.random().toString(36).substring(2)}_${Date.now()}`;
+    const tokenExpiresAt = Date.now() + (120 * 60 * 1000);
     const usuarioFinal: Usuario = {
       id: u.id,
       nombre: u.nombre,
@@ -960,7 +1012,9 @@ export async function localLoginUsuario(email: string, password: string): Promis
       rol: u.rol,
       sucursalAsignada: u.sucursalAsignada,
       puedeVerApi: u.rol === 'SuperAdmin' || u.nombre.toLowerCase().includes('david orjuela'),
-      creadoEn: u.creadoEn
+      creadoEn: u.creadoEn,
+      token,
+      tokenExpiresAt
     };
     return {
       exito: true,

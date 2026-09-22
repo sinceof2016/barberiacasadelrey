@@ -15,6 +15,7 @@ import { GroupBookingForm } from './components/GroupBookingForm';
 import { AppointmentsList } from './components/AppointmentsList';
 import { ApiConsole } from './components/ApiConsole';
 import { DailyCutsModule } from './components/DailyCutsModule';
+import { RegisterCutModule } from './components/RegisterCutModule';
 import { AccountingModule } from './components/AccountingModule';
 import { LoginModal } from './components/LoginModal';
 import { UserManagementModule } from './components/UserManagementModule';
@@ -23,6 +24,12 @@ import { CustomerReportModule } from './components/CustomerReportModule';
 import { CookieConsentBanner } from './components/CookieConsentBanner';
 import { CookiePreferencesModal } from './components/CookiePreferencesModal';
 import { registrarEventoAnalitica } from './services/cookieService';
+import { 
+  initUserSession, 
+  checkSessionStatus, 
+  terminateSession, 
+  startSessionWatcher 
+} from './services/sessionManager';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { auth } from './services/firebaseAuth';
 import { MapPin, Phone, Clock, Terminal, Scissors, Coins, Lock, Users, ShieldAlert, Cookie } from 'lucide-react';
@@ -59,6 +66,13 @@ export default function App() {
       if (manualLogout === 'true') {
         return null;
       }
+      // Verificar si la sesión existente en almacenamiento ha expirado
+      const sessionStatus = checkSessionStatus();
+      if (!sessionStatus.isValid && sessionStatus.reason) {
+        terminateSession(sessionStatus.reason);
+        return null;
+      }
+
       const guardado = localStorage.getItem('casa_del_rey_usuario');
       if (guardado) {
         const u: Usuario = JSON.parse(guardado);
@@ -81,6 +95,7 @@ export default function App() {
     }
   });
   const [loginModalOpen, setLoginModalOpen] = useState<boolean>(false);
+  const [sessionExpiredNotice, setSessionExpiredNotice] = useState<{ open: boolean; message: string } | null>(null);
 
   // Tab & Flow management
   const [activeTab, setActiveTab] = useState<TabType>('servicios');
@@ -93,6 +108,30 @@ export default function App() {
   const [googleCalendarModalOpen, setGoogleCalendarModalOpen] = useState<boolean>(false);
   const [customerReportModalOpen, setCustomerReportModalOpen] = useState<boolean>(false);
   const [cookiePreferencesOpen, setCookiePreferencesOpen] = useState<boolean>(false);
+
+  // Escuchador proactivo de expiración de sesión (Inactividad 30m / Absoluta 120m)
+  useEffect(() => {
+    const unsubscribeSessionWatcher = startSessionWatcher((reason) => {
+      setUsuario(null);
+      setSessionExpiredNotice({
+        open: true,
+        message: reason === 'inactivity'
+          ? 'Tu sesión se ha cerrado automáticamente tras 30 minutos de inactividad para proteger la información confidencial de Barbería La Casa del Rey.'
+          : 'Tu sesión ha expirado tras alcanzar el límite máximo de duración segura (120 minutos).'
+      });
+      setLoginModalOpen(true);
+      setActiveTab(prev => {
+        if (['agenda', 'cortes', 'contabilidad', 'clientes', 'usuarios', 'api'].includes(prev)) {
+          return 'reservar';
+        }
+        return prev;
+      });
+    });
+
+    return () => {
+      unsubscribeSessionWatcher();
+    };
+  }, []);
 
   // Registro de analítica anónima según preferencias de cookies
   useEffect(() => {
@@ -118,11 +157,7 @@ export default function App() {
               activo: true,
               creadoEn: '2026-09-01T07:00:00.000Z'
             };
-            try {
-              localStorage.setItem('casa_del_rey_usuario', JSON.stringify(davidUser));
-            } catch (e) {
-              console.error(e);
-            }
+            initUserSession(davidUser, (davidUser as any).token, 120, 30);
             return davidUser;
           });
         }
@@ -132,23 +167,14 @@ export default function App() {
   }, []);
 
   const handleLoginSuccess = (usr: Usuario) => {
-    try {
-      sessionStorage.removeItem('cdr_manual_logout');
-      localStorage.setItem('casa_del_rey_usuario', JSON.stringify(usr));
-    } catch (e) {
-      console.error(e);
-    }
+    initUserSession(usr, (usr as any).token, 120, 30);
     setUsuario(usr);
+    setSessionExpiredNotice(null);
   };
 
   const handleLogout = () => {
+    terminateSession('manual');
     setUsuario(null);
-    try {
-      localStorage.removeItem('casa_del_rey_usuario');
-      sessionStorage.setItem('cdr_manual_logout', 'true');
-    } catch (e) {
-      console.error(e);
-    }
     if (
       activeTab === 'agenda' || 
       activeTab === 'cortes' || 
@@ -224,6 +250,40 @@ export default function App() {
 
       {/* Main Content Stage */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 py-5 sm:py-6">
+        {sessionExpiredNotice?.open && (
+          <div className="mb-5 bg-[#231815] border-2 border-[#C59B27] rounded-xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-xl">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-[#C59B27]/20 border border-[#C59B27]/40 flex items-center justify-center text-[#C59B27] shrink-0">
+                <ShieldAlert className="w-5 h-5" />
+              </div>
+              <div>
+                <h4 className="text-sm font-bold text-[#FAF6EE] font-royal uppercase tracking-wider">Aviso de Seguridad: Sesión Expirada</h4>
+                <p className="text-xs text-[#DFCBB5] mt-0.5">{sessionExpiredNotice.message}</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto justify-end">
+              <button
+                type="button"
+                onClick={() => {
+                  setSessionExpiredNotice(null);
+                  setLoginModalOpen(true);
+                }}
+                className="px-3.5 py-2 bg-[#C59B27] hover:bg-[#D4AF37] text-[#120E0C] text-xs font-bold rounded-lg transition-colors uppercase tracking-wider cursor-pointer"
+              >
+                Ingresar Nuevamente
+              </button>
+              <button
+                type="button"
+                onClick={() => setSessionExpiredNotice(null)}
+                className="px-2 py-2 text-[#A8988B] hover:text-[#FAF6EE] rounded-lg transition-colors text-xs cursor-pointer"
+                title="Descartar aviso"
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+        )}
+
         {cargando ? (
           <div className="min-h-[50vh] flex flex-col items-center justify-center gap-3 font-mono text-xs text-[#A8988B]">
             <div className="w-10 h-10 rounded-xl bg-[#1A1412] border border-[#C59B27]/40 flex items-center justify-center text-[#C59B27] shadow-lg animate-pulse">
@@ -256,26 +316,6 @@ export default function App() {
                       onBookingSuccess={handleBookingSuccess}
                     />
                   )}
-                </div>
-
-                {/* Quick services teaser below */}
-                <div className="pt-6 border-t border-[#3D2E26]">
-                  <div className="flex items-center justify-between mb-3">
-                    <h3 className="text-xs font-royal font-bold uppercase tracking-widest text-[#E5B869] flex items-center gap-2">
-                      <StraightRazorIcon className="w-4 h-4 text-[#C59B27]" />
-                      <span>CARTA CLÁSICA DE SERVICIOS</span>
-                    </h3>
-                    <button
-                      onClick={() => setActiveTab('servicios')}
-                      className="text-xs font-mono text-[#E5B869] hover:text-[#FAF6EE] font-bold transition-colors cursor-pointer"
-                    >
-                      [Ver Carta Completa] &rarr;
-                    </button>
-                  </div>
-                  <ServiceCatalog
-                    servicios={servicios}
-                    onSelectServicio={handleSelectServicio}
-                  />
                 </div>
               </section>
             )}
@@ -339,6 +379,19 @@ export default function App() {
               </section>
             )}
 
+            {/* View: REGISTRAR CORTE (MÓDULO SEPARADO) */}
+            {activeTab === 'registrar-corte' && (
+              <section className="space-y-4">
+                <RegisterCutModule
+                  servicios={servicios}
+                  barberos={barberos}
+                  citas={citas}
+                  onDataUpdated={cargarDatos}
+                  onVerHistorial={() => setActiveTab('cortes')}
+                />
+              </section>
+            )}
+
             {/* View: REGISTRO DE CORTES DEL DÍA & DIVISIÓN POR BARBERO */}
             {activeTab === 'cortes' && (
               <section className="space-y-4">
@@ -347,6 +400,7 @@ export default function App() {
                   barberos={barberos}
                   citas={citas}
                   onDataUpdated={cargarDatos}
+                  onNavegarRegistrarCorte={() => setActiveTab('registrar-corte')}
                 />
               </section>
             )}
@@ -544,6 +598,7 @@ export default function App() {
       <BottomNav
         activeTab={activeTab}
         setActiveTab={setActiveTab}
+        usuario={usuario}
       />
     </div>
   );

@@ -1,7 +1,26 @@
 import React, { useState, useEffect } from 'react';
 import { Servicio, Barbero, Cita, HorarioSlot } from '../types';
 import { getDisponibilidad, crearCitaIndividual } from '../services/api';
-import { Clock, User, Phone, CheckCircle2, AlertCircle, Copy, Check, Ban, Sparkles, Mail, ShieldCheck, MapPin, MessageSquare, Send, ExternalLink } from 'lucide-react';
+import { 
+  Clock, 
+  User, 
+  Phone, 
+  CheckCircle2, 
+  AlertCircle, 
+  Copy, 
+  Check, 
+  Ban, 
+  Sparkles, 
+  Mail, 
+  ShieldCheck, 
+  MapPin, 
+  Building2,
+  ChevronRight,
+  ChevronLeft,
+  Calendar as CalendarIcon,
+  Check as CheckIcon,
+  RotateCcw
+} from 'lucide-react';
 import { AddToCalendarButtons } from './AddToCalendarButtons';
 import { 
   WhatsAppConfirmButton, 
@@ -17,6 +36,7 @@ import { sucursalesCasaDelRey } from '../services/localData';
 import { 
   StraightRazorIcon, 
   VintageScissorsIcon, 
+  VintageCrownIcon,
   VintageBarberPole, 
   BarberPoleRibbon,
   VintageWaxSeal 
@@ -36,6 +56,8 @@ interface IndividualBookingFormProps {
   onBookingSuccess: (cita: Cita) => void;
 }
 
+type BookingStep = 1 | 2 | 3 | 4 | 5;
+
 export const IndividualBookingForm: React.FC<IndividualBookingFormProps> = ({
   servicios,
   barberos,
@@ -44,6 +66,11 @@ export const IndividualBookingForm: React.FC<IndividualBookingFormProps> = ({
   onBookingSuccess,
 }) => {
   const colClock = useColombiaClock();
+
+  // Wizard Section Step (1: Sede, 2: Servicio, 3: Barbero, 4: Fecha & Hora, 5: Datos & Confirmación)
+  const [pasoActual, setPasoActual] = useState<BookingStep>(1);
+
+  // Form selections
   const [sucursalId, setSucursalId] = useState<string>('suc-chico');
   const [servicioId, setServicioId] = useState<number>(preselectedServiceId || (servicios[0]?.id ?? 1));
   const [barberoId, setBarberoId] = useState<string | number>(preselectedBarberId || '');
@@ -54,8 +81,12 @@ export const IndividualBookingForm: React.FC<IndividualBookingFormProps> = ({
   const [clienteTelefono, setClienteTelefono] = useState<string>('');
   const [clienteEmail, setClienteEmail] = useState<string>('');
   const [aceptaTerminos, setAceptaTerminos] = useState<boolean>(true);
-  const [honeypotEmpresa, setHoneypotEmpresa] = useState<string>(''); // Campo trampa invisible para bots
+  const [honeypotEmpresa, setHoneypotEmpresa] = useState<string>(''); // Campo trampa anti-spam
 
+  // Filter for services tab
+  const [categoriaServicio, setCategoriaServicio] = useState<string>('todos');
+
+  // Slots & Loading
   const [slotsDisponibilidad, setSlotsDisponibilidad] = useState<HorarioSlot[]>([]);
   const [horariosDisponibles, setHorariosDisponibles] = useState<string[]>([]);
   const [cargandoHorarios, setCargandoHorarios] = useState<boolean>(false);
@@ -123,7 +154,6 @@ export const IndividualBookingForm: React.FC<IndividualBookingFormProps> = ({
           const disponibles = resp.horariosDisponibles || [];
           setHorariosDisponibles(disponibles);
 
-          // Si el horario seleccionado ya no está disponible, seleccionar el primer disponible
           if (disponibles.length > 0) {
             setHora(prev => (disponibles.includes(prev) ? prev : disponibles[0]));
           } else {
@@ -143,35 +173,95 @@ export const IndividualBookingForm: React.FC<IndividualBookingFormProps> = ({
     return () => { isMounted = false; };
   }, [fecha, barberoId, sucursalId]);
 
-  // Al generarse la reserva, regresar automáticamente al principio de la página
   useEffect(() => {
     if (citaCreada) {
       window.scrollTo({ top: 0, behavior: 'smooth' });
-      document.documentElement?.scrollTo?.({ top: 0, behavior: 'smooth' });
-      document.body?.scrollTo?.({ top: 0, behavior: 'smooth' });
     }
   }, [citaCreada]);
+
+  const scrollToSectionTop = () => {
+    const el = document.getElementById('booking-section-container');
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } else {
+      window.scrollTo({ top: 120, behavior: 'smooth' });
+    }
+  };
+
+  const handleSeleccionarSede = (sId: string) => {
+    setSucursalId(sId);
+    if (barberoId) {
+      const barb = barberos.find(b => String(b.id) === String(barberoId));
+      if (barb && barb.sucursalId && barb.sucursalId !== sId) {
+        setBarberoId('');
+      }
+    }
+    setErrorMensaje(null);
+    // Transición suave inmediata a la siguiente pantalla (Paso 2: Servicios)
+    setTimeout(() => {
+      setPasoActual(2);
+      scrollToSectionTop();
+    }, 220);
+  };
+
+  const handleAvanzarPaso = (siguientePaso: BookingStep) => {
+    setErrorMensaje(null);
+
+    // Validaciones por paso antes de avanzar
+    if (pasoActual === 1 && siguientePaso > 1) {
+      if (!sucursalId) {
+        setErrorMensaje('Por favor selecciona una sede para continuar.');
+        return;
+      }
+    }
+
+    if (pasoActual === 2 && siguientePaso > 2) {
+      if (!servicioId) {
+        setErrorMensaje('Por favor selecciona un servicio de la carta para continuar.');
+        return;
+      }
+    }
+
+    if (pasoActual === 4 && siguientePaso > 4) {
+      if (!hora) {
+        setErrorMensaje('Por favor selecciona una hora disponible para tu cita.');
+        return;
+      }
+      if (isSlotPassedInColombia(hora, fecha)) {
+        setErrorMensaje(`El horario seleccionado (${hora}) ya ha transcurrido. Por favor selecciona un turno libre.`);
+        return;
+      }
+    }
+
+    setPasoActual(siguientePaso);
+    scrollToSectionTop();
+  };
+
+  const handleRetrocederPaso = () => {
+    setErrorMensaje(null);
+    setPasoActual(prev => (Math.max(1, prev - 1) as BookingStep));
+    scrollToSectionTop();
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMensaje(null);
 
-    // Protección Anti-Spam: Si el campo trampa oculto fue rellenado por un bot, se rechaza
     if (honeypotEmpresa.trim() !== '') {
       console.warn('Bot submission blocked by honeypot.');
       return;
     }
 
     if (!clienteNombre.trim()) {
-      setErrorMensaje('Ingresa el nombre completo del caballero.');
+      setErrorMensaje('Por favor ingresa el nombre completo del caballero.');
       return;
     }
     if (!clienteTelefono.trim()) {
-      setErrorMensaje('Ingresa el teléfono o WhatsApp de contacto.');
+      setErrorMensaje('Por favor ingresa un número de teléfono o WhatsApp de contacto.');
       return;
     }
     if (!hora) {
-      setErrorMensaje('Selecciona un horario disponible para el turno.');
+      setErrorMensaje('Por favor selecciona un horario disponible para el turno.');
       return;
     }
 
@@ -181,7 +271,7 @@ export const IndividualBookingForm: React.FC<IndividualBookingFormProps> = ({
     }
 
     if (isSlotPassedInColombia(hora, fecha)) {
-      setErrorMensaje(`El horario seleccionado (${hora}) ya ha transcurrido según el reloj oficial de Colombia (${colClock.hora12}). Por favor selecciona un turno disponible a futuro.`);
+      setErrorMensaje(`El horario seleccionado (${hora}) ya transcurrió según el reloj oficial de Colombia (${colClock.hora12}). Por favor selecciona un turno futuro.`);
       return;
     }
 
@@ -201,7 +291,6 @@ export const IndividualBookingForm: React.FC<IndividualBookingFormProps> = ({
       });
 
       if (resp.exito && resp.reserva) {
-        // Aplicar persistencia de cookie funcional si el usuario dio consentimiento
         guardarDatosClienteRecurrente({
           nombre: clienteNombre.trim(),
           telefono: clienteTelefono.trim(),
@@ -209,7 +298,6 @@ export const IndividualBookingForm: React.FC<IndividualBookingFormProps> = ({
           sucursalId
         });
 
-        // Registrar analítica anónima si las cookies analíticas están activas
         registrarEventoAnalitica('reserva_confirmada', {
           idReserva: resp.reserva.idReserva,
           sucursalId,
@@ -218,10 +306,7 @@ export const IndividualBookingForm: React.FC<IndividualBookingFormProps> = ({
 
         setCitaCreada(resp.reserva);
         onBookingSuccess(resp.reserva);
-
         window.scrollTo({ top: 0, behavior: 'smooth' });
-        document.documentElement?.scrollTo?.({ top: 0, behavior: 'smooth' });
-        document.body?.scrollTo?.({ top: 0, behavior: 'smooth' });
       } else {
         setErrorMensaje(resp.mensaje || 'Error al agendar la cita.');
       }
@@ -241,6 +326,7 @@ export const IndividualBookingForm: React.FC<IndividualBookingFormProps> = ({
 
   const servicioSeleccionado = servicios.find(s => s.id === Number(servicioId));
   const barberoSeleccionado = barberos.find(b => String(b.id) === String(barberoId));
+  const sucursalSeleccionada = sucursalesCasaDelRey.find(s => s.id === sucursalId);
 
   const formatPrecio = (precio: number) => {
     return new Intl.NumberFormat('es-CO', {
@@ -250,22 +336,37 @@ export const IndividualBookingForm: React.FC<IndividualBookingFormProps> = ({
     }).format(precio);
   };
 
+  // Filtrado de servicios por categoría
+  const serviciosFiltrados = servicios.filter(s => {
+    if (categoriaServicio === 'todos') return true;
+    const n = s.nombre.toLowerCase();
+    if (categoriaServicio === 'combos') return n.includes('combo') || n.includes('paquete') || n.includes('completo');
+    if (categoriaServicio === 'barba') return n.includes('barba') || n.includes('afeitado') || n.includes('ritual');
+    if (categoriaServicio === 'cortes') return !n.includes('combo') && (n.includes('corte') || n.includes('cabello') || n.includes('niño'));
+    return true;
+  });
+
+  const barberosFiltrados = barberos.filter(
+    b => !b.sucursalId || b.sucursalId === sucursalId
+  );
+
+  // VISTA DE RESERVA CONFIRMADA (Voucher oficial)
   if (citaCreada) {
     return (
-      <div className="rounded-xl bg-[#FFF8F5] border border-[#DFCBB5] p-5 sm:p-6 shadow-sm relative overflow-hidden font-mono text-xs text-[#221A14]">
+      <div className="rounded-2xl bg-[#FFF8F5] border border-[#DFCBB5] p-5 sm:p-7 shadow-md relative overflow-hidden font-mono text-xs text-[#221A14]">
         <BarberPoleRibbon className="h-1 absolute top-0 left-0 right-0" />
 
         <div className="flex items-center justify-between border-b border-[#DFCBB5] pb-4 mb-5 pt-1">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-[#EBF7EE] border border-[#86EFAC] text-[#15803D] flex items-center justify-center shadow-2xs">
-              <CheckCircle2 className="w-5 h-5" />
+            <div className="w-11 h-11 rounded-2xl bg-[#EBF7EE] border border-[#86EFAC] text-[#15803D] flex items-center justify-center shadow-2xs">
+              <CheckCircle2 className="w-6 h-6" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="text-base font-serif font-bold text-[#221A14] tracking-wide">
+                <h3 className="text-base sm:text-lg font-serif font-bold text-[#221A14] tracking-wide">
                   TURNO CONFIRMADO EN EL LIBRO DE CITAS
                 </h3>
-                <span className="px-2 py-0.5 bg-[#EBF7EE] text-[#15803D] text-[9px] font-mono font-bold rounded border border-[#86EFAC]">
+                <span className="px-2 py-0.5 bg-[#EBF7EE] text-[#15803D] text-[9px] font-mono font-bold rounded-full border border-[#86EFAC]">
                   {citaCreada.estado}
                 </span>
               </div>
@@ -278,7 +379,7 @@ export const IndividualBookingForm: React.FC<IndividualBookingFormProps> = ({
         </div>
 
         {/* Vintage Voucher card */}
-        <div className="rounded-xl bg-[#FFFFFF] p-4 border border-[#DFCBB5] space-y-3 mb-5 font-mono text-xs shadow-2xs">
+        <div className="rounded-xl bg-[#FFFFFF] p-4 sm:p-5 border border-[#DFCBB5] space-y-3 mb-5 font-mono text-xs shadow-2xs">
           <div className="flex items-center justify-between border-b border-[#DFCBB5] pb-3">
             <div>
               <span className="text-[10px] text-[#6F5A4B] uppercase tracking-wider block font-bold">
@@ -288,7 +389,7 @@ export const IndividualBookingForm: React.FC<IndividualBookingFormProps> = ({
                 <span className="text-base font-bold text-[#7C571C]">{citaCreada.idReserva}</span>
                 <button
                   onClick={handleCopiarId}
-                  className="p-1 rounded bg-[#FBEBE1] border border-[#DFCBB5] hover:border-[#7C571C] text-[#6F5A4B] hover:text-[#221A14] transition-all cursor-pointer shadow-2xs"
+                  className="p-1.5 rounded-lg bg-[#FBEBE1] border border-[#DFCBB5] hover:border-[#7C571C] text-[#6F5A4B] hover:text-[#221A14] transition-all cursor-pointer shadow-2xs"
                   title="Copiar código"
                 >
                   {copiado ? <Check className="w-3.5 h-3.5 text-[#15803D]" /> : <Copy className="w-3.5 h-3.5" />}
@@ -298,534 +399,909 @@ export const IndividualBookingForm: React.FC<IndividualBookingFormProps> = ({
             <div className="text-right">
               <span className="text-[10px] text-[#6F5A4B] uppercase block font-bold">VALOR EN CAJA</span>
               <span className="text-base font-bold text-[#221A14]">
-                {servicioSeleccionado ? formatPrecio(servicioSeleccionado.precio) : '$ 35.000'}
+                {formatPrecio(citaCreada.precioTotal || 35000)}
               </span>
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3 pt-1">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
             <div>
-              <span className="text-[10px] text-[#6F5A4B] block uppercase font-bold">CABALLERO</span>
-              <span className="text-[#221A14] font-medium">{citaCreada.clienteNombre}</span>
+              <span className="text-[10px] text-[#6F5A4B] uppercase block">Caballero:</span>
+              <span className="font-bold text-[#221A14]">{citaCreada.clienteNombre}</span>
+              <span className="text-[10px] text-[#6F5A4B] block">{citaCreada.clienteTelefono}</span>
             </div>
             <div>
-              <span className="text-[10px] text-[#6F5A4B] block uppercase font-bold">SEDE DEL CORTE</span>
-              <span className="text-[#221A14] font-medium flex items-center gap-1">
-                <MapPin className="w-3 h-3 text-[#7C571C]" />
+              <span className="text-[10px] text-[#6F5A4B] uppercase block">Servicio:</span>
+              <span className="font-bold text-[#221A14]">{citaCreada.servicioNombre}</span>
+              <span className="text-[10px] text-[#7C571C] block">
+                {citaCreada.barberoNombre ? `Atendido por ${citaCreada.barberoNombre}` : 'Barbero según asignación de sala'}
+              </span>
+            </div>
+            <div>
+              <span className="text-[10px] text-[#6F5A4B] uppercase block">Fecha y Turno:</span>
+              <span className="font-bold text-[#7C571C] text-sm">
+                {citaCreada.fecha} a las {citaCreada.hora}
+              </span>
+            </div>
+            <div>
+              <span className="text-[10px] text-[#6F5A4B] uppercase block">Sede Asignada:</span>
+              <span className="font-bold text-[#221A14]">
                 {citaCreada.sucursalNombre || 'Sede Chicó Real'}
               </span>
             </div>
-            <div>
-              <span className="text-[10px] text-[#6F5A4B] block uppercase font-bold">TELÉFONO</span>
-              <span className="text-[#221A14] font-medium">{citaCreada.clienteTelefono}</span>
-            </div>
-            <div>
-              <span className="text-[10px] text-[#6F5A4B] block uppercase font-bold">FECHA Y HORA</span>
-              <span className="text-[#7C571C] font-bold">{citaCreada.fecha} @ {citaCreada.hora}</span>
-            </div>
-            <div className="col-span-2">
-              <span className="text-[10px] text-[#6F5A4B] block uppercase font-bold">MAESTRO ASIGNADO</span>
-              <span className="text-[#221A14] font-medium">
-                {barberoSeleccionado ? barberoSeleccionado.nombre : 'Cualquier Maestro'}
-              </span>
-            </div>
-            {citaCreada.clienteEmail && (
-              <div className="col-span-2 pt-2 border-t border-[#DFCBB5] flex items-center gap-2">
-                <span className="text-[10px] text-[#6F5A4B] uppercase font-bold">CORREO REGISTRADO:</span>
-                <span className="text-[#221A14] font-medium">{citaCreada.clienteEmail}</span>
-              </div>
-            )}
           </div>
         </div>
 
-        {/* Google / Apple Calendar Retention Integration */}
-        <AddToCalendarButtons
-          cita={citaCreada}
-          servicioNombre={servicioSeleccionado?.nombre}
-          barberoNombre={barberoSeleccionado?.nombre}
-          duracionMinutos={servicioSeleccionado?.duracionMinutos}
-          className="mb-5"
-        />
+        {/* Sincronización con Calendario y WhatsApp */}
+        <div className="space-y-4">
+          <div className="p-4 rounded-xl bg-[#FBEBE1] border border-[#DFCBB5]">
+            <p className="text-xs font-bold text-[#7C571C] uppercase tracking-wider mb-2 flex items-center gap-1.5">
+              <Clock className="w-4 h-4" />
+              <span>AÑADIR A TU CALENDARIO PERSONAL</span>
+            </p>
+            <AddToCalendarButtons cita={citaCreada} />
+          </div>
 
-        <button
-          onClick={() => setCitaCreada(null)}
-          className="w-full py-2.5 px-3 rounded-lg bg-[#7C571C] hover:bg-[#684815] text-[#FAF6EE] font-bold text-xs font-mono tracking-wider shadow-sm transition-all cursor-pointer"
-        >
-          AGENDAR OTRO TURNO
-        </button>
+          <div className="p-4 rounded-xl bg-[#FFFFFF] border border-[#DFCBB5] flex flex-col sm:flex-row items-center justify-between gap-3">
+            <div>
+              <span className="text-xs font-bold text-[#221A14] block">
+                ¿Deseas confirmar vía WhatsApp oficial?
+              </span>
+              <span className="text-[11px] text-[#6F5A4B]">
+                Envía tus detalles con 1 toque a nuestra línea {WHATSAPP_BARBERIA_DISPLAY}
+              </span>
+            </div>
+            <WhatsAppConfirmButton cita={citaCreada} className="w-full sm:w-auto" />
+          </div>
+
+          <button
+            type="button"
+            onClick={() => {
+              setCitaCreada(null);
+              setPasoActual(1);
+            }}
+            className="w-full py-3 rounded-xl bg-[#7C571C] hover:bg-[#684815] text-[#FAF6EE] font-bold text-xs tracking-wider uppercase transition-all shadow-sm flex items-center justify-center gap-2 cursor-pointer active:scale-98"
+          >
+            <RotateCcw className="w-4 h-4" />
+            <span>Agendar Otro Turno</span>
+          </button>
+        </div>
       </div>
     );
   }
 
   return (
-    <form onSubmit={handleSubmit} className="rounded-xl bg-[#FFF8F5] border border-[#DFCBB5] p-5 sm:p-6 shadow-sm relative overflow-hidden font-mono text-xs text-[#221A14]">
+    <div id="booking-section-container" className="rounded-2xl bg-[#FFF8F5] border border-[#DFCBB5] p-4 sm:p-6 shadow-md relative overflow-hidden font-mono text-xs text-[#221A14]">
       <BarberPoleRibbon className="h-1 absolute top-0 left-0 right-0" />
 
-      <div className="flex items-center justify-between border-b border-[#DFCBB5] pb-4 mb-5 pt-1">
-        <div>
-          <div className="flex items-center gap-2">
-            <StraightRazorIcon className="w-4 h-4 text-[#7C571C]" />
-            <h3 className="text-sm font-serif font-bold tracking-wide text-[#221A14] uppercase">
-              Reserva de Turno Individual
-            </h3>
-          </div>
-          <p className="text-xs text-[#6F5A4B] font-mono mt-0.5">
-            Registro directo en el libro tradicional de Barbería La Casa del Rey
-          </p>
-        </div>
-      </div>
-
-      {errorMensaje && (
-        <div className="mb-4 p-3 rounded-lg bg-[#FFDAD6] border border-[#BA1A1A]/30 text-[#BA1A1A] text-xs flex items-center gap-2 font-mono">
-          <AlertCircle className="w-4 h-4 text-[#BA1A1A] shrink-0" />
-          <span>{errorMensaje}</span>
-        </div>
-      )}
-
-      {/* 1. Seleccionar Sede */}
-      <div className="mb-5">
-        <label className="block text-[10px] font-mono font-bold uppercase tracking-wider text-[#7C571C] mb-2 flex items-center justify-between">
-          <span className="flex items-center gap-1.5">
-            <MapPin className="w-3.5 h-3.5 text-[#7C571C]" />
-            <span>01 // SELECCIONA LA SEDE DEL CORTE</span>
-          </span>
-          <span className="text-[9px] text-[#6F5A4B] font-mono lowercase">
-            ({sucursalesCasaDelRey.length} sedes en Bogotá)
-          </span>
-        </label>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-          {sucursalesCasaDelRey.map(s => {
-            const isSelected = sucursalId === s.id;
-            return (
-              <div
-                key={s.id}
-                onClick={() => {
-                  setSucursalId(s.id);
-                  if (barberoId) {
-                    const barb = barberos.find(b => String(b.id) === String(barberoId));
-                    if (barb && barb.sucursalId && barb.sucursalId !== s.id) {
-                      setBarberoId('');
-                    }
-                  }
-                }}
-                className={`p-3 rounded-lg border cursor-pointer transition-all flex flex-col justify-between relative overflow-hidden ${
-                  isSelected
-                    ? 'bg-[#FBEBE1] border-[#7C571C] text-[#221A14] shadow-xs ring-1 ring-[#7C571C]/50'
-                    : 'bg-[#FFFFFF] border-[#DFCBB5] hover:border-[#7C571C] text-[#6F5A4B] shadow-2xs'
-                }`}
-              >
-                <div>
-                  <div className="flex items-start justify-between gap-1 mb-1">
-                    <span className="text-xs font-serif font-bold text-[#221A14] tracking-wide">
-                      {s.nombre}
-                    </span>
-                    {isSelected && (
-                      <span className="w-2 h-2 rounded-full bg-[#15803D] shrink-0 mt-1" />
-                    )}
-                  </div>
-                  <p className="text-[10px] text-[#6F5A4B] line-clamp-2 leading-relaxed font-mono mb-1">
-                    {s.direccion}
-                  </p>
-                </div>
-                <div className="mt-2 pt-1.5 border-t border-[#DFCBB5]/50 flex items-center justify-between text-[9px] font-mono text-[#7C571C]">
-                  <span>{s.ciudad}</span>
-                  <span className="text-[#6F5A4B]">{s.telefono}</span>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* 2. Seleccionar Servicio */}
-      <div className="mb-5">
-        <label className="block text-[10px] font-mono font-bold uppercase tracking-wider text-[#7C571C] mb-2 flex items-center justify-between">
-          <span className="flex items-center gap-1.5">
-            <VintageScissorsIcon className="w-3.5 h-3.5 text-[#7C571C]" />
-            <span>02 // SELECCIONA EL SERVICIO</span>
-          </span>
-          <span className="text-[9px] text-[#6F5A4B] font-normal lowercase">
-            ({servicios.length} opciones disponibles)
-          </span>
-        </label>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
-          {servicios.map(s => {
-            const isSelected = Number(servicioId) === s.id;
-            const esCombo = s.nombre.toLowerCase().includes('combo');
-            return (
-              <div
-                key={s.id}
-                onClick={() => setServicioId(s.id)}
-                className={`p-3 rounded-lg border cursor-pointer transition-all flex flex-col justify-between relative overflow-hidden ${
-                  isSelected
-                    ? 'bg-[#FBEBE1] border-[#7C571C] text-[#221A14] shadow-xs ring-1 ring-[#7C571C]/50'
-                    : 'bg-[#FFFFFF] border-[#DFCBB5] hover:border-[#7C571C] text-[#6F5A4B] shadow-2xs'
-                }`}
-              >
-                {esCombo && (
-                  <span className="absolute top-0 right-0 bg-[#7C571C] text-[#FAF6EE] text-[8px] font-mono font-bold px-1.5 py-0.5 rounded-bl uppercase tracking-wider">
-                    COMBO
-                  </span>
-                )}
-                <div>
-                  <div className="flex items-start justify-between gap-1 mb-1">
-                    <span className="text-xs font-serif font-bold text-[#221A14] tracking-wide leading-tight">
-                      {s.nombre}
-                    </span>
-                    <span className="text-[10px] font-mono text-[#6F5A4B] shrink-0 mt-0.5">
-                      {s.duracionMinutos}m
-                    </span>
-                  </div>
-                  <p className="text-[10px] text-[#6F5A4B] line-clamp-2 leading-relaxed mb-2 font-mono">
-                    {s.descripcion}
-                  </p>
-                </div>
-                <div className="mt-1 pt-2 border-t border-[#DFCBB5]/50 flex items-center justify-between">
-                  <span className="text-[9px] text-[#6F5A4B] uppercase">Tarifa</span>
-                  <span className="text-xs font-mono font-bold text-[#7C571C]">{formatPrecio(s.precio)}</span>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* 3. Seleccionar Barbero */}
-      <div className="mb-5">
-        <label className="block text-[10px] font-mono font-bold uppercase tracking-wider text-[#7C571C] mb-2 flex items-center gap-1.5">
-          <StraightRazorIcon className="w-3.5 h-3.5 text-[#7C571C]" />
-          <span>03 // ELECCIÓN DEL MAESTRO BARBERO</span>
-        </label>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-          <div
-            onClick={() => setBarberoId('')}
-            className={`p-2.5 rounded-lg border cursor-pointer transition-all text-center ${
-              barberoId === ''
-                ? 'bg-[#FBEBE1] border-[#7C571C] text-[#221A14] ring-1 ring-[#7C571C]/40 shadow-xs'
-                : 'bg-[#FFFFFF] border-[#DFCBB5] hover:border-[#7C571C] text-[#6F5A4B] shadow-2xs'
-            }`}
-          >
-            <span className="text-xs font-bold block text-[#221A14]">Turno Disponible</span>
-            <span className="text-[10px] font-mono text-[#6F5A4B]">Cualquier Maestro</span>
-          </div>
-
-          {barberos
-            .filter(b => !b.sucursalId || b.sucursalId === sucursalId)
-            .map(b => {
-              const isSelected = String(barberoId) === String(b.id);
-              return (
-                <div
-                  key={b.id}
-                  onClick={() => setBarberoId(b.id)}
-                  className={`p-2.5 rounded-lg border cursor-pointer transition-all text-center ${
-                    isSelected
-                      ? 'bg-[#FBEBE1] border-[#7C571C] text-[#221A14] ring-1 ring-[#7C571C]/40 shadow-xs'
-                      : 'bg-[#FFFFFF] border-[#DFCBB5] hover:border-[#7C571C] text-[#6F5A4B] shadow-2xs'
-                  }`}
-                >
-                  <span className="text-xs font-bold block text-[#221A14]">{b.nombre}</span>
-                  <span className="text-[10px] font-mono text-[#7C571C]">{b.especialidad}</span>
-                </div>
-              );
-            })}
-        </div>
-      </div>
-
-      {/* Banner de Sincronización con Reloj Colombia */}
-      <div className="mb-5 p-3 rounded-xl bg-[#FFFFFF] border border-[#DFCBB5] flex flex-col sm:flex-row sm:items-center justify-between gap-2 shadow-2xs">
-        <div className="flex items-center gap-2">
-          <Clock className="w-4 h-4 text-[#7C571C] animate-pulse shrink-0" />
+      {/* HEADER CON NAVEGADOR DE SECCIONES / PASOS */}
+      <div className="border-b border-[#DFCBB5] pb-4 mb-5 pt-1">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
           <div>
-            <div className="text-[11px] font-mono text-[#221A14] font-bold">
-              Horario Oficial Barbería La Casa del Rey (Bogotá, Colombia • UTC-5)
+            <div className="flex items-center gap-2">
+              <VintageCrownIcon className="w-5 h-5 text-[#7C571C]" />
+              <h2 className="font-serif text-base sm:text-lg font-bold text-[#221A14] uppercase tracking-wide">
+                Reserva de Turno Individual
+              </h2>
             </div>
-            <div className="text-[9px] font-mono text-[#6F5A4B]">
-              {colClock.fechaTexto}
-            </div>
-          </div>
-        </div>
-        <div className="flex items-center gap-2 self-start sm:self-auto">
-          <span className="text-[9px] font-mono uppercase text-[#6F5A4B]">Hora Actual:</span>
-          <span className="px-2 py-0.5 rounded bg-[#FBEBE1] text-[#7C571C] text-xs font-mono font-bold tracking-wider border border-[#DFCBB5]">
-            {colClock.horaCompleta}
-          </span>
-        </div>
-      </div>
-
-      {/* 3. Fecha (con calendario desplegable) y Horarios Disponibles en Formato 12 Horas */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 mb-5">
-        {/* Selector de Fecha con Calendario Desplegable */}
-        <div className="lg:col-span-5">
-          <VintageDatePicker
-            id="input-fecha-reserva"
-            label="04 // FECHA DEL TURNO (CALENDARIO)"
-            value={fecha}
-            onChange={setFecha}
-            minDate={colClock.fecha}
-          />
-          <div className="mt-2 text-[10px] text-[#6F5A4B] font-mono bg-[#FFFFFF] p-2 rounded-lg border border-[#DFCBB5] flex items-center gap-1.5 shadow-2xs">
-            <Clock className="w-3 h-3 text-[#7C571C] shrink-0" />
-            <span>Atención de Lunes a Domingo: 9:00 AM – 7:00 PM</span>
-          </div>
-        </div>
-
-        {/* Franjas Horarias en Formato 12 Horas (9:00 AM - 7:00 PM) con Validación de Disponibilidad */}
-        <div className="lg:col-span-7">
-          <div className="flex items-center justify-between mb-1.5">
-            <label className="block text-[10px] font-mono font-bold uppercase tracking-wider text-[#7C571C]">
-              05 // HORARIOS DISPONIBLES (9:00 AM – 7:00 PM)
-            </label>
-            {barberoSeleccionado && (
-              <span className="text-[9px] font-mono text-[#7C571C]">
-                Agenda de {barberoSeleccionado.nombre}
-              </span>
-            )}
+            <p className="text-[11px] text-[#6F5A4B] font-mono mt-0.5">
+              Experiencia pantalla por pantalla (1 a la vez): avanza paso a paso hasta asegurar tu sillón real
+            </p>
           </div>
 
-          {cargandoHorarios ? (
-            <div className="h-28 flex flex-col items-center justify-center text-[11px] font-mono text-[#6F5A4B] bg-[#FFFFFF] rounded-xl border border-[#DFCBB5] shadow-2xs">
-              <Clock className="w-4 h-4 animate-spin text-[#7C571C] mb-1.5" />
-              <span>Verificando disponibilidad de sillones...</span>
-            </div>
-          ) : (slotsDisponibilidad.length === 0 && horariosDisponibles.length === 0) ? (
-            <div className="h-28 flex flex-col items-center justify-center text-[11px] font-mono text-[#6F5A4B] bg-[#FFFFFF] rounded-xl border border-[#DFCBB5] shadow-2xs">
-              <Ban className="w-4 h-4 text-[#8A796D] mb-1" />
-              <span>No hay turnos disponibles para esta fecha.</span>
-            </div>
-          ) : (
-            <div>
-              <div className="grid grid-cols-3 sm:grid-cols-4 gap-1.5 max-h-56 overflow-y-auto p-2 bg-[#FFFFFF] rounded-xl border border-[#DFCBB5] scrollbar-thin shadow-2xs">
-                {(slotsDisponibilidad.length > 0 ? slotsDisponibilidad : horariosDisponibles.map(h => ({
-                  hora24: h,
-                  hora12: h,
-                  disponible: true
-                }))).map(slot => {
-                  const isSelected = hora === slot.hora12;
-                  const isPassed = slot.esPasado || isSlotPassedInColombia(slot.hora12, fecha);
-                  const isOccupied = !slot.disponible && !isPassed;
-
-                  // Horario ya transcurrido según el reloj de Colombia
-                  if (isPassed) {
-                    return (
-                      <button
-                        type="button"
-                        key={slot.hora12}
-                        disabled
-                        title={`Horario no disponible: ya transcurrió según el reloj oficial de Colombia (${colClock.hora12})`}
-                        className="py-2 px-1.5 rounded-lg text-[10px] font-mono transition-all bg-[#F8F5F1] text-[#A8988B] border border-[#E8E0D7] cursor-not-allowed flex flex-col items-center justify-center opacity-60 select-none"
-                      >
-                        <span className="line-through">{slot.hora12}</span>
-                        <span className="text-[7.5px] uppercase tracking-tighter text-[#8A796D] font-bold mt-0.5">
-                          Pasado
-                        </span>
-                      </button>
-                    );
-                  }
-
-                  // Horario reservado por otro cliente
-                  if (isOccupied) {
-                    return (
-                      <button
-                        type="button"
-                        key={slot.hora12}
-                        disabled
-                        title={slot.motivoOcupado || 'Horario no disponible para este barbero'}
-                        className="py-2 px-1.5 rounded-lg text-[10px] font-mono transition-all bg-[#FFDAD6]/40 text-[#BA1A1A] border border-[#BA1A1A]/30 cursor-not-allowed flex flex-col items-center justify-center opacity-80 select-none"
-                      >
-                        <span className="line-through">{slot.hora12}</span>
-                        <span className="text-[8px] uppercase tracking-tighter text-[#BA1A1A] font-bold mt-0.5">
-                          Ocupado
-                        </span>
-                      </button>
-                    );
-                  }
-
-                  // Horario libre
-                  return (
-                    <button
-                      type="button"
-                      key={slot.hora12}
-                      id={`btn-hora-${slot.hora12.replace(/[\s:]/g, '')}`}
-                      onClick={() => setHora(slot.hora12)}
-                      className={`py-2 px-1.5 rounded-lg text-[10px] font-mono font-bold transition-all flex flex-col items-center justify-center cursor-pointer ${
-                        isSelected
-                          ? 'bg-[#7C571C] text-[#FAF6EE] shadow-sm font-black ring-1 ring-[#7C571C]/50 scale-[1.02]'
-                          : 'bg-[#FFFFFF] hover:bg-[#FBEBE1] text-[#221A14] border border-[#DFCBB5] hover:border-[#7C571C]'
-                      }`}
-                    >
-                      <span>{slot.hora12}</span>
-                      <span className={`text-[8px] uppercase tracking-tight mt-0.5 ${isSelected ? 'text-[#FAF6EE]' : 'text-[#15803D]'}`}>
-                        Libre
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-
-              {/* Leyenda de Disponibilidad */}
-              <div className="flex flex-wrap items-center justify-between gap-2 mt-2 text-[9px] font-mono text-[#6F5A4B] px-1">
-                <span className="flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#15803D]" />
-                  Disponible
-                </span>
-                <span className="flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#BA1A1A]" />
-                  Reservado
-                </span>
-                <span className="flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#8A796D]" />
-                  Hora ya pasada
-                </span>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* 4. Datos del Cliente */}
-      <div className="border-t border-[#DFCBB5] pt-4 mb-5">
-        <div className="flex items-center justify-between mb-3">
-          <label className="block text-[10px] font-mono font-bold uppercase tracking-wider text-[#7C571C]">
-            06 // INFORMACIÓN DEL CABALLERO
-          </label>
-          <div className="flex items-center gap-2">
-            {cookieFuncionalActiva && datosCargadosDeCookie && (
-              <span className="text-[9px] font-mono text-[#15803D] bg-[#EBF7EE] px-2 py-0.5 rounded-full border border-[#86EFAC] flex items-center gap-1 font-semibold">
-                <Sparkles className="w-2.5 h-2.5" />
-                <span>Datos autocompletados (Cookies Funcionales)</span>
-              </span>
-            )}
-            <span className="text-[9px] font-mono text-[#6F5A4B]">
-              * Campos obligatorios
+          <div className="flex items-center gap-1.5 self-start sm:self-auto bg-[#FBEBE1] px-2.5 py-1 rounded-full border border-[#DFCBB5]">
+            <span className="text-[10px] text-[#6F5A4B] font-bold uppercase">Paso {pasoActual} de 5</span>
+            <span className="w-1.5 h-1.5 rounded-full bg-[#7C571C]" />
+            <span className="text-[10px] text-[#7C571C] font-bold">
+              {pasoActual === 1 ? 'Sede' : pasoActual === 2 ? 'Servicio' : pasoActual === 3 ? 'Maestro Barbero' : pasoActual === 4 ? 'Fecha & Hora' : 'Datos & Confirmación'}
             </span>
           </div>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          <div>
-            <label className="block text-[10px] font-mono text-[#6F5A4B] mb-1 font-bold">
-              Nombre Completo <span className="text-[#7C571C]">*</span>
-            </label>
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none text-[#6F5A4B]">
-                <User className="w-3.5 h-3.5" />
-              </div>
-              <input
-                id="input-cliente-nombre"
-                type="text"
-                placeholder="Ej. Andrés Cepeda"
-                value={clienteNombre}
-                onChange={(e) => setClienteNombre(e.target.value)}
-                className="w-full bg-[#FFFFFF] border border-[#DFCBB5] rounded-lg py-2 pl-8 pr-3 text-xs text-[#221A14] placeholder-[#8A796D] focus:outline-none focus:border-[#7C571C] transition-colors shadow-2xs"
-                required
-              />
-            </div>
-          </div>
 
-          <div>
-            <label className="block text-[10px] font-mono text-[#6F5A4B] mb-1 font-bold">
-              Teléfono / WhatsApp <span className="text-[#7C571C]">*</span>
-            </label>
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none text-[#6F5A4B]">
-                <Phone className="w-3.5 h-3.5" />
-              </div>
-              <input
-                id="input-cliente-telefono"
-                type="tel"
-                placeholder="Ej. +57 300 123 4567"
-                value={clienteTelefono}
-                onChange={(e) => setClienteTelefono(e.target.value)}
-                className="w-full bg-[#FFFFFF] border border-[#DFCBB5] rounded-lg py-2 pl-8 pr-3 text-xs text-[#221A14] placeholder-[#8A796D] focus:outline-none focus:border-[#7C571C] transition-colors shadow-2xs"
-                required
-              />
-            </div>
-          </div>
+        {/* Barra de Pasos / Wizard Stepper (Completamente Responsive - 5 Pantallas) */}
+        <div className="grid grid-cols-5 gap-1 sm:gap-2">
+          {[
+            { num: 1 as BookingStep, label: 'Sede', icon: Building2 },
+            { num: 2 as BookingStep, label: 'Servicio', icon: VintageScissorsIcon },
+            { num: 3 as BookingStep, label: 'Barbero', icon: StraightRazorIcon },
+            { num: 4 as BookingStep, label: 'Fecha & Hora', icon: Clock },
+            { num: 5 as BookingStep, label: 'Confirmar', icon: ShieldCheck },
+          ].map(step => {
+            const isActive = pasoActual === step.num;
+            const isDone = pasoActual > step.num;
+            const StepIcon = step.icon;
 
-          <div className="sm:col-span-2 lg:col-span-1">
+            return (
+              <button
+                key={step.num}
+                type="button"
+                onClick={() => {
+                  // Permitir ir a pasos anteriores o si el paso ya es alcanzable
+                  if (step.num < pasoActual) {
+                    setPasoActual(step.num);
+                    scrollToSectionTop();
+                  } else if (step.num === 2 && sucursalId) {
+                    setPasoActual(2);
+                    scrollToSectionTop();
+                  } else if (step.num === 3 && sucursalId && servicioId) {
+                    setPasoActual(3);
+                    scrollToSectionTop();
+                  } else if (step.num === 4 && sucursalId && servicioId) {
+                    setPasoActual(4);
+                    scrollToSectionTop();
+                  } else if (step.num === 5 && sucursalId && servicioId && hora) {
+                    setPasoActual(5);
+                    scrollToSectionTop();
+                  }
+                }}
+                className={`py-2 px-1 sm:px-2 rounded-xl border text-center transition-all flex flex-col items-center justify-center cursor-pointer min-h-[50px] relative ${
+                  isActive
+                    ? 'bg-[#7C571C] text-[#FAF6EE] border-[#7C571C] shadow-sm ring-1 ring-[#7C571C]'
+                    : isDone
+                    ? 'bg-[#EBF7EE] text-[#15803D] border-[#86EFAC] hover:bg-[#DDF3E2]'
+                    : 'bg-[#FFFFFF] text-[#8A796D] border-[#DFCBB5]/70 opacity-70'
+                }`}
+              >
+                <div className="flex items-center gap-1">
+                  {isDone ? (
+                    <CheckIcon className="w-3.5 h-3.5 text-[#15803D]" />
+                  ) : (
+                    <span className={`w-4 h-4 rounded-full text-[9px] font-bold flex items-center justify-center ${isActive ? 'bg-[#FAF6EE] text-[#7C571C]' : 'bg-[#DFCBB5] text-[#221A14]'}`}>
+                      {step.num}
+                    </span>
+                  )}
+                  <span className="text-[10px] sm:text-xs font-bold uppercase truncate">
+                    {step.label}
+                  </span>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Alerta de Error si la hay */}
+      {errorMensaje && (
+        <div className="mb-5 p-3.5 rounded-xl bg-[#FFDAD6] border border-[#BA1A1A]/30 text-[#BA1A1A] flex items-center justify-between gap-2 shadow-2xs animate-in fade-in duration-150">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 shrink-0" />
+            <span>{errorMensaje}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setErrorMensaje(null)}
+            className="text-[#BA1A1A] p-1 hover:bg-[#FFB4AB] rounded cursor-pointer"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* PANTALLA 1: SELECCIÓN DE SEDE (1 A LA VEZ) */}
+      {/* ========================================================================= */}
+      {pasoActual === 1 && (
+        <div className="space-y-5 animate-in fade-in duration-200">
+          <div>
             <div className="flex items-center justify-between mb-1">
-              <label className="block text-[10px] font-mono text-[#6F5A4B] font-bold">
-                Correo Electrónico
+              <label className="text-xs font-mono font-bold uppercase tracking-wider text-[#7C571C] flex items-center gap-1.5">
+                <Building2 className="w-4 h-4 text-[#7C571C]" />
+                <span>PANTALLA 1 // SELECCIONA LA SEDE DE LA BARBERÍA</span>
               </label>
-              <span className="text-[9px] font-mono px-1.5 py-0.5 text-[#6F5A4B] bg-[#FBEBE1] rounded border border-[#DFCBB5]">
-                Opcional
+              <span className="text-[10px] text-[#6F5A4B] font-mono lowercase">
+                ({sucursalesCasaDelRey.length} sedes en Bogotá)
               </span>
             </div>
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none text-[#6F5A4B]">
-                <Mail className="w-3.5 h-3.5" />
-              </div>
-              <input
-                id="input-cliente-email"
-                type="email"
-                placeholder="caballero@ejemplo.com"
-                value={clienteEmail}
-                onChange={(e) => setClienteEmail(e.target.value)}
-                className="w-full bg-[#FFFFFF] border border-[#DFCBB5] rounded-lg py-2 pl-8 pr-3 text-xs text-[#221A14] placeholder-[#8A796D] focus:outline-none focus:border-[#7C571C] transition-colors shadow-2xs"
-              />
+            <p className="text-[11px] text-[#6F5A4B] mb-3">
+              Toca la sede de tu preferencia. Al seleccionarla, pasarás inmediatamente a la siguiente pantalla para elegir tu servicio.
+            </p>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {sucursalesCasaDelRey.map(s => {
+                const isSelected = sucursalId === s.id;
+                return (
+                  <div
+                    key={s.id}
+                    onClick={() => handleSeleccionarSede(s.id)}
+                    className={`p-4 rounded-xl border cursor-pointer transition-all flex flex-col justify-between relative active:scale-98 min-h-[105px] ${
+                      isSelected
+                        ? 'bg-[#FBEBE1] border-[#7C571C] text-[#221A14] shadow-md ring-2 ring-[#7C571C]'
+                        : 'bg-[#FFFFFF] border-[#DFCBB5] hover:border-[#7C571C] text-[#6F5A4B] hover:shadow-sm'
+                    }`}
+                  >
+                    <div>
+                      <div className="flex items-start justify-between gap-1 mb-1.5">
+                        <span className="text-sm font-serif font-bold text-[#221A14] tracking-wide">
+                          {s.nombre}
+                        </span>
+                        {isSelected ? (
+                          <span className="px-2 py-0.5 rounded-full bg-[#15803D] text-[#FAF6EE] text-[9px] font-bold shrink-0">
+                            Elegida
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 rounded-full bg-[#FBEBE1] text-[#7C571C] text-[9px] font-mono font-bold shrink-0 border border-[#DFCBB5]">
+                            Elegir →
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[11px] text-[#6F5A4B] leading-relaxed font-mono mb-2">
+                        {s.direccion}
+                      </p>
+                    </div>
+                    <div className="mt-2 pt-2 border-t border-[#DFCBB5]/60 flex items-center justify-between text-[10px] font-mono text-[#7C571C]">
+                      <span className="font-bold">{s.ciudad}</span>
+                      <span className="text-[#6F5A4B]">{s.telefono}</span>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
-        </div>
 
-        {/* Campo Honeypot Oculto (Anti-Spam / Anti-Bots) */}
-        <div style={{ display: 'none', position: 'absolute', left: '-9999px' }} aria-hidden="true">
-          <label htmlFor="input-empresa-hp">Empresa (no rellenar)</label>
-          <input
-            id="input-empresa-hp"
-            type="text"
-            name="company_trap"
-            value={honeypotEmpresa}
-            onChange={(e) => setHoneypotEmpresa(e.target.value)}
-            tabIndex={-1}
-            autoComplete="off"
-          />
-        </div>
+          {/* Botón de Siguiente para la Pantalla 1 */}
+          <div className="pt-3 border-t border-[#DFCBB5] flex items-center justify-between gap-3">
+            <div>
+              <span className="text-[10px] text-[#6F5A4B] block">Sede elegida:</span>
+              <span className="font-bold text-[#221A14] text-xs">
+                {sucursalSeleccionada?.nombre || 'Ninguna'}
+              </span>
+            </div>
 
-        {/* Habeas Data & Confirmación WhatsApp Checkbox */}
-        <div className="mt-3 pt-3 border-t border-[#DFCBB5] flex items-start gap-2.5">
-          <input
-            id="checkbox-terminos-individual"
-            type="checkbox"
-            checked={aceptaTerminos}
-            onChange={(e) => setAceptaTerminos(e.target.checked)}
-            className="mt-0.5 w-3.5 h-3.5 rounded border-[#DFCBB5] bg-[#FFFFFF] text-[#7C571C] focus:ring-0 focus:ring-offset-0 cursor-pointer accent-[#7C571C]"
-          />
-          <label htmlFor="checkbox-terminos-individual" className="text-[10px] font-mono text-[#6F5A4B] leading-tight cursor-pointer select-none">
-            Acepto el tratamiento de datos para la gestión del turno y la recepción del comprobante de reserva vía WhatsApp / SMS (Ley 1581 de 2012).
-          </label>
+            <button
+              type="button"
+              onClick={() => handleAvanzarPaso(2)}
+              disabled={!sucursalId}
+              className="px-5 py-2.5 rounded-xl bg-[#7C571C] hover:bg-[#684815] text-[#FAF6EE] font-bold text-xs shadow-sm transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-40 active:scale-95"
+            >
+              <span>Continuar a Servicios</span>
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
         </div>
-      </div>
+      )}
 
-      {/* Resumen y Botón de Envío */}
-      <div className="p-4 rounded-xl bg-[#FFFFFF] border border-[#DFCBB5] flex flex-col sm:flex-row items-center justify-between gap-3 shadow-2xs">
-        <div className="font-mono text-xs">
-          <span className="text-[9px] uppercase tracking-widest text-[#6F5A4B] block font-bold">TOTAL EN CAJA</span>
-          <span className="text-lg font-bold text-[#7C571C]">
-            {servicioSeleccionado ? formatPrecio(servicioSeleccionado.precio) : '$ 35.000'}
-          </span>
-          <span className="text-[10px] text-[#6F5A4B] block mt-0.5">
-            {fecha} {hora ? `• ${hora}` : ''}
-          </span>
+      {/* ========================================================================= */}
+      {/* PANTALLA 2: SELECCIÓN DE SERVICIO (1 A LA VEZ) */}
+      {/* ========================================================================= */}
+      {pasoActual === 2 && (
+        <div className="space-y-5 animate-in fade-in duration-200">
+          {/* Banner de Sede Activa */}
+          <div className="p-2.5 px-3 rounded-xl bg-[#FFFFFF] border border-[#DFCBB5] flex items-center justify-between gap-2 shadow-2xs">
+            <div className="flex items-center gap-2">
+              <Building2 className="w-4 h-4 text-[#7C571C] shrink-0" />
+              <div>
+                <span className="text-[9px] text-[#6F5A4B] font-mono uppercase block">Sede de atención:</span>
+                <span className="text-xs font-serif font-bold text-[#221A14]">{sucursalSeleccionada?.nombre}</span>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setPasoActual(1);
+                scrollToSectionTop();
+              }}
+              className="text-[10px] font-mono font-bold text-[#7C571C] hover:underline px-2.5 py-1 rounded bg-[#FBEBE1] border border-[#DFCBB5] cursor-pointer"
+            >
+              Cambiar Sede
+            </button>
+          </div>
+
+          <div>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2.5">
+              <label className="text-[10px] font-mono font-bold uppercase tracking-wider text-[#7C571C] flex items-center gap-1.5">
+                <VintageScissorsIcon className="w-3.5 h-3.5 text-[#7C571C]" />
+                <span>PANTALLA 2 // SELECCIONA EL SERVICIO DESEADO</span>
+              </label>
+
+              {/* Filtros por Categoría */}
+              <div className="flex items-center gap-1 overflow-x-auto no-scrollbar py-0.5">
+                {[
+                  { id: 'todos', label: 'Todos' },
+                  { id: 'cortes', label: 'Cortes' },
+                  { id: 'barba', label: 'Barba & Ritual' },
+                  { id: 'combos', label: 'Combos Reales' },
+                ].map(cat => (
+                  <button
+                    key={cat.id}
+                    type="button"
+                    onClick={() => setCategoriaServicio(cat.id)}
+                    className={`px-2.5 py-1 rounded-full text-[10px] font-bold transition-all cursor-pointer whitespace-nowrap ${
+                      categoriaServicio === cat.id
+                        ? 'bg-[#7C571C] text-[#FAF6EE] shadow-2xs'
+                        : 'bg-[#FFFFFF] text-[#6F5A4B] border border-[#DFCBB5] hover:bg-[#FBEBE1]'
+                    }`}
+                  >
+                    {cat.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 max-h-[440px] overflow-y-auto pr-1">
+              {serviciosFiltrados.map(s => {
+                const isSelected = Number(servicioId) === s.id;
+                const esCombo = s.nombre.toLowerCase().includes('combo');
+                return (
+                  <div
+                    key={s.id}
+                    onClick={() => setServicioId(s.id)}
+                    className={`p-3.5 rounded-xl border cursor-pointer transition-all flex flex-col justify-between relative overflow-hidden active:scale-98 min-h-[90px] ${
+                      isSelected
+                        ? 'bg-[#FBEBE1] border-[#7C571C] text-[#221A14] shadow-xs ring-1.5 ring-[#7C571C]'
+                        : 'bg-[#FFFFFF] border-[#DFCBB5] hover:border-[#7C571C] text-[#6F5A4B] shadow-2xs'
+                    }`}
+                  >
+                    {esCombo && (
+                      <span className="absolute top-0 right-0 bg-[#7C571C] text-[#FAF6EE] text-[8px] font-mono font-bold px-2 py-0.5 rounded-bl-lg uppercase tracking-wider">
+                        COMBO
+                      </span>
+                    )}
+                    <div>
+                      <div className="flex items-start justify-between gap-1 mb-1">
+                        <span className="text-xs font-serif font-bold text-[#221A14] tracking-wide leading-tight">
+                          {s.nombre}
+                        </span>
+                        <span className="text-[10px] font-mono text-[#6F5A4B] shrink-0 mt-0.5 bg-[#FFF8F5] px-1.5 py-0.5 rounded border border-[#DFCBB5]/60">
+                          {s.duracionMinutos}m
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-[#6F5A4B] line-clamp-2 leading-relaxed mb-2 font-mono">
+                        {s.descripcion}
+                      </p>
+                    </div>
+                    <div className="mt-1 pt-2 border-t border-[#DFCBB5]/50 flex items-center justify-between">
+                      <span className="text-[9px] text-[#6F5A4B] uppercase">Tarifa en Caja</span>
+                      <span className="text-xs font-mono font-bold text-[#7C571C]">{formatPrecio(s.precio)}</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Navegación Pantalla 2 */}
+          <div className="pt-3 border-t border-[#DFCBB5] flex items-center justify-between gap-3">
+            <button
+              type="button"
+              onClick={handleRetrocederPaso}
+              className="px-4 py-2.5 rounded-xl bg-[#FFFFFF] hover:bg-[#FBEBE1] text-[#6F5A4B] border border-[#DFCBB5] font-bold text-xs transition-all flex items-center gap-1 cursor-pointer active:scale-95"
+            >
+              <ChevronLeft className="w-4 h-4" />
+              <span>Atrás (Sede)</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => handleAvanzarPaso(3)}
+              disabled={!servicioId}
+              className="px-5 py-2.5 rounded-xl bg-[#7C571C] hover:bg-[#684815] text-[#FAF6EE] font-bold text-xs shadow-sm transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-40 active:scale-95"
+            >
+              <span>Continuar al Barbero</span>
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
         </div>
+      )}
 
-        <button
-          type="submit"
-          id="btn-confirmar-reserva-individual"
-          disabled={enviando || !hora}
-          className="w-full sm:w-auto px-6 py-2.5 rounded-lg bg-[#7C571C] hover:bg-[#684815] text-[#FAF6EE] font-mono font-bold text-xs shadow-sm transition-all active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2 tracking-wider cursor-pointer"
-        >
-          {enviando ? (
-            <>
-              <Clock className="w-3.5 h-3.5 animate-spin" />
-              <span>REGISTRANDO EN AGENDA...</span>
-            </>
-          ) : (
-            <>
-              <VintageScissorsIcon className="w-3.5 h-3.5" />
-              <span>CONFIRMAR TURNO</span>
-            </>
-          )}
-        </button>
-      </div>
-    </form>
+      {/* ========================================================================= */}
+      {/* PANTALLA 3: ELECCIÓN DEL MAESTRO BARBERO */}
+      {/* ========================================================================= */}
+      {pasoActual === 3 && (
+        <div className="space-y-5 animate-in fade-in duration-200">
+          {/* Banner de Resumen Previo */}
+          <div className="p-2.5 px-3 rounded-xl bg-[#FFFFFF] border border-[#DFCBB5] flex items-center justify-between gap-2 shadow-2xs">
+            <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-xs">
+              <span className="font-serif font-bold text-[#221A14]">📍 {sucursalSeleccionada?.nombre}</span>
+              <span className="text-[#DFCBB5]">&bull;</span>
+              <span className="text-[#7C571C] font-bold">✂️ {servicioSeleccionado?.nombre}</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setPasoActual(2);
+                scrollToSectionTop();
+              }}
+              className="text-[10px] font-mono font-bold text-[#7C571C] hover:underline px-2.5 py-1 rounded bg-[#FBEBE1] border border-[#DFCBB5] cursor-pointer shrink-0"
+            >
+              Cambiar Servicio
+            </button>
+          </div>
+
+          <div>
+            <label className="block text-[10px] font-mono font-bold uppercase tracking-wider text-[#7C571C] mb-2 flex items-center gap-1.5">
+              <StraightRazorIcon className="w-3.5 h-3.5 text-[#7C571C]" />
+              <span>PANTALLA 3 // SELECCIONA A TU MAESTRO BARBERO DE PREFERENCIA</span>
+            </label>
+            <p className="text-[11px] text-[#6F5A4B] mb-3">
+              Puedes elegir un maestro específico de la sede o dejar la asignación al primer sillón disponible para mayor rapidez.
+            </p>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {/* Opción Cualquier Maestro */}
+              <div
+                onClick={() => setBarberoId('')}
+                className={`p-3.5 rounded-xl border cursor-pointer transition-all flex items-center gap-3 active:scale-98 min-h-[64px] ${
+                  barberoId === ''
+                    ? 'bg-[#FBEBE1] border-[#7C571C] text-[#221A14] ring-1.5 ring-[#7C571C] shadow-xs'
+                    : 'bg-[#FFFFFF] border-[#DFCBB5] hover:border-[#7C571C] text-[#6F5A4B] shadow-2xs'
+                }`}
+              >
+                <div className="w-10 h-10 rounded-full bg-[#FAF6EE] border border-[#DFCBB5] flex items-center justify-center text-[#7C571C] shrink-0">
+                  <Sparkles className="w-5 h-5" />
+                </div>
+                <div className="truncate">
+                  <span className="text-xs font-bold block text-[#221A14]">Cualquier Barbero</span>
+                  <span className="text-[10px] font-mono text-[#15803D] font-bold">Turno más rápido disponible</span>
+                </div>
+              </div>
+
+              {/* Barberos de la Sede */}
+              {barberosFiltrados.map(b => {
+                const isSelected = String(barberoId) === String(b.id);
+                return (
+                  <div
+                    key={b.id}
+                    onClick={() => setBarberoId(b.id)}
+                    className={`p-3.5 rounded-xl border cursor-pointer transition-all flex items-center gap-3 active:scale-98 min-h-[64px] ${
+                      isSelected
+                        ? 'bg-[#FBEBE1] border-[#7C571C] text-[#221A14] ring-1.5 ring-[#7C571C] shadow-xs'
+                        : 'bg-[#FFFFFF] border-[#DFCBB5] hover:border-[#7C571C] text-[#6F5A4B] shadow-2xs'
+                    }`}
+                  >
+                    <div className="w-10 h-10 rounded-full overflow-hidden border border-[#DFCBB5] shrink-0 bg-[#221A14]">
+                      {b.fotoUrl ? (
+                        <img 
+                          src={b.fotoUrl} 
+                          alt={b.nombre} 
+                          className="w-full h-full object-cover" 
+                          referrerPolicy="no-referrer"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-[#FAF6EE] font-bold">
+                          {b.nombre.charAt(0)}
+                        </div>
+                      )}
+                    </div>
+                    <div className="truncate">
+                      <span className="text-xs font-bold block text-[#221A14] truncate">{b.nombre}</span>
+                      <span className="text-[10px] font-mono text-[#7C571C] truncate block">{b.especialidad}</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Navegación Pantalla 3 */}
+          <div className="pt-3 border-t border-[#DFCBB5] flex items-center justify-between gap-3">
+            <button
+              type="button"
+              onClick={handleRetrocederPaso}
+              className="px-4 py-2.5 rounded-xl bg-[#FFFFFF] hover:bg-[#FBEBE1] text-[#6F5A4B] border border-[#DFCBB5] font-bold text-xs transition-all flex items-center gap-1 cursor-pointer active:scale-95"
+            >
+              <ChevronLeft className="w-4 h-4" />
+              <span>Atrás (Servicio)</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => handleAvanzarPaso(4)}
+              className="px-5 py-2.5 rounded-xl bg-[#7C571C] hover:bg-[#684815] text-[#FAF6EE] font-bold text-xs shadow-sm transition-all flex items-center gap-1.5 cursor-pointer active:scale-95"
+            >
+              <span>Elegir Fecha & Hora</span>
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* PANTALLA 4: FECHA Y HORA DEL TURNO */}
+      {/* ========================================================================= */}
+      {pasoActual === 4 && (
+        <div className="space-y-5 animate-in fade-in duration-200">
+          {/* Banner de Resumen Previo */}
+          <div className="p-2.5 px-3 rounded-xl bg-[#FFFFFF] border border-[#DFCBB5] flex items-center justify-between gap-2 shadow-2xs">
+            <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-xs">
+              <span className="font-serif font-bold text-[#221A14]">📍 {sucursalSeleccionada?.nombre}</span>
+              <span className="text-[#DFCBB5]">&bull;</span>
+              <span className="text-[#7C571C] font-bold">✂️ {servicioSeleccionado?.nombre}</span>
+              <span className="text-[#DFCBB5]">&bull;</span>
+              <span className="text-[#6F5A4B]">💈 {barberoSeleccionado?.nombre || 'Cualquier Barbero'}</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setPasoActual(3);
+                scrollToSectionTop();
+              }}
+              className="text-[10px] font-mono font-bold text-[#7C571C] hover:underline px-2.5 py-1 rounded bg-[#FBEBE1] border border-[#DFCBB5] cursor-pointer shrink-0"
+            >
+              Cambiar Barbero
+            </button>
+          </div>
+
+          {/* Banner de Sincronización con Reloj Colombia */}
+          <div className="p-3 rounded-xl bg-[#FFFFFF] border border-[#DFCBB5] flex flex-col sm:flex-row sm:items-center justify-between gap-2 shadow-2xs">
+            <div className="flex items-center gap-2">
+              <Clock className="w-4 h-4 text-[#7C571C] animate-pulse shrink-0" />
+              <div>
+                <div className="text-[11px] font-mono text-[#221A14] font-bold">
+                  Horario Oficial Bogotá, Colombia (UTC-5)
+                </div>
+                <div className="text-[9px] font-mono text-[#6F5A4B]">
+                  {colClock.fechaTexto}
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 self-start sm:self-auto">
+              <span className="text-[9px] font-mono uppercase text-[#6F5A4B]">Hora Actual:</span>
+              <span className="px-2 py-0.5 rounded-lg bg-[#FBEBE1] text-[#7C571C] text-xs font-mono font-bold tracking-wider border border-[#DFCBB5]">
+                {colClock.horaCompleta}
+              </span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+            {/* Selector de Fecha */}
+            <div className="lg:col-span-5 space-y-2">
+              <VintageDatePicker
+                id="input-fecha-reserva"
+                label="SELECCIONA EL DÍA DE TU TURNO"
+                value={fecha}
+                onChange={setFecha}
+                minDate={colClock.fecha}
+              />
+              <div className="text-[10px] text-[#6F5A4B] font-mono bg-[#FFFFFF] p-2.5 rounded-xl border border-[#DFCBB5] flex items-center gap-2 shadow-2xs">
+                <Clock className="w-3.5 h-3.5 text-[#7C571C] shrink-0" />
+                <span>Horario habitual: Lunes a Domingo de 9:00 AM a 7:00 PM</span>
+              </div>
+            </div>
+
+            {/* Franjas Horarias */}
+            <div className="lg:col-span-7">
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="block text-[10px] font-mono font-bold uppercase tracking-wider text-[#7C571C]">
+                  PANTALLA 4 // HORARIOS DISPONIBLES (9:00 AM – 7:00 PM)
+                </label>
+                {barberoSeleccionado && (
+                  <span className="text-[9px] font-mono text-[#7C571C] font-bold">
+                    Agenda de {barberoSeleccionado.nombre}
+                  </span>
+                )}
+              </div>
+
+              {cargandoHorarios ? (
+                <div className="h-32 flex flex-col items-center justify-center text-[11px] font-mono text-[#6F5A4B] bg-[#FFFFFF] rounded-xl border border-[#DFCBB5] shadow-2xs">
+                  <Clock className="w-5 h-5 animate-spin text-[#7C571C] mb-2" />
+                  <span>Consultando disponibilidad de sillones...</span>
+                </div>
+              ) : (slotsDisponibilidad.length === 0 && horariosDisponibles.length === 0) ? (
+                <div className="h-32 flex flex-col items-center justify-center text-[11px] font-mono text-[#6F5A4B] bg-[#FFFFFF] rounded-xl border border-[#DFCBB5] shadow-2xs p-4 text-center">
+                  <Ban className="w-5 h-5 text-[#BA1A1A] mb-1" />
+                  <span className="font-bold text-[#BA1A1A]">No hay turnos disponibles para esta fecha.</span>
+                  <span className="text-[10px] text-[#6F5A4B] mt-1">Por favor selecciona otro día en el calendario de la izquierda.</span>
+                </div>
+              ) : (
+                <div>
+                  <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 max-h-56 overflow-y-auto p-2.5 bg-[#FFFFFF] rounded-xl border border-[#DFCBB5] scrollbar-thin shadow-2xs">
+                    {(slotsDisponibilidad.length > 0 ? slotsDisponibilidad : horariosDisponibles.map(h => ({
+                      hora24: h,
+                      hora12: h,
+                      disponible: true
+                    }))).map(slot => {
+                      const isSelected = hora === slot.hora12;
+                      const isPassed = slot.esPasado || isSlotPassedInColombia(slot.hora12, fecha);
+                      const isOccupied = !slot.disponible && !isPassed;
+
+                      if (isPassed) {
+                        return (
+                          <button
+                            type="button"
+                            key={slot.hora12}
+                            disabled
+                            className="py-2.5 px-1.5 rounded-xl text-[10px] font-mono bg-[#F8F5F1] text-[#A8988B] border border-[#E8E0D7] cursor-not-allowed flex flex-col items-center justify-center opacity-60 select-none min-h-[44px]"
+                          >
+                            <span className="line-through">{slot.hora12}</span>
+                            <span className="text-[8px] uppercase tracking-tight text-[#8A796D] font-bold">
+                              Pasado
+                            </span>
+                          </button>
+                        );
+                      }
+
+                      if (isOccupied) {
+                        return (
+                          <button
+                            type="button"
+                            key={slot.hora12}
+                            disabled
+                            className="py-2.5 px-1.5 rounded-xl text-[10px] font-mono bg-[#FFDAD6]/50 text-[#BA1A1A] border border-[#BA1A1A]/30 cursor-not-allowed flex flex-col items-center justify-center opacity-70 select-none min-h-[44px]"
+                          >
+                            <span className="line-through">{slot.hora12}</span>
+                            <span className="text-[8px] uppercase tracking-tight text-[#BA1A1A] font-bold">
+                              Ocupado
+                            </span>
+                          </button>
+                        );
+                      }
+
+                      return (
+                        <button
+                          type="button"
+                          key={slot.hora12}
+                          id={`btn-hora-${slot.hora12.replace(/[\s:]/g, '')}`}
+                          onClick={() => setHora(slot.hora12)}
+                          className={`py-2.5 px-1.5 rounded-xl text-[10px] font-mono font-bold transition-all flex flex-col items-center justify-center cursor-pointer min-h-[44px] active:scale-95 ${
+                            isSelected
+                              ? 'bg-[#7C571C] text-[#FAF6EE] shadow-sm font-black ring-1.5 ring-[#7C571C] scale-[1.02]'
+                              : 'bg-[#FFFFFF] hover:bg-[#FBEBE1] text-[#221A14] border border-[#DFCBB5] hover:border-[#7C571C]'
+                          }`}
+                        >
+                          <span>{slot.hora12}</span>
+                          <span className={`text-[8px] uppercase tracking-tight mt-0.5 ${isSelected ? 'text-[#FAF6EE]' : 'text-[#15803D]'}`}>
+                            Libre
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Leyenda */}
+                  <div className="flex flex-wrap items-center justify-between gap-2 mt-2 text-[9px] font-mono text-[#6F5A4B] px-1">
+                    <span className="flex items-center gap-1">
+                      <span className="w-2 h-2 rounded-full bg-[#15803D]" />
+                      Disponible
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <span className="w-2 h-2 rounded-full bg-[#BA1A1A]" />
+                      Ocupado
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <span className="w-2 h-2 rounded-full bg-[#8A796D]" />
+                      Hora pasada
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Navegación Pantalla 4 */}
+          <div className="pt-3 border-t border-[#DFCBB5] flex items-center justify-between gap-3">
+            <button
+              type="button"
+              onClick={handleRetrocederPaso}
+              className="px-4 py-2.5 rounded-xl bg-[#FFFFFF] hover:bg-[#FBEBE1] text-[#6F5A4B] border border-[#DFCBB5] font-bold text-xs transition-all flex items-center gap-1 cursor-pointer active:scale-95"
+            >
+              <ChevronLeft className="w-4 h-4" />
+              <span>Atrás (Barbero)</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => handleAvanzarPaso(5)}
+              disabled={!hora}
+              className="px-5 py-2.5 rounded-xl bg-[#7C571C] hover:bg-[#684815] text-[#FAF6EE] font-bold text-xs shadow-sm transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-40 active:scale-95"
+            >
+              <span>Completar mis Datos</span>
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* PANTALLA 5: DATOS DEL CABALLERO & CONFIRMACIÓN */}
+      {/* ========================================================================= */}
+      {pasoActual === 5 && (
+        <form onSubmit={handleSubmit} className="space-y-5 animate-in fade-in duration-200">
+          {/* Banner de Resumen Previo */}
+          <div className="p-2.5 px-3 rounded-xl bg-[#FFFFFF] border border-[#DFCBB5] flex items-center justify-between gap-2 shadow-2xs">
+            <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-xs">
+              <span className="font-serif font-bold text-[#221A14]">📍 {sucursalSeleccionada?.nombre}</span>
+              <span className="text-[#DFCBB5]">&bull;</span>
+              <span className="text-[#7C571C] font-bold">✂️ {servicioSeleccionado?.nombre}</span>
+              <span className="text-[#DFCBB5]">&bull;</span>
+              <span className="text-[#6F5A4B]">💈 {barberoSeleccionado?.nombre || 'Cualquier Barbero'}</span>
+              <span className="text-[#DFCBB5]">&bull;</span>
+              <span className="text-[#7C571C] font-mono font-bold">📅 {fecha} {hora}</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setPasoActual(4);
+                scrollToSectionTop();
+              }}
+              className="text-[10px] font-mono font-bold text-[#7C571C] hover:underline px-2.5 py-1 rounded bg-[#FBEBE1] border border-[#DFCBB5] cursor-pointer shrink-0"
+            >
+              Cambiar Horario
+            </button>
+          </div>
+
+          <div className="flex items-center justify-between">
+            <label className="text-[10px] font-mono font-bold uppercase tracking-wider text-[#7C571C] flex items-center gap-1.5">
+              <User className="w-3.5 h-3.5 text-[#7C571C]" />
+              <span>PANTALLA 5 // INFORMACIÓN DEL CABALLERO PARA EL TURNO</span>
+            </label>
+            {cookieFuncionalActiva && datosCargadosDeCookie && (
+              <span className="text-[9px] font-mono text-[#15803D] bg-[#EBF7EE] px-2 py-0.5 rounded-full border border-[#86EFAC] flex items-center gap-1 font-semibold">
+                <Sparkles className="w-2.5 h-2.5" />
+                <span>Autocompletado con Cookies</span>
+              </span>
+            )}
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            <div>
+              <label className="block text-[10px] font-mono text-[#6F5A4B] mb-1 font-bold">
+                Nombre Completo <span className="text-[#7C571C]">*</span>
+              </label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-[#6F5A4B]">
+                  <User className="w-3.5 h-3.5" />
+                </div>
+                <input
+                  id="input-cliente-nombre"
+                  type="text"
+                  placeholder="Ej. Andrés Cepeda"
+                  value={clienteNombre}
+                  onChange={(e) => setClienteNombre(e.target.value)}
+                  className="w-full bg-[#FFFFFF] border border-[#DFCBB5] rounded-xl py-2.5 pl-9 pr-3 text-xs text-[#221A14] placeholder-[#8A796D] focus:outline-none focus:border-[#7C571C] transition-colors shadow-2xs min-h-[44px]"
+                  required
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-[10px] font-mono text-[#6F5A4B] mb-1 font-bold">
+                Teléfono / WhatsApp <span className="text-[#7C571C]">*</span>
+              </label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-[#6F5A4B]">
+                  <Phone className="w-3.5 h-3.5" />
+                </div>
+                <input
+                  id="input-cliente-telefono"
+                  type="tel"
+                  placeholder="Ej. +57 300 123 4567"
+                  value={clienteTelefono}
+                  onChange={(e) => setClienteTelefono(e.target.value)}
+                  className="w-full bg-[#FFFFFF] border border-[#DFCBB5] rounded-xl py-2.5 pl-9 pr-3 text-xs text-[#221A14] placeholder-[#8A796D] focus:outline-none focus:border-[#7C571C] transition-colors shadow-2xs min-h-[44px]"
+                  required
+                />
+              </div>
+            </div>
+
+            <div className="sm:col-span-2 lg:col-span-1">
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-[10px] font-mono text-[#6F5A4B] font-bold">
+                  Correo Electrónico
+                </label>
+                <span className="text-[9px] font-mono px-1.5 py-0.2 text-[#6F5A4B] bg-[#FBEBE1] rounded border border-[#DFCBB5]">
+                  Opcional
+                </span>
+              </div>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-[#6F5A4B]">
+                  <Mail className="w-3.5 h-3.5" />
+                </div>
+                <input
+                  id="input-cliente-email"
+                  type="email"
+                  placeholder="caballero@ejemplo.com"
+                  value={clienteEmail}
+                  onChange={(e) => setClienteEmail(e.target.value)}
+                  className="w-full bg-[#FFFFFF] border border-[#DFCBB5] rounded-xl py-2.5 pl-9 pr-3 text-xs text-[#221A14] placeholder-[#8A796D] focus:outline-none focus:border-[#7C571C] transition-colors shadow-2xs min-h-[44px]"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Campo Honeypot Oculto (Anti-Spam) */}
+          <div style={{ display: 'none', position: 'absolute', left: '-9999px' }} aria-hidden="true">
+            <input
+              id="input-empresa-hp"
+              type="text"
+              name="company_trap"
+              value={honeypotEmpresa}
+              onChange={(e) => setHoneypotEmpresa(e.target.value)}
+              tabIndex={-1}
+              autoComplete="off"
+            />
+          </div>
+
+          {/* Resumen Completo del Turno a Confirmar */}
+          <div className="bg-[#FFFFFF] border border-[#DFCBB5] rounded-2xl p-4 space-y-2.5 shadow-2xs">
+            <div className="flex items-center justify-between border-b border-[#DFCBB5] pb-2 text-[10px] text-[#6F5A4B] uppercase font-bold">
+              <span>RESUMEN FINAL DE TU CITA:</span>
+              <span className="text-[#7C571C]">BARBERÍA LA CASA DEL REY</span>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+              <div className="bg-[#FFF8F5] p-2 rounded-lg border border-[#DFCBB5]/70">
+                <span className="text-[9px] text-[#6F5A4B] uppercase block">Sede:</span>
+                <span className="font-bold text-[#221A14] truncate block">
+                  {sucursalSeleccionada?.nombre.replace('Sede ', '') || 'Chicó Real'}
+                </span>
+              </div>
+
+              <div className="bg-[#FFF8F5] p-2 rounded-lg border border-[#DFCBB5]/70">
+                <span className="text-[9px] text-[#6F5A4B] uppercase block">Servicio:</span>
+                <span className="font-bold text-[#221A14] truncate block">
+                  {servicioSeleccionado?.nombre || 'Corte Clásico'}
+                </span>
+              </div>
+
+              <div className="bg-[#FFF8F5] p-2 rounded-lg border border-[#DFCBB5]/70">
+                <span className="text-[9px] text-[#6F5A4B] uppercase block">Barbero:</span>
+                <span className="font-bold text-[#7C571C] truncate block">
+                  {barberoSeleccionado ? barberoSeleccionado.nombre : 'Primer disponible'}
+                </span>
+              </div>
+
+              <div className="bg-[#FFF8F5] p-2 rounded-lg border border-[#DFCBB5]/70">
+                <span className="text-[9px] text-[#6F5A4B] uppercase block">Fecha & Turno:</span>
+                <span className="font-bold text-[#7C571C] truncate block">
+                  {fecha} {hora}
+                </span>
+              </div>
+            </div>
+
+            <div className="pt-2 border-t border-[#DFCBB5]/60 flex items-center justify-between text-xs">
+              <span className="text-[#6F5A4B] font-bold uppercase">VALOR A CANCELAR EN SALÓN:</span>
+              <span className="text-base font-bold text-[#7C571C]">
+                {servicioSeleccionado ? formatPrecio(servicioSeleccionado.precio) : '$ 35.000'}
+              </span>
+            </div>
+          </div>
+
+          {/* Habeas Data Checkbox */}
+          <div className="pt-2 flex items-start gap-2.5">
+            <input
+              id="checkbox-terminos-individual"
+              type="checkbox"
+              checked={aceptaTerminos}
+              onChange={(e) => setAceptaTerminos(e.target.checked)}
+              className="mt-0.5 w-4 h-4 rounded border-[#DFCBB5] bg-[#FFFFFF] text-[#7C571C] focus:ring-0 cursor-pointer accent-[#7C571C]"
+            />
+            <label htmlFor="checkbox-terminos-individual" className="text-[10px] font-mono text-[#6F5A4B] leading-relaxed cursor-pointer select-none">
+              Acepto el tratamiento de datos para la asignación del turno y confirmación por WhatsApp / SMS conforme a la Ley 1581 de 2012.
+            </label>
+          </div>
+
+          {/* Botones de Envío y Atrás */}
+          <div className="pt-3 border-t border-[#DFCBB5] flex flex-col sm:flex-row items-center justify-between gap-3">
+            <button
+              type="button"
+              onClick={handleRetrocederPaso}
+              className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-[#FFFFFF] hover:bg-[#FBEBE1] text-[#6F5A4B] border border-[#DFCBB5] font-bold text-xs transition-all flex items-center justify-center gap-1 cursor-pointer active:scale-95"
+            >
+              <ChevronLeft className="w-4 h-4" />
+              <span>Atrás (Fecha & Hora)</span>
+            </button>
+
+            <button
+              type="submit"
+              id="btn-confirmar-reserva-individual"
+              disabled={enviando || !hora || !clienteNombre.trim() || !clienteTelefono.trim()}
+              className="w-full sm:w-auto px-7 py-3 rounded-xl bg-[#7C571C] hover:bg-[#684815] text-[#FAF6EE] font-mono font-bold text-xs shadow-md transition-all active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2 tracking-wider cursor-pointer min-h-[46px]"
+            >
+              {enviando ? (
+                <>
+                  <Clock className="w-4 h-4 animate-spin" />
+                  <span>CONFIRMANDO EN LIBRO REAL...</span>
+                </>
+              ) : (
+                <>
+                  <VintageScissorsIcon className="w-4 h-4" />
+                  <span>CONFIRMAR TURNO DEFINITIVO</span>
+                </>
+              )}
+            </button>
+          </div>
+        </form>
+      )}
+    </div>
   );
 };
