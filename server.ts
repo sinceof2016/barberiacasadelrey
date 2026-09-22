@@ -2256,7 +2256,7 @@ function parseLineasSecundariasEnv(raw?: string): string[] {
 }
 
 export const whatsAppGatewayConfig: WhatsAppGatewayConfig = {
-  proveedor: (process.env.WHATSAPP_PROVIDER as any) || 'ultramsg',
+  proveedor: (process.env.WHATSAPP_PROVIDER && process.env.WHATSAPP_PROVIDER !== 'local' ? process.env.WHATSAPP_PROVIDER : 'ultramsg') as any,
   callmebotApiKey: process.env.CALLMEBOT_API_KEY || '',
   phoneNumberId: process.env.WHATSAPP_PHONE_NUMBER_ID || '',
   apiToken: process.env.WHATSAPP_API_TOKEN || '',
@@ -2296,6 +2296,24 @@ const historialDespachosWhatsApp: DespachoWhatsAppLog[] = [];
 
 function generarTextoWhatsAppServidor(cita: Cita, servicioNombre?: string, barberoNombre?: string): string {
   const sedeTexto = cita.sucursalNombre || 'Sede Chicó Real (Calle 72 # 11-45, Bogotá D.C.)';
+
+  // Si es una prueba oficial de conexión
+  if ((cita.tipo as string) === 'Prueba' || cita.idReserva?.startsWith('TEST') || cita.idReserva?.startsWith('CDR-TEST')) {
+    return (
+      `👑 *PRUEBA OFICIAL DE CONEXIÓN - BARBERÍA LA CASA DEL REY*\n\n` +
+      `¡Hola! Se ha emitido una prueba técnica del canal oficial de notificaciones WhatsApp:\n\n` +
+      `🔖 *Folio de Reserva (Prueba):* ${cita.idReserva}\n` +
+      `👤 *Caballero:* ${cita.clienteNombre || 'David Orjuela (Prueba Técnica)'}\n` +
+      `📱 *Teléfono del Cliente:* ${cita.clienteTelefono || WHATSAPP_BARBERIA_DISPLAY}\n` +
+      `💈 *Servicio de Muestra:* ${servicioNombre || 'Corte & Barba Ritual Real'}\n` +
+      `✂️ *Barbero Asignado:* ${barberoNombre || 'Maestro Barbero'}\n` +
+      `📅 *Fecha de Turno:* ${cita.fecha}\n` +
+      `⏰ *Hora:* ${cita.hora}\n` +
+      `📍 *Sede:* ${sedeTexto}\n\n` +
+      `💈 Despacho 100% automático en segundo plano hacia la administración (${WHATSAPP_BARBERIA_DISPLAY}).`
+    );
+  }
+
   if (cita.tipo === 'Grupal') {
     const participantesStr = cita.detalles?.map(d => `• ${d.nombre}`).join('\n') || '';
     return (
@@ -2395,10 +2413,14 @@ async function despacharWhatsAppSegundoPlano(
       const telegramChat = whatsAppGatewayConfig.telegramChatId || process.env.TELEGRAM_CHAT_ID;
 
       // 1. Prioridad: UltraMsg WhatsApp API (Conecta a tu propio WhatsApp mediante QR)
-      if ((ultramsgInstance && ultramsgToken) || whatsAppGatewayConfig.proveedor === 'ultramsg') {
-        const instRaw = (ultramsgInstance || whatsAppGatewayConfig.ultramsgInstanceId || 'instance191642').trim();
+      const instanceIdUsar = (whatsAppGatewayConfig.ultramsgInstanceId || process.env.ULTRAMSG_INSTANCE_ID || 'instance191642').trim();
+      const tokenUsar = (whatsAppGatewayConfig.ultramsgToken || process.env.ULTRAMSG_TOKEN || 'eanhimzs6xv0o1e2').trim();
+      const usarUltraMsg = Boolean(instanceIdUsar && tokenUsar && (whatsAppGatewayConfig.proveedor === 'ultramsg' || !whatsAppGatewayConfig.proveedor || (whatsAppGatewayConfig.proveedor as string) === 'local'));
+
+      if (usarUltraMsg || (ultramsgInstance && ultramsgToken) || whatsAppGatewayConfig.proveedor === 'ultramsg') {
+        const instRaw = instanceIdUsar;
         const instanceClean = instRaw.startsWith('instance') ? instRaw : `instance${instRaw}`;
-        const tokenClean = (ultramsgToken || whatsAppGatewayConfig.ultramsgToken || 'eanhimzs6xv0o1e2').trim();
+        const tokenClean = tokenUsar;
         const umUrl = `https://api.ultramsg.com/${instanceClean}/messages/chat`;
 
         // Despachar a todos los números configurados (principal + secundarios)

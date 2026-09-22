@@ -355,27 +355,32 @@ export async function enviarPruebaWhatsAppClient(): Promise<{
   urlWaMe?: string;
 }> {
   const config = getWhatsAppConfigClient();
+  const fechaHoy = new Date().toISOString().split('T')[0];
   const mensajePrueba =
-    `👑 *PRUEBA OFICIAL WHATSAPP - BARBERÍA LA CASA DEL REY*\n\n` +
-    `Verificación de pasarela UltraMsg en segundo plano (Entorno Web/GitHub Pages):\n` +
-    `📱 Número Destino: ${WHATSAPP_BARBERIA_DISPLAY}\n` +
-    `🇨🇴 Código de país: +57 (Colombia)\n` +
-    `📲 Celular: 312 644 1665\n` +
-    `⚡ Instancia: ${config.ultramsgInstanceId || DEFAULT_INSTANCE_ID}\n\n` +
-    `✅ Conexión UltraMsg operativa con entrega directa en WhatsApp.`;
+    `👑 *PRUEBA OFICIAL DE CONEXIÓN - BARBERÍA LA CASA DEL REY*\n\n` +
+    `¡Hola! Se ha emitido una prueba técnica del canal oficial de notificaciones WhatsApp:\n\n` +
+    `🔖 *Folio de Reserva (Prueba):* CDR-TEST-${Date.now().toString().slice(-4)}\n` +
+    `👤 *Caballero:* David Orjuela (Prueba Técnica)\n` +
+    `📱 *Teléfono del Cliente:* ${WHATSAPP_BARBERIA_DISPLAY}\n` +
+    `💈 *Servicio de Muestra:* Corte & Barba Ritual Real\n` +
+    `✂️ *Barbero Asignado:* Maestro Barbero\n` +
+    `📅 *Fecha de Turno:* ${fechaHoy}\n` +
+    `⏰ *Hora:* 10:00 AM\n` +
+    `📍 *Sede:* Sede Chicó Real (Calle 72 # 11-45, Bogotá D.C.)\n\n` +
+    `💈 Despacho 100% automático en segundo plano hacia la administración (${WHATSAPP_BARBERIA_DISPLAY}).`;
 
   try {
     const res = await despacharUltraMsgDirecto({
       texto: mensajePrueba,
-      idReserva: 'TEST-CDR',
-      clienteNombre: 'Administración Casa del Rey',
+      idReserva: `CDR-TEST-${Date.now().toString().slice(-4)}`,
+      clienteNombre: 'David Orjuela (Prueba Técnica)',
       tipo: 'Prueba'
     });
 
     if (res.exito) {
       return {
         exito: true,
-        mensaje: `Mensaje de prueba enviado exitosamente por UltraMsg a ${WHATSAPP_BARBERIA_DISPLAY}.`,
+        mensaje: `Mensaje de prueba oficial enviado exitosamente por UltraMsg a ${WHATSAPP_BARBERIA_DISPLAY}.`,
         despacho: res.despacho,
         urlDirectaWhatsApp: res.despacho.urlDirecta,
         urlWaMe: res.despacho.urlWaMe
@@ -403,12 +408,15 @@ export async function enviarPruebaWhatsAppClient(): Promise<{
 export function getWhatsAppGatewayStatusClient() {
   const config = getWhatsAppConfigClient();
   const historial = getHistorialDespachosClient();
-  const entregados = historial.filter(h => h.estado === 'entregado').length;
 
   const lineasTotales = [
     WHATSAPP_BARBERIA_DISPLAY,
     ...config.lineasSecundarias.map(formatearDisplayWhatsApp)
   ];
+
+  const mensajePrueba =
+    `👑 *PRUEBA OFICIAL - BARBERÍA LA CASA DEL REY*\n\n` +
+    `¡Hola! Notificación oficial de verificación técnica emitida hacia ${WHATSAPP_BARBERIA_DISPLAY} (Línea oficial de la barbería).`;
 
   return {
     exito: true,
@@ -425,8 +433,8 @@ export function getWhatsAppGatewayStatusClient() {
     ultramsgConfigurado: Boolean(config.ultramsgInstanceId && config.ultramsgToken),
     ultramsgInstanceId: config.ultramsgInstanceId || DEFAULT_INSTANCE_ID,
     ultramsgTokenMasked: enmascararToken(config.ultramsgToken || DEFAULT_TOKEN),
-    urlTestDirecto: generarUrlWhatsAppBarberia('Prueba oficial de conexión'),
-    urlWaMeTest: generarUrlWaMeBarberia('Prueba oficial de conexión'),
+    urlTestDirecto: generarUrlWhatsAppBarberia(mensajePrueba),
+    urlWaMeTest: generarUrlWaMeBarberia(mensajePrueba),
     totalProcesados: historial.length,
     colaActiva: false,
     timestamp: new Date().toISOString()
