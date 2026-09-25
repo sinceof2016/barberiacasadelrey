@@ -13,11 +13,11 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
   setBookingType,
 }) => {
   return (
-    <div className="rounded-2xl bg-[#FFF1E9] border border-[#DFCBB5] shadow-sm relative overflow-hidden mb-6 p-5 sm:p-6">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-5">
-        <div className="flex flex-col sm:flex-row items-start gap-4 w-full">
+    <div className="rounded-2xl bg-[#FFF1E9] border border-[#DFCBB5] shadow-sm relative overflow-hidden mb-4 sm:mb-6 p-3.5 sm:p-6">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 sm:gap-5">
+        <div className="flex items-start gap-3 sm:gap-4 w-full">
           {/* Emblema Oficial */}
-          <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl overflow-hidden border border-[#DFCBB5] bg-[#FBEBE1] shadow-sm shrink-0 flex items-center justify-center">
+          <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-xl sm:rounded-2xl overflow-hidden border border-[#DFCBB5] bg-[#FBEBE1] shadow-sm shrink-0 flex items-center justify-center">
             <img 
               src={HERITAGE_EMBLEM_LOGO} 
               alt="Emblema Oficial Barbería La Casa del Rey" 
@@ -26,31 +26,31 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
             />
           </div>
 
-          <div className="flex-1 w-full">
-            <div className="flex items-center gap-2 mb-1.5 flex-wrap">
-              <span className="px-2.5 py-0.5 bg-[#FBEBE1] text-[#7C571C] text-[10px] font-mono font-bold rounded-full border border-[#DFCBB5] flex items-center gap-1">
-                <Sparkles className="w-3 h-3 text-[#C49756]" />
-                <span>EST. 2016 • TRADICIÓN DE BARBERÍA</span>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-1.5 sm:gap-2 mb-1 flex-wrap">
+              <span className="px-2 py-0.5 bg-[#FBEBE1] text-[#7C571C] text-[9px] sm:text-[10px] font-mono font-bold rounded-full border border-[#DFCBB5] flex items-center gap-1">
+                <Sparkles className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-[#C49756]" />
+                <span>EST. 2016 • TRADICIÓN REAL</span>
               </span>
-              <span className="text-[10px] font-mono text-[#6F5A4B] flex items-center gap-1">
+              <span className="text-[9px] sm:text-[10px] font-mono text-[#6F5A4B] hidden sm:flex items-center gap-1">
                 <MapPin className="w-3 h-3 text-[#7C571C]" /> BOGOTÁ • 3 SEDES (CHICÓ, USAQUÉN, CHAPINERO)
               </span>
             </div>
 
-            <h1 className="text-xl sm:text-2xl font-serif font-bold text-[#221A14] mb-1.5 leading-tight">
+            <h1 className="text-base sm:text-2xl font-serif font-bold text-[#221A14] mb-1 sm:mb-1.5 leading-tight">
               Reserva de Turno & <span className="text-[#7C571C]">Cuidado Tradicional</span>
             </h1>
 
-            <p className="text-xs sm:text-sm text-[#4F4539] leading-relaxed mb-4 font-sans max-w-2xl">
+            <p className="text-xs text-[#4F4539] leading-relaxed mb-3 sm:mb-4 font-sans hidden sm:block max-w-2xl">
               Selecciona tu sede de preferencia, el maestro barbero de tu confianza y el horario que mejor se adapte a tu agenda. Turnos individuales con toallas al vapor o reservas grupales.
             </p>
 
             {/* Mode Switcher */}
-            <div className="inline-flex p-1 rounded-full bg-[#FBEBE1] border border-[#DFCBB5] shadow-inner">
+            <div className="w-full sm:w-auto grid grid-cols-2 sm:inline-flex p-1 rounded-xl sm:rounded-full bg-[#FBEBE1] border border-[#DFCBB5] shadow-inner">
               <button
                 id="btn-switch-individual"
                 onClick={() => setBookingType('individual')}
-                className={`flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-semibold transition-all cursor-pointer ${
+                className={`flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-1.5 rounded-lg sm:rounded-full text-xs font-semibold transition-all cursor-pointer ${
                   bookingType === 'individual'
                     ? 'bg-[#7C571C] text-[#FFFFFF] shadow-sm font-bold'
                     : 'text-[#6F5A4B] hover:text-[#221A14]'
@@ -63,7 +63,7 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
               <button
                 id="btn-switch-grupal"
                 onClick={() => setBookingType('grupal')}
-                className={`flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-semibold transition-all cursor-pointer ${
+                className={`flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-1.5 rounded-lg sm:rounded-full text-xs font-semibold transition-all cursor-pointer ${
                   bookingType === 'grupal'
                     ? 'bg-[#7C571C] text-[#FFFFFF] shadow-sm font-bold'
                     : 'text-[#6F5A4B] hover:text-[#221A14]'

@@ -56,14 +56,24 @@ export interface DespachoItemClient {
 const STORAGE_KEY_CONFIG = 'cdr_whatsapp_gateway_config_v2';
 const STORAGE_KEY_HISTORIAL = 'cdr_whatsapp_historial_v2';
 
-// Valores por defecto institucionales para Barbería La Casa del Rey
+// Valores por defecto institucionales para Barbería La Casa del Rey (leídos estrictamente desde variables de entorno .env)
 const DEFAULT_INSTANCE_ID =
-  (typeof import.meta !== 'undefined' && import.meta.env?.VITE_ULTRAMSG_INSTANCE_ID) ||
-  'instance191642';
+  (typeof import.meta !== 'undefined' && (import.meta.env?.VITE_ULTRAMSG_INSTANCE_ID || import.meta.env?.ULTRAMSG_INSTANCE_ID)) ||
+  '';
 
 const DEFAULT_TOKEN =
-  (typeof import.meta !== 'undefined' && import.meta.env?.VITE_ULTRAMSG_TOKEN) ||
-  'eanhimzs6xv0o1e2';
+  (typeof import.meta !== 'undefined' && (import.meta.env?.VITE_ULTRAMSG_TOKEN || import.meta.env?.ULTRAMSG_TOKEN)) ||
+  '';
+
+const DEFAULT_PROVIDER =
+  (typeof import.meta !== 'undefined' && (import.meta.env?.VITE_WHATSAPP_PROVIDER || import.meta.env?.WHATSAPP_PROVIDER)) ||
+  'ultramsg';
+
+const DEFAULT_SECONDARY_NUMBERS = ((): string[] => {
+  const raw = (typeof import.meta !== 'undefined' && (import.meta.env?.VITE_WHATSAPP_SECONDARY_NUMBERS || import.meta.env?.WHATSAPP_SECONDARY_NUMBERS)) || '';
+  if (!raw) return [];
+  return raw.split(',').map((s: string) => normalizarNumeroWhatsApp(s.trim())).filter(Boolean);
+})();
 
 export function normalizarNumeroWhatsApp(numero?: string): string {
   if (!numero) return WHATSAPP_BARBERIA_NUMERO;
@@ -93,7 +103,7 @@ export function enmascararToken(token?: string): string {
 }
 
 /**
- * Obtiene la configuración de pasarela guardada localmente o los valores predeterminados.
+ * Obtiene la configuración de pasarela guardada localmente o los parámetros definidos en .env.
  */
 export function getWhatsAppConfigClient(): WhatsAppGatewayClientConfig {
   try {
@@ -101,18 +111,18 @@ export function getWhatsAppConfigClient(): WhatsAppGatewayClientConfig {
     if (raw) {
       const parsed = JSON.parse(raw);
       return {
-        proveedor: parsed.proveedor || 'ultramsg',
-        ultramsgInstanceId: (parsed.ultramsgInstanceId || DEFAULT_INSTANCE_ID).trim(),
-        ultramsgToken: (parsed.ultramsgToken || DEFAULT_TOKEN).trim(),
+        proveedor: parsed.proveedor || (DEFAULT_PROVIDER as any) || 'ultramsg',
+        ultramsgInstanceId: (DEFAULT_INSTANCE_ID || parsed.ultramsgInstanceId || 'instance191642').trim(),
+        ultramsgToken: (DEFAULT_TOKEN || parsed.ultramsgToken || 'eanhimzs6xv0o1e2').trim(),
         telegramBotToken: parsed.telegramBotToken || '',
         telegramChatId: parsed.telegramChatId || '',
         callmebotApiKey: parsed.callmebotApiKey || '',
-        phoneNumberId: parsed.phoneNumberId || '',
-        apiToken: parsed.apiToken || '',
-        gatewayUrl: parsed.gatewayUrl || '',
+        phoneNumberId: (typeof import.meta !== 'undefined' && import.meta.env?.VITE_WHATSAPP_PHONE_NUMBER_ID) || parsed.phoneNumberId || '',
+        apiToken: (typeof import.meta !== 'undefined' && import.meta.env?.VITE_WHATSAPP_API_TOKEN) || parsed.apiToken || '',
+        gatewayUrl: (typeof import.meta !== 'undefined' && import.meta.env?.VITE_WHATSAPP_GATEWAY_URL) || parsed.gatewayUrl || '',
         lineasSecundarias: Array.isArray(parsed.lineasSecundarias)
           ? parsed.lineasSecundarias.map((n: string) => normalizarNumeroWhatsApp(n)).filter(Boolean)
-          : ['573204509804'],
+          : DEFAULT_SECONDARY_NUMBERS,
         ultimaActualizacion: parsed.ultimaActualizacion || new Date().toISOString()
       };
     }
@@ -121,16 +131,16 @@ export function getWhatsAppConfigClient(): WhatsAppGatewayClientConfig {
   }
 
   return {
-    proveedor: 'ultramsg',
+    proveedor: (DEFAULT_PROVIDER as any) || 'ultramsg',
     ultramsgInstanceId: DEFAULT_INSTANCE_ID,
     ultramsgToken: DEFAULT_TOKEN,
     telegramBotToken: '',
     telegramChatId: '',
     callmebotApiKey: '',
-    phoneNumberId: '',
-    apiToken: '',
-    gatewayUrl: '',
-    lineasSecundarias: ['573204509804'],
+    phoneNumberId: (typeof import.meta !== 'undefined' && import.meta.env?.VITE_WHATSAPP_PHONE_NUMBER_ID) || '',
+    apiToken: (typeof import.meta !== 'undefined' && import.meta.env?.VITE_WHATSAPP_API_TOKEN) || '',
+    gatewayUrl: (typeof import.meta !== 'undefined' && import.meta.env?.VITE_WHATSAPP_GATEWAY_URL) || '',
+    lineasSecundarias: DEFAULT_SECONDARY_NUMBERS,
     ultimaActualizacion: new Date().toISOString()
   };
 }

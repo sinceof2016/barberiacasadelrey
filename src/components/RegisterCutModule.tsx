@@ -29,6 +29,7 @@ import {
 } from 'lucide-react';
 import { sucursalesCasaDelRey } from '../services/localData';
 import { dispararAperturaPorEfectivo } from '../services/cashDrawer';
+import { validarNombre, validarTextoSeguro } from '../utils/security';
 import { 
   StraightRazorIcon, 
   VintageScissorsIcon, 
@@ -116,8 +117,8 @@ export const RegisterCutModule: React.FC<RegisterCutModuleProps> = ({
     return () => { isMounted = false; };
   }, []);
 
-  // Citas agendadas para hoy
-  const citasHoy = citas.filter(c => c.fecha === hoyStr && c.estado !== 'Cancelada');
+  // Citas agendadas para hoy pendientes de atención/cobro
+  const citasHoy = citas.filter(c => c.fecha === hoyStr && c.estado !== 'Cancelada' && c.estado !== 'Completada');
 
   // Importar datos de una cita programada
   const handleSeleccionarCita = (citaIdRes: string) => {
@@ -203,10 +204,21 @@ export const RegisterCutModule: React.FC<RegisterCutModuleProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!clienteNombre.trim()) {
-      setError('Por favor indica el nombre del caballero atendido.');
+    // Validación escrita estricta contra comandos y código malicioso
+    const valNombre = validarNombre(clienteNombre);
+    if (!valNombre.esValido) {
+      setError(valNombre.motivo || 'El nombre del cliente contiene caracteres no permitidos o comandos sospechosos.');
       return;
     }
+
+    if (notas.trim()) {
+      const valNotas = validarTextoSeguro(notas, { campo: 'Notas / Observaciones', longitudMaxima: 300 });
+      if (!valNotas.esValido) {
+        setError(valNotas.motivo || 'Las notas contienen caracteres de comando o código no permitido.');
+        return;
+      }
+    }
+
     if (precio <= 0) {
       setError('El valor del corte debe ser mayor a cero.');
       return;
@@ -246,7 +258,7 @@ export const RegisterCutModule: React.FC<RegisterCutModuleProps> = ({
       if (res.exito) {
         setUltimoCorteRegistrado(res.corte);
         setMensajeExito(
-          `Corte de "${clienteNombre}" registrado con éxito. Total cobrado: ${formatCOP(totalGeneralCobro)}`
+          `Corte de "${clienteNombre}" registrado con éxito. Total cobrado: ${formatCOP(totalGeneralCobro)} ${citaSeleccionada ? '(Cita agendada completada ✓)' : ''}`
         );
 
         // Si el pago es en efectivo, disparar apertura automática de cajón si está configurado

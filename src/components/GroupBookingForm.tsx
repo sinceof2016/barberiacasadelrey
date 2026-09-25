@@ -21,6 +21,7 @@ import {
   BarberPoleRibbon,
   VintageWaxSeal 
 } from './VintageBarberIcons';
+import { validarNombre, validarTelefono, validarEmail } from '../utils/security';
 
 interface GroupBookingFormProps {
   servicios: Servicio[];
@@ -132,19 +133,35 @@ export const GroupBookingForm: React.FC<GroupBookingFormProps> = ({
       return;
     }
 
-    if (!responsableNombre.trim()) {
-      setErrorMensaje('Ingresa el nombre del responsable de la comitiva.');
-      return;
-    }
-    if (!responsableTelefono.trim()) {
-      setErrorMensaje('Ingresa el teléfono del responsable.');
+    // Validación escrita de seguridad del responsable
+    const respNomVal = validarNombre(responsableNombre);
+    if (!respNomVal.esValido) {
+      setErrorMensaje(respNomVal.motivo || 'El nombre del responsable no es válido.');
       return;
     }
 
-    const sinNombre = participantes.some(p => !p.nombre.trim());
-    if (sinNombre) {
-      setErrorMensaje('Ingresa los nombres de todos los caballeros del grupo.');
+    const respTelVal = validarTelefono(responsableTelefono);
+    if (!respTelVal.esValido) {
+      setErrorMensaje(respTelVal.motivo || 'El teléfono del responsable no es válido.');
       return;
+    }
+
+    if (responsableEmail.trim()) {
+      const emailVal = validarEmail(responsableEmail);
+      if (!emailVal.esValido) {
+        setErrorMensaje(emailVal.motivo || 'El correo electrónico no es válido.');
+        return;
+      }
+    }
+
+    // Validar nombres de cada participante
+    for (let i = 0; i < participantes.length; i++) {
+      const p = participantes[i];
+      const partVal = validarNombre(p.nombre);
+      if (!partVal.esValido) {
+        setErrorMensaje(`Participante #${i + 1}: ${partVal.motivo || 'Nombre no permitido.'}`);
+        return;
+      }
     }
 
     if (!hora) {
@@ -314,14 +331,17 @@ export const GroupBookingForm: React.FC<GroupBookingFormProps> = ({
 
         <div className="p-4 rounded-xl bg-[#FFFFFF] border border-[#DFCBB5] flex flex-col sm:flex-row items-center justify-between gap-3 mb-5">
           <div>
-            <span className="text-xs font-bold text-[#221A14] block">
-              ¿Deseas confirmar la reserva grupal vía WhatsApp oficial?
-            </span>
-            <span className="text-[11px] text-[#6F5A4B]">
-              Envía los detalles con 1 toque a nuestra línea {WHATSAPP_BARBERIA_DISPLAY}
+            <div className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-[#15803D] inline-block animate-pulse" />
+              <span className="text-xs font-bold text-[#221A14]">
+                Notificación automática WhatsApp activada
+              </span>
+            </div>
+            <span className="text-[11px] text-[#6F5A4B] block mt-0.5">
+              Reserva grupal notificada a la línea oficial {WHATSAPP_BARBERIA_DISPLAY}
             </span>
           </div>
-          <WhatsAppConfirmButton cita={citaCreada} className="w-full sm:w-auto" />
+          <WhatsAppConfirmButton cita={citaCreada} autoNotificar={true} className="w-full sm:w-auto" />
         </div>
 
         <button
@@ -335,25 +355,25 @@ export const GroupBookingForm: React.FC<GroupBookingFormProps> = ({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="rounded-xl bg-[#FFF8F5] border border-[#DFCBB5] p-5 sm:p-6 shadow-sm relative overflow-hidden font-mono text-xs text-[#221A14]">
+    <form onSubmit={handleSubmit} className="rounded-2xl bg-[#FFF8F5] border border-[#DFCBB5] p-3.5 sm:p-6 shadow-sm relative overflow-hidden font-mono text-xs text-[#221A14]">
       <BarberPoleRibbon className="h-1 absolute top-0 left-0 right-0" />
 
-      <div className="flex items-center justify-between border-b border-[#DFCBB5] pb-4 mb-5 pt-1">
+      <div className="flex items-center justify-between border-b border-[#DFCBB5] pb-3 sm:pb-4 mb-4 sm:mb-5 pt-1">
         <div>
           <div className="flex items-center gap-2">
             <Users className="w-4 h-4 text-[#7C571C]" />
-            <h3 className="text-sm font-serif font-bold tracking-wide text-[#221A14] uppercase">
+            <h3 className="text-sm sm:text-base font-serif font-bold tracking-wide text-[#221A14] uppercase">
               Reserva de Camaradería Grupal
             </h3>
           </div>
-          <p className="text-xs text-[#6F5A4B] font-mono mt-0.5">
-            Aparta múltiples sillones simultáneos para bodas, celebraciones o grupos de caballeros
+          <p className="text-[10px] sm:text-xs text-[#6F5A4B] font-mono mt-0.5">
+            Aparta múltiples sillones simultáneos para bodas, celebraciones o amigos
           </p>
         </div>
       </div>
 
       {/* Banner de Sincronización con Reloj Colombia */}
-      <div className="mb-5 p-2.5 rounded-lg bg-[#FFFFFF] border border-[#DFCBB5] flex flex-col sm:flex-row sm:items-center justify-between gap-2 shadow-2xs">
+      <div className="mb-4 sm:mb-5 p-2.5 rounded-xl bg-[#FFFFFF] border border-[#DFCBB5] flex flex-col sm:flex-row sm:items-center justify-between gap-2 shadow-2xs">
         <div className="flex items-center gap-2">
           <Clock className="w-4 h-4 text-[#7C571C] animate-pulse shrink-0" />
           <div>
@@ -374,14 +394,14 @@ export const GroupBookingForm: React.FC<GroupBookingFormProps> = ({
       </div>
 
       {errorMensaje && (
-        <div className="mb-4 p-3 rounded-lg bg-[#FFDAD6] border border-[#BA1A1A]/30 text-[#BA1A1A] text-xs flex items-center gap-2 font-mono">
+        <div className="mb-4 p-3 rounded-xl bg-[#FFDAD6] border border-[#BA1A1A]/30 text-[#BA1A1A] text-xs flex items-center gap-2 font-mono">
           <AlertCircle className="w-4 h-4 text-[#BA1A1A] shrink-0" />
           <span>{errorMensaje}</span>
         </div>
       )}
 
       {/* 1. Sede de la Comitiva */}
-      <div className="mb-5">
+      <div className="mb-4 sm:mb-5">
         <label className="block text-[10px] font-mono font-bold uppercase tracking-wider text-[#7C571C] mb-2 flex items-center justify-between">
           <span className="flex items-center gap-1.5">
             <MapPin className="w-3.5 h-3.5 text-[#7C571C]" />
@@ -398,19 +418,21 @@ export const GroupBookingForm: React.FC<GroupBookingFormProps> = ({
               <div
                 key={s.id}
                 onClick={() => setSucursalId(s.id)}
-                className={`p-3 rounded-lg border cursor-pointer transition-all flex flex-col justify-between relative overflow-hidden ${
+                className={`p-3.5 rounded-xl border cursor-pointer transition-all flex flex-col justify-between relative overflow-hidden active:scale-[0.99] min-h-[95px] ${
                   isSelected
-                    ? 'bg-[#FBEBE1] border-[#7C571C] text-[#221A14] shadow-xs ring-1 ring-[#7C571C]/50'
+                    ? 'bg-[#FBEBE1] border-[#7C571C] text-[#221A14] shadow-xs ring-1.5 ring-[#7C571C]'
                     : 'bg-[#FFFFFF] border-[#DFCBB5] hover:border-[#7C571C] text-[#6F5A4B] shadow-2xs'
                 }`}
               >
                 <div>
                   <div className="flex items-start justify-between gap-1 mb-1">
-                    <span className="text-xs font-serif font-bold text-[#221A14] tracking-wide">
+                    <span className="text-xs sm:text-sm font-serif font-bold text-[#221A14] tracking-wide">
                       {s.nombre}
                     </span>
                     {isSelected && (
-                      <span className="w-2 h-2 rounded-full bg-[#15803D] shrink-0 mt-1" />
+                      <span className="px-1.5 py-0.5 rounded-full bg-[#15803D] text-[#FAF6EE] text-[8px] font-bold shrink-0">
+                        Elegida
+                      </span>
                     )}
                   </div>
                   <p className="text-[10px] text-[#6F5A4B] line-clamp-2 leading-relaxed font-mono mb-1">
@@ -428,13 +450,13 @@ export const GroupBookingForm: React.FC<GroupBookingFormProps> = ({
       </div>
 
       {/* Responsable */}
-      <div className="mb-5">
+      <div className="mb-4 sm:mb-5">
         <div className="flex items-center justify-between mb-2">
           <label className="block text-[10px] font-mono font-bold uppercase tracking-wider text-[#7C571C]">
             02 // CABALLERO RESPONSABLE
           </label>
           <span className="text-[9px] font-mono text-[#6F5A4B]">
-            * Campos obligatorios
+            * Obligatorio
           </span>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -443,7 +465,7 @@ export const GroupBookingForm: React.FC<GroupBookingFormProps> = ({
               Nombre Completo <span className="text-[#7C571C]">*</span>
             </label>
             <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none text-[#6F5A4B]">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-[#6F5A4B]">
                 <User className="w-3.5 h-3.5" />
               </div>
               <input
@@ -452,7 +474,7 @@ export const GroupBookingForm: React.FC<GroupBookingFormProps> = ({
                 placeholder="Ej. Felipe Gómez"
                 value={responsableNombre}
                 onChange={(e) => setResponsableNombre(e.target.value)}
-                className="w-full bg-[#FFFFFF] border border-[#DFCBB5] rounded-lg py-2 pl-8 pr-3 text-xs text-[#221A14] placeholder-[#A08875] focus:outline-none focus:border-[#7C571C] transition-colors shadow-2xs"
+                className="w-full bg-[#FFFFFF] border border-[#DFCBB5] rounded-xl py-2.5 pl-9 pr-3 text-base sm:text-xs text-[#221A14] placeholder-[#A08875] focus:outline-none focus:border-[#7C571C] transition-colors shadow-2xs min-h-[46px]"
                 required
               />
             </div>
@@ -463,7 +485,7 @@ export const GroupBookingForm: React.FC<GroupBookingFormProps> = ({
               Teléfono / WhatsApp <span className="text-[#7C571C]">*</span>
             </label>
             <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none text-[#6F5A4B]">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-[#6F5A4B]">
                 <Phone className="w-3.5 h-3.5" />
               </div>
               <input
@@ -472,7 +494,7 @@ export const GroupBookingForm: React.FC<GroupBookingFormProps> = ({
                 placeholder="Ej. +57 310 987 6543"
                 value={responsableTelefono}
                 onChange={(e) => setResponsableTelefono(e.target.value)}
-                className="w-full bg-[#FFFFFF] border border-[#DFCBB5] rounded-lg py-2 pl-8 pr-3 text-xs text-[#221A14] placeholder-[#A08875] focus:outline-none focus:border-[#7C571C] transition-colors shadow-2xs"
+                className="w-full bg-[#FFFFFF] border border-[#DFCBB5] rounded-xl py-2.5 pl-9 pr-3 text-base sm:text-xs text-[#221A14] placeholder-[#A08875] focus:outline-none focus:border-[#7C571C] transition-colors shadow-2xs min-h-[46px]"
                 required
               />
             </div>
@@ -488,7 +510,7 @@ export const GroupBookingForm: React.FC<GroupBookingFormProps> = ({
               </span>
             </div>
             <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none text-[#6F5A4B]">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-[#6F5A4B]">
                 <Mail className="w-3.5 h-3.5" />
               </div>
               <input
@@ -497,7 +519,7 @@ export const GroupBookingForm: React.FC<GroupBookingFormProps> = ({
                 placeholder="responsable@ejemplo.com"
                 value={responsableEmail}
                 onChange={(e) => setResponsableEmail(e.target.value)}
-                className="w-full bg-[#FFFFFF] border border-[#DFCBB5] rounded-lg py-2 pl-8 pr-3 text-xs text-[#221A14] placeholder-[#A08875] focus:outline-none focus:border-[#7C571C] transition-colors shadow-2xs"
+                className="w-full bg-[#FFFFFF] border border-[#DFCBB5] rounded-xl py-2.5 pl-9 pr-3 text-base sm:text-xs text-[#221A14] placeholder-[#A08875] focus:outline-none focus:border-[#7C571C] transition-colors shadow-2xs min-h-[46px]"
               />
             </div>
           </div>
@@ -505,11 +527,11 @@ export const GroupBookingForm: React.FC<GroupBookingFormProps> = ({
       </div>
 
       {/* Fecha y Hora */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mb-4 sm:mb-5">
         <div>
           <VintageDatePicker
             id="input-grupo-fecha"
-            label="03 // FECHA DEL EVENTO (CALENDARIO)"
+            label="03 // FECHA DEL EVENTO"
             value={fecha}
             onChange={setFecha}
             minDate={colClock.fecha}
@@ -517,10 +539,10 @@ export const GroupBookingForm: React.FC<GroupBookingFormProps> = ({
         </div>
 
         <div>
-          <label className="block text-[10px] font-mono font-bold uppercase tracking-wider text-[#7C571C] mb-1.5 flex items-center justify-between">
+          <label className="block text-[10px] font-mono font-bold uppercase tracking-wider text-[#7C571C] mb-1 flex items-center justify-between">
             <span className="flex items-center gap-1.5">
               <Clock className="w-3.5 h-3.5 text-[#7C571C]" />
-              <span>HORARIO DESEADO (12 HORAS)</span>
+              <span>HORARIO DESEADO</span>
             </span>
             <span className="text-[9px] text-[#6F5A4B] font-normal">
               9:00 AM – 7:00 PM
@@ -531,7 +553,7 @@ export const GroupBookingForm: React.FC<GroupBookingFormProps> = ({
             value={hora}
             onChange={(e) => setHora(e.target.value)}
             disabled={horasDisponibles.length === 0}
-            className="w-full bg-[#FFFFFF] border border-[#DFCBB5] rounded-lg py-2.5 px-3 text-xs font-mono text-[#221A14] focus:outline-none focus:border-[#7C571C] transition-colors cursor-pointer disabled:opacity-50 shadow-2xs"
+            className="w-full bg-[#FFFFFF] border border-[#DFCBB5] rounded-xl py-2.5 px-3 text-base sm:text-xs font-mono text-[#221A14] focus:outline-none focus:border-[#7C571C] transition-colors cursor-pointer disabled:opacity-50 shadow-2xs min-h-[44px]"
           >
             {horasDisponibles.length === 0 ? (
               <option value="">No hay turnos disponibles para hoy</option>
@@ -545,39 +567,39 @@ export const GroupBookingForm: React.FC<GroupBookingFormProps> = ({
                     disabled={yaPaso} 
                     className={yaPaso ? "bg-[#FBEBE1] text-[#A08875]" : "bg-[#FFFFFF] text-[#221A14]"}
                   >
-                    {h} {yaPaso ? '— (Horario ya pasado)' : ''}
+                    {h} {yaPaso ? '— (Pasado)' : ''}
                   </option>
                 );
               })
             )}
           </select>
           {horasDisponibles.length === 0 && (
-            <p className="text-[10px] font-mono text-[#BA1A1A] mt-1.5">
-              Todos los turnos de hoy ya han transcurrido. Por favor selecciona una fecha posterior en el calendario.
+            <p className="text-[10px] font-mono text-[#BA1A1A] mt-1">
+              Todos los turnos de hoy ya han transcurrido. Selecciona otra fecha.
             </p>
           )}
         </div>
       </div>
 
       {/* Participantes */}
-      <div className="border-t border-[#DFCBB5] pt-4 mb-5">
+      <div className="border-t border-[#DFCBB5] pt-4 mb-4 sm:mb-5">
         <div className="flex items-center justify-between mb-3">
           <div>
             <label className="block text-[10px] font-mono font-bold uppercase tracking-wider text-[#7C571C] flex items-center gap-1.5">
               <VintageBarberPole className="w-3.5 h-3.5" />
               <span>04 // INTEGRANTES DE LA COMITIVA ({participantes.length})</span>
             </label>
-            <span className="text-[9px] font-mono text-[#6F5A4B]">Mínimo: 2 | Máximo: 8 caballeros</span>
+            <span className="text-[9px] font-mono text-[#6F5A4B]">Mín: 2 | Máx: 8 caballeros</span>
           </div>
 
           <button
             type="button"
             onClick={agregarParticipante}
             disabled={participantes.length >= 8}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#FBEBE1] hover:bg-[#F3DECE] text-[#7C571C] border border-[#DFCBB5] hover:border-[#7C571C] text-xs font-mono transition-colors disabled:opacity-40 shadow-2xs cursor-pointer"
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[#FBEBE1] hover:bg-[#F3DECE] text-[#7C571C] border border-[#DFCBB5] hover:border-[#7C571C] text-xs font-mono transition-colors disabled:opacity-40 shadow-2xs cursor-pointer min-h-[40px]"
           >
             <Plus className="w-3.5 h-3.5" />
-            <span>+ Sumar Integrante</span>
+            <span>+ Integrante</span>
           </button>
         </div>
 
@@ -585,10 +607,25 @@ export const GroupBookingForm: React.FC<GroupBookingFormProps> = ({
           {participantes.map((p, index) => (
             <div
               key={p.id}
-              className="p-3 rounded-lg bg-[#FFFFFF] border border-[#DFCBB5] flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 shadow-2xs"
+              className="p-3 rounded-xl bg-[#FFFFFF] border border-[#DFCBB5] flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 shadow-2xs"
             >
-              <div className="w-6 h-6 rounded-md bg-[#FBEBE1] text-[#7C571C] flex items-center justify-center text-[10px] font-mono font-bold shrink-0 border border-[#DFCBB5]">
-                {index + 1}
+              <div className="flex items-center justify-between sm:justify-start gap-2">
+                <div className="w-6 h-6 rounded-md bg-[#FBEBE1] text-[#7C571C] flex items-center justify-center text-[10px] font-mono font-bold shrink-0 border border-[#DFCBB5]">
+                  {index + 1}
+                </div>
+                <span className="sm:hidden text-[10px] font-mono text-[#6F5A4B] font-bold">
+                  Caballero #{index + 1}
+                </span>
+                {participantes.length > 2 && (
+                  <button
+                    type="button"
+                    onClick={() => eliminarParticipante(p.id)}
+                    className="sm:hidden p-1.5 rounded-lg text-[#6F5A4B] hover:text-[#BA1A1A] hover:bg-[#FFDAD6] transition-colors ml-auto cursor-pointer"
+                    title="Eliminar de la lista"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                )}
               </div>
 
               <div className="flex-1">
@@ -597,7 +634,7 @@ export const GroupBookingForm: React.FC<GroupBookingFormProps> = ({
                   placeholder={`Nombre de caballero #${index + 1}`}
                   value={p.nombre}
                   onChange={(e) => actualizarParticipante(p.id, 'nombre', e.target.value)}
-                  className="w-full bg-[#FFF8F5] border border-[#DFCBB5] rounded-md py-1.5 px-3 text-xs text-[#221A14] placeholder-[#A08875] focus:outline-none focus:border-[#7C571C]"
+                  className="w-full bg-[#FFF8F5] border border-[#DFCBB5] rounded-xl py-2 px-3 text-base sm:text-xs text-[#221A14] placeholder-[#A08875] focus:outline-none focus:border-[#7C571C] min-h-[42px]"
                   required
                 />
               </div>
@@ -606,7 +643,7 @@ export const GroupBookingForm: React.FC<GroupBookingFormProps> = ({
                 <select
                   value={p.servicioId}
                   onChange={(e) => actualizarParticipante(p.id, 'servicioId', Number(e.target.value))}
-                  className="w-full bg-[#FFF8F5] border border-[#DFCBB5] rounded-md py-1.5 px-3 text-xs text-[#221A14] focus:outline-none focus:border-[#7C571C] font-mono cursor-pointer"
+                  className="w-full bg-[#FFF8F5] border border-[#DFCBB5] rounded-xl py-2 px-3 text-base sm:text-xs text-[#221A14] focus:outline-none focus:border-[#7C571C] font-mono cursor-pointer min-h-[42px]"
                 >
                   {servicios.map(s => (
                     <option key={s.id} value={s.id}>
@@ -620,7 +657,7 @@ export const GroupBookingForm: React.FC<GroupBookingFormProps> = ({
                 <button
                   type="button"
                   onClick={() => eliminarParticipante(p.id)}
-                  className="p-1.5 rounded-md text-[#6F5A4B] hover:text-[#BA1A1A] hover:bg-[#FFDAD6] transition-colors self-end sm:self-center cursor-pointer"
+                  className="hidden sm:block p-1.5 rounded-lg text-[#6F5A4B] hover:text-[#BA1A1A] hover:bg-[#FFDAD6] transition-colors cursor-pointer"
                   title="Eliminar de la lista"
                 >
                   <Trash2 className="w-4 h-4" />
@@ -651,21 +688,21 @@ export const GroupBookingForm: React.FC<GroupBookingFormProps> = ({
             type="checkbox"
             checked={aceptaTerminos}
             onChange={(e) => setAceptaTerminos(e.target.checked)}
-            className="mt-0.5 w-3.5 h-3.5 rounded border-[#DFCBB5] bg-[#FFFFFF] text-[#7C571C] focus:ring-0 focus:ring-offset-0 cursor-pointer accent-[#7C571C]"
+            className="mt-0.5 w-4 h-4 rounded border-[#DFCBB5] bg-[#FFFFFF] text-[#7C571C] focus:ring-0 focus:ring-offset-0 cursor-pointer accent-[#7C571C]"
           />
           <label htmlFor="checkbox-terminos-grupal" className="text-[10px] font-mono text-[#6F5A4B] leading-tight cursor-pointer select-none">
-            Acepto el tratamiento de datos para la gestión del turno grupal y la recepción del folio de comitiva vía WhatsApp / SMS (Ley 1581 de 2012).
+            Acepto el tratamiento de datos para la gestión del turno grupal y confirmación conforme a la Ley 1581 de 2012.
           </label>
         </div>
       </div>
 
       {/* Resumen Total */}
-      <div className="p-4 rounded-xl bg-[#FFFFFF] border border-[#DFCBB5] flex flex-col sm:flex-row items-center justify-between gap-3 shadow-2xs">
-        <div className="font-mono text-xs">
+      <div className="p-3.5 sm:p-4 rounded-xl bg-[#FFFFFF] border border-[#DFCBB5] flex flex-col sm:flex-row items-center justify-between gap-3 shadow-2xs">
+        <div className="font-mono text-xs w-full sm:w-auto text-left">
           <span className="text-[9px] uppercase tracking-widest text-[#6F5A4B] block font-bold">
             TOTAL GRUPAL ({participantes.length} SERVICIOS)
           </span>
-          <span className="text-lg font-bold text-[#7C571C]">
+          <span className="text-base sm:text-lg font-bold text-[#7C571C]">
             {formatPrecio(totalCalculado)}
           </span>
           <span className="text-[10px] text-[#6F5A4B] block mt-0.5">
@@ -677,7 +714,7 @@ export const GroupBookingForm: React.FC<GroupBookingFormProps> = ({
           type="submit"
           id="btn-confirmar-reserva-grupal"
           disabled={enviando}
-          className="w-full sm:w-auto px-6 py-2.5 rounded-lg bg-[#7C571C] hover:bg-[#684815] text-[#FAF6EE] font-mono font-bold text-xs shadow-sm transition-all active:scale-95 disabled:opacity-40 flex items-center justify-center gap-2 tracking-wider cursor-pointer"
+          className="w-full sm:w-auto px-6 py-3.5 sm:py-2.5 rounded-xl bg-[#7C571C] hover:bg-[#684815] text-[#FAF6EE] font-mono font-bold text-xs shadow-sm transition-all active:scale-95 disabled:opacity-40 flex items-center justify-center gap-2 tracking-wider cursor-pointer min-h-[48px]"
         >
           {enviando ? (
             <>
@@ -687,7 +724,7 @@ export const GroupBookingForm: React.FC<GroupBookingFormProps> = ({
           ) : (
             <>
               <Users className="w-3.5 h-3.5" />
-              <span>CONFIRMAR GRUPO</span>
+              <span>CONFIRMAR RESERVA GRUPAL</span>
             </>
           )}
         </button>

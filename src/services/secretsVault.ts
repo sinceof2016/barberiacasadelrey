@@ -59,16 +59,16 @@ export interface SafePublicConfig {
   vaultVersion: string;
 }
 
-// Fallback de configuración pública no sensible (sin llaves privadas)
+// Fallback de configuración pública no sensible (leído dinámicamente de variables de entorno)
 export const DEFAULT_PUBLIC_CONFIG: SafePublicConfig = {
-  apiKey: 'AIzaSyC2DJw9R_3pK8G9-h0FoC5L9QPluBp5ZZo',
-  projectId: 'galvanized-emblem-pzp2g',
-  authDomain: 'galvanized-emblem-pzp2g.firebaseapp.com',
-  storageBucket: 'galvanized-emblem-pzp2g.firebasestorage.app',
-  messagingSenderId: '393020568997',
-  appId: '1:393020568997:web:45a46bfadfecb5bdaae44c',
-  firestoreDatabaseId: 'ai-studio-barberacasadelre-368fa07e-9afe-4bc0-b184-87a415921ad5',
-  oAuthClientId: '393020568997-r88ugt8i5et2jt59291vlqvfn1cl1e90.apps.googleusercontent.com',
+  apiKey: (typeof import.meta !== 'undefined' && import.meta.env?.VITE_FIREBASE_API_KEY) || 'AIzaSyC2DJw9R_3pK8G9-h0FoC5L9QPluBp5ZZo',
+  projectId: (typeof import.meta !== 'undefined' && import.meta.env?.VITE_FIREBASE_PROJECT_ID) || 'galvanized-emblem-pzp2g',
+  authDomain: (typeof import.meta !== 'undefined' && import.meta.env?.VITE_FIREBASE_AUTH_DOMAIN) || 'galvanized-emblem-pzp2g.firebaseapp.com',
+  storageBucket: (typeof import.meta !== 'undefined' && import.meta.env?.VITE_FIREBASE_STORAGE_BUCKET) || 'galvanized-emblem-pzp2g.firebasestorage.app',
+  messagingSenderId: (typeof import.meta !== 'undefined' && import.meta.env?.VITE_FIREBASE_MESSAGING_SENDER_ID) || '393020568997',
+  appId: (typeof import.meta !== 'undefined' && import.meta.env?.VITE_FIREBASE_APP_ID) || '1:393020568997:web:45a46bfadfecb5bdaae44c',
+  firestoreDatabaseId: (typeof import.meta !== 'undefined' && import.meta.env?.VITE_FIREBASE_DATABASE_ID) || 'ai-studio-barberacasadelre-368fa07e-9afe-4bc0-b184-87a415921ad5',
+  oAuthClientId: (typeof import.meta !== 'undefined' && import.meta.env?.VITE_FIREBASE_OAUTH_CLIENT_ID) || '393020568997-r88ugt8i5et2jt59291vlqvfn1cl1e90.apps.googleusercontent.com',
   apiBaseUrl: '/api/v1/barberia-casa-del-rey',
   vaultVersion: '2.4.0-AES256GCM'
 };
@@ -163,26 +163,29 @@ export const CATALOGO_SECRETOS_DEF: Omit<SecretoMetadatos, 'configurado' | 'masc
  */
 export function obtenerMetadatosInicialesVault(): SecretoMetadatos[] {
   return CATALOGO_SECRETOS_DEF.map((def) => {
-    // Valores enmascarados simbólicos para simular estado seguro sin credenciales expuestas
     let mascara = '••••••••••••••••';
     let configurado = true;
     let longitud = 36;
 
     if (def.clave === 'FIREBASE_API_KEY') {
-      mascara = 'AIzaSyC2••••••••5ZZo';
-      longitud = 39;
+      const k = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_FIREBASE_API_KEY) || '';
+      mascara = k ? enmascararSecreto(k) : '•••••••••••••••••••••••••••••••••••••••';
+      longitud = k ? k.length : 39;
     } else if (def.clave === 'GOOGLE_OAUTH_CLIENT_ID') {
-      mascara = '39302056••••••••.apps.googleusercontent.com';
-      longitud = 72;
+      const o = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_FIREBASE_OAUTH_CLIENT_ID) || '';
+      mascara = o ? enmascararSecreto(o) : '••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••';
+      longitud = o ? o.length : 72;
     } else if (def.clave === 'FIREBASE_DATABASE_ID') {
-      mascara = 'ai-studio-barberacasadelre-••••••••';
-      longitud = 64;
+      const d = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_FIREBASE_DATABASE_ID) || '';
+      mascara = d ? enmascararSecreto(d) : '••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••••';
+      longitud = d ? d.length : 64;
     } else if (def.clave === 'VAULT_MASTER_KEY') {
-      mascara = 'cdr-vault-master-2026-••••••••';
+      mascara = '••••••••••••••••••••••••••••••••••••••••••••••••';
       longitud = 48;
     } else if (def.clave === 'WHATSAPP_API_TOKEN') {
-      mascara = 'waba_live_token_••••••••';
-      longitud = 52;
+      const t = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_ULTRAMSG_TOKEN) || '';
+      mascara = t ? enmascararSecreto(t) : '••••••••••••••••••••••••••••••••••••••••••••••••••••';
+      longitud = t ? t.length : 32;
     }
 
     return {

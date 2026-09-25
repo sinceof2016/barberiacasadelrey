@@ -21,9 +21,19 @@ import { LoginModal } from './components/LoginModal';
 import { UserManagementModule } from './components/UserManagementModule';
 import { GoogleCalendarModal } from './components/GoogleCalendarModal';
 import { CustomerReportModule } from './components/CustomerReportModule';
+import { NotFoundPage } from './components/NotFoundPage';
+import { PrivacyPolicyModal } from './components/PrivacyPolicyModal';
 import { CookieConsentBanner } from './components/CookieConsentBanner';
 import { CookiePreferencesModal } from './components/CookiePreferencesModal';
 import { registrarEventoAnalitica } from './services/cookieService';
+import { 
+  initGoogleAnalytics, 
+  trackPageView, 
+  trackServiceSelect, 
+  trackBarberSelect, 
+  trackBookingComplete,
+  trackLogin
+} from './services/analytics';
 import { 
   initUserSession, 
   checkSessionStatus, 
@@ -32,7 +42,7 @@ import {
 } from './services/sessionManager';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { auth } from './services/firebaseAuth';
-import { MapPin, Phone, Clock, Terminal, Scissors, Coins, Lock, Users, ShieldAlert, Cookie } from 'lucide-react';
+import { MapPin, Phone, Clock, Terminal, Scissors, Coins, Lock, Users, ShieldAlert, ShieldCheck, Cookie } from 'lucide-react';
 import { 
   VintageCrownIcon, 
   StraightRazorIcon, 
@@ -108,6 +118,7 @@ export default function App() {
   const [googleCalendarModalOpen, setGoogleCalendarModalOpen] = useState<boolean>(false);
   const [customerReportModalOpen, setCustomerReportModalOpen] = useState<boolean>(false);
   const [cookiePreferencesOpen, setCookiePreferencesOpen] = useState<boolean>(false);
+  const [privacyPolicyOpen, setPrivacyPolicyOpen] = useState<boolean>(false);
 
   // Escuchador proactivo de expiración de sesión (Inactividad 30m / Absoluta 120m)
   useEffect(() => {
@@ -133,43 +144,82 @@ export default function App() {
     };
   }, []);
 
-  // Registro de analítica anónima según preferencias de cookies
+  // Inicialización y seguimiento de Google Analytics (GA4) y resolución de rutas
+  useEffect(() => {
+    initGoogleAnalytics();
+
+    // Sincronizar ruta inicial si el usuario ingresa por una URL directa (ej. /reservar, /servicios, /ruta-inexistente)
+    if (typeof window !== 'undefined') {
+      const path = window.location.pathname.toLowerCase().replace(/^\/+|\/+$/g, '');
+      const validTabs: TabType[] = ['reservar', 'servicios', 'barberos', 'agenda', 'registrar-corte', 'cortes', 'contabilidad', 'usuarios', 'api', 'clientes'];
+      if (path && path !== '') {
+        if (validTabs.includes(path as TabType)) {
+          setActiveTab(path as TabType);
+        } else {
+          setActiveTab('404');
+        }
+      }
+
+      const handlePopState = () => {
+        const curPath = window.location.pathname.toLowerCase().replace(/^\/+|\/+$/g, '');
+        if (!curPath || curPath === '') {
+          setActiveTab('servicios');
+        } else if (validTabs.includes(curPath as TabType)) {
+          setActiveTab(curPath as TabType);
+        } else {
+          setActiveTab('404');
+        }
+      };
+
+      window.addEventListener('popstate', handlePopState);
+      return () => window.removeEventListener('popstate', handlePopState);
+    }
+  }, []);
+
+  // Registro de analítica anónima y Google Analytics al cambiar de pestaña
   useEffect(() => {
     registrarEventoAnalitica('visita_pestana', { pestana: activeTab });
+    trackPageView(activeTab, `Barbería La Casa del Rey - ${activeTab.toUpperCase()}`);
   }, [activeTab]);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      setGoogleUser(currentUser);
-      // Si el usuario de Google es David Orjuela (orjueladavid32@gmail.com), auto-activar su perfil SuperAdmin
-      if (currentUser?.email) {
-        const emailLower = currentUser.email.toLowerCase();
-        if (emailLower.includes('orjuela') || emailLower.includes('david')) {
-          setUsuario(prev => {
-            if (prev && prev.rol === 'SuperAdmin') return prev;
-            const davidUser: Usuario = {
-              id: 'USR-DAVID-01',
-              nombre: currentUser.displayName || 'David Orjuela',
-              email: currentUser.email,
-              rol: 'SuperAdmin',
-              sucursalAsignada: 'todas',
-              puedeVerApi: true,
-              activo: true,
-              creadoEn: '2026-09-01T07:00:00.000Z'
-            };
-            initUserSession(davidUser, (davidUser as any).token, 120, 30);
-            return davidUser;
-          });
+    if (!auth || typeof onAuthStateChanged !== 'function') return;
+    try {
+      const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+        setGoogleUser(currentUser);
+        // Si el usuario de Google es David Orjuela (orjueladavid32@gmail.com), auto-activar su perfil SuperAdmin
+        if (currentUser?.email) {
+          const emailLower = currentUser.email.toLowerCase();
+          if (emailLower.includes('orjuela') || emailLower.includes('david')) {
+            setUsuario(prev => {
+              if (prev && prev.rol === 'SuperAdmin') return prev;
+              const davidUser: Usuario = {
+                id: 'USR-DAVID-01',
+                nombre: currentUser.displayName || 'David Orjuela',
+                email: currentUser.email,
+                rol: 'SuperAdmin',
+                sucursalAsignada: 'todas',
+                puedeVerApi: true,
+                activo: true,
+                creadoEn: '2026-09-01T07:00:00.000Z'
+              };
+              initUserSession(davidUser, (davidUser as any).token, 120, 30);
+              return davidUser;
+            });
+          }
         }
-      }
-    });
-    return () => unsubscribe();
+      });
+      return () => unsubscribe();
+    } catch (err) {
+      console.warn('[App] Warning in onAuthStateChanged listener:', err);
+    }
   }, []);
 
   const handleLoginSuccess = (usr: Usuario) => {
     initUserSession(usr, (usr as any).token, 120, 30);
     setUsuario(usr);
     setSessionExpiredNotice(null);
+    trackLogin(usr.rol, usr.nombre);
   };
 
   const handleLogout = () => {
@@ -212,6 +262,8 @@ export default function App() {
     setPreselectedServiceId(servicioId);
     setBookingType('individual');
     setActiveTab('reservar');
+    const s = servicios.find(x => x.id === servicioId);
+    if (s) trackServiceSelect(s);
     window.scrollTo({ top: 200, behavior: 'smooth' });
   };
 
@@ -219,11 +271,23 @@ export default function App() {
     setPreselectedBarberId(barberoId);
     setBookingType('individual');
     setActiveTab('reservar');
+    const b = barberos.find(x => x.id === barberoId);
+    if (b) trackBarberSelect(b);
     window.scrollTo({ top: 200, behavior: 'smooth' });
   };
 
   const handleBookingSuccess = (nuevaCita: Cita) => {
     setCitas(prev => [nuevaCita, ...prev]);
+    const servObj = servicios.find(s => s.id === nuevaCita.servicioId);
+    const barbObj = barberos.find(b => b.id === Number(nuevaCita.barberoId));
+    trackBookingComplete({
+      idReserva: nuevaCita.idReserva,
+      servicioNombre: nuevaCita.servicio || nuevaCita.servicioNombre || servObj?.nombre || 'Corte Real',
+      precio: nuevaCita.precio || servObj?.precio || 0,
+      barberoNombre: nuevaCita.barberoNombre || barbObj?.nombre || 'Maestro Barbero',
+      sucursalNombre: nuevaCita.sucursalNombre || 'Sede Chicó Real',
+      tipo: nuevaCita.tipo
+    });
   };
 
   return (
@@ -478,6 +542,35 @@ export default function App() {
                 </div>
               )
             )}
+
+            {/* View: 404 PÁGINA NO ENCONTRADA */}
+            {(activeTab === '404' || ![
+              'reservar', 
+              'servicios', 
+              'barberos', 
+              'agenda', 
+              'registrar-corte', 
+              'cortes', 
+              'contabilidad', 
+              'usuarios', 
+              'api', 
+              'clientes'
+            ].includes(activeTab)) && (
+              <NotFoundPage
+                onGoHome={() => {
+                  setActiveTab('servicios');
+                  if (typeof window !== 'undefined' && window.history) {
+                    window.history.pushState(null, '', '/');
+                  }
+                }}
+                onNavigateTab={(tab) => {
+                  setActiveTab(tab);
+                  if (typeof window !== 'undefined' && window.history) {
+                    window.history.pushState(null, '', `/${tab}`);
+                  }
+                }}
+              />
+            )}
           </>
         )}
       </main>
@@ -514,6 +607,12 @@ export default function App() {
       <CookiePreferencesModal
         isOpen={cookiePreferencesOpen}
         onClose={() => setCookiePreferencesOpen(false)}
+      />
+
+      {/* Modal de Política de Tratamiento de Datos Personales (Habeas Data Ley 1581) */}
+      <PrivacyPolicyModal
+        isOpen={privacyPolicyOpen}
+        onClose={() => setPrivacyPolicyOpen(false)}
       />
 
       {/* Heritage Barber Footer */}
@@ -569,6 +668,17 @@ export default function App() {
           <div className="pt-4 border-t border-[#DFCBB5] flex flex-col sm:flex-row items-center justify-between gap-3 text-[10px] text-[#6F5A4B]">
             <div className="flex flex-wrap items-center gap-2">
               <span>© {new Date().getFullYear()} BARBERÍA LA CASA DEL REY • EST. 2016</span>
+              <span>•</span>
+              <button
+                type="button"
+                id="btn-politica-privacidad-footer"
+                onClick={() => setPrivacyPolicyOpen(true)}
+                className="inline-flex items-center gap-1.5 text-[#7C571C] hover:text-[#221A14] bg-[#FFF8F5] hover:bg-[#F5E5DB] px-2.5 py-1 rounded-lg border border-[#DFCBB5] transition-colors cursor-pointer font-bold font-mono"
+                title="Consultar Política de Tratamiento de Datos Personales (Ley 1581 de 2012)"
+              >
+                <ShieldCheck className="w-3 h-3 text-[#16A34A]" />
+                <span>Política de Privacidad (Habeas Data)</span>
+              </button>
               <span>•</span>
               <button
                 type="button"

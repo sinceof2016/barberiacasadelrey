@@ -7,6 +7,8 @@ import {
   eliminarUsuario, 
   restablecerClaveAdmin, 
   cambiarClaveUsuario,
+  desbloquearUsuario,
+  desbloquearTodosUsuarios,
   getBarberos,
   actualizarBarbero,
   crearBarbero,
@@ -78,7 +80,8 @@ import {
   Bot,
   Zap,
   Smartphone,
-  Package
+  Package,
+  ShieldAlert
 } from 'lucide-react';
 import { 
   VintageCrownIcon, 
@@ -104,6 +107,12 @@ import {
   subirArchivoAGoogleCloudStorage,
   EstadoCloudStorage
 } from '../services/cloudStorage';
+import { 
+  validarTextoSeguro, 
+  validarNombre, 
+  validarEmail, 
+  validarTelefono 
+} from '../utils/security';
 
 interface UserManagementModuleProps {
   usuarioActual: Usuario | null;
@@ -477,6 +486,24 @@ export const UserManagementModule: React.FC<UserManagementModuleProps> = ({
       return;
     }
 
+    const valNombre = validarNombre(nombre);
+    if (!valNombre.esValido) {
+      setError(valNombre.motivo || 'El nombre contiene caracteres o comandos no permitidos.');
+      return;
+    }
+
+    const valEmail = validarEmail(email);
+    if (!valEmail.esValido) {
+      setError(valEmail.motivo || 'El correo electrónico no es válido.');
+      return;
+    }
+
+    const valPass = validarTextoSeguro(password, { campo: 'Contraseña', longitudMaxima: 128 });
+    if (!valPass.esValido) {
+      setError(valPass.motivo || 'La contraseña contiene caracteres o comandos no permitidos.');
+      return;
+    }
+
     setGuardando(true);
     setError(null);
     try {
@@ -517,6 +544,12 @@ export const UserManagementModule: React.FC<UserManagementModuleProps> = ({
     if (!usuarioEnEdicion) return;
     if (!editNombreUsuario.trim()) {
       notificarError('El nombre del usuario no puede estar vacío');
+      return;
+    }
+
+    const valNombre = validarNombre(editNombreUsuario);
+    if (!valNombre.esValido) {
+      notificarError(valNombre.motivo || 'El nombre del usuario no es válido o contiene comandos.');
       return;
     }
 
@@ -576,6 +609,12 @@ export const UserManagementModule: React.FC<UserManagementModuleProps> = ({
     const claveDefault = u.rol === 'Administrador' || u.rol === 'SuperAdmin' ? 'admin123' : 'caja123';
     const claveFinal = nuevaClaveInput.trim() || claveDefault;
 
+    const valPass = validarTextoSeguro(claveFinal, { campo: 'Contraseña', longitudMaxima: 128 });
+    if (!valPass.esValido) {
+      notificarError(valPass.motivo || 'La nueva contraseña contiene caracteres de comando o código no permitido.');
+      return;
+    }
+
     setRestableciendoClave(true);
     try {
       if (u.id === 'USR-ADMIN-01' || u.email.toLowerCase() === 'admin@casadelrey.com') {
@@ -586,10 +625,42 @@ export const UserManagementModule: React.FC<UserManagementModuleProps> = ({
         notificarExito(`✓ ${res.mensaje} (Nueva contraseña asignada: ${claveFinal})`);
       }
       setUsuarioParaRestablecerClave(null);
+      await cargarTodo();
     } catch (err: any) {
       notificarError('Error al restablecer la contraseña: ' + err.message);
     } finally {
       setRestableciendoClave(false);
+    }
+  };
+
+  const [desbloqueandoId, setDesbloqueandoId] = useState<string | null>(null);
+  const [desbloqueandoTodos, setDesbloqueandoTodos] = useState<boolean>(false);
+
+  const handleDesbloquearUsuario = async (u: Usuario) => {
+    setDesbloqueandoId(u.id);
+    try {
+      const res = await desbloquearUsuario(u.id);
+      notificarExito(res.mensaje || `Acceso de "${u.nombre}" desbloqueado exitosamente.`);
+      await cargarTodo();
+      if (onDataUpdated) onDataUpdated();
+    } catch (err: any) {
+      notificarError('Error al desbloquear: ' + (err.message || 'Error de conexión'));
+    } finally {
+      setDesbloqueandoId(null);
+    }
+  };
+
+  const handleDesbloquearTodos = async () => {
+    setDesbloqueandoTodos(true);
+    try {
+      const res = await desbloquearTodosUsuarios();
+      notificarExito(res.mensaje || 'Todos los bloqueos han sido eliminados.');
+      await cargarTodo();
+      if (onDataUpdated) onDataUpdated();
+    } catch (err: any) {
+      notificarError('Error al desbloquear: ' + (err.message || 'Error de conexión'));
+    } finally {
+      setDesbloqueandoTodos(false);
     }
   };
 
@@ -609,6 +680,20 @@ export const UserManagementModule: React.FC<UserManagementModuleProps> = ({
     if (!editNombreBarbero.trim()) {
       notificarError('El nombre del barbero es obligatorio');
       return;
+    }
+
+    const valNom = validarNombre(editNombreBarbero);
+    if (!valNom.esValido) {
+      notificarError(valNom.motivo || 'El nombre del barbero no es válido.');
+      return;
+    }
+
+    if (editDescripcionBarbero.trim()) {
+      const valDesc = validarTextoSeguro(editDescripcionBarbero, { campo: 'Descripción del Barbero', longitudMaxima: 300 });
+      if (!valDesc.esValido) {
+        notificarError(valDesc.motivo || 'La descripción contiene comandos o código no permitido.');
+        return;
+      }
     }
 
     setGuardandoBarbero(true);
@@ -729,6 +814,21 @@ export const UserManagementModule: React.FC<UserManagementModuleProps> = ({
       notificarError('El nombre del servicio es obligatorio');
       return;
     }
+
+    const valNom = validarTextoSeguro(nuevoNombreServicio, { campo: 'Nombre del Servicio', longitudMaxima: 80 });
+    if (!valNom.esValido) {
+      notificarError(valNom.motivo || 'El nombre del servicio contiene código o comandos no permitidos.');
+      return;
+    }
+
+    if (nuevoDescripcionServicio.trim()) {
+      const valDesc = validarTextoSeguro(nuevoDescripcionServicio, { campo: 'Descripción del Servicio', longitudMaxima: 300 });
+      if (!valDesc.esValido) {
+        notificarError(valDesc.motivo || 'La descripción del servicio contiene código malicioso.');
+        return;
+      }
+    }
+
     if (nuevoPrecioServicio <= 0) {
       notificarError('El precio debe ser un número mayor a cero');
       return;
@@ -787,6 +887,26 @@ export const UserManagementModule: React.FC<UserManagementModuleProps> = ({
       return;
     }
 
+    const valNom = validarTextoSeguro(nuevoNombreSede, { campo: 'Nombre de la Sede', longitudMaxima: 80 });
+    if (!valNom.esValido) {
+      notificarError(valNom.motivo || 'El nombre de la sede contiene código o comandos no permitidos.');
+      return;
+    }
+
+    const valDir = validarTextoSeguro(nuevoDireccionSede, { campo: 'Dirección', longitudMaxima: 120 });
+    if (!valDir.esValido) {
+      notificarError(valDir.motivo || 'La dirección contiene caracteres o comandos no permitidos.');
+      return;
+    }
+
+    if (nuevoTelefonoSede.trim()) {
+      const valTel = validarTelefono(nuevoTelefonoSede);
+      if (!valTel.esValido) {
+        notificarError(valTel.motivo || 'El teléfono de la sede no es válido.');
+        return;
+      }
+    }
+
     setCreandoSede(true);
     try {
       const nuevaSedeData = {
@@ -841,6 +961,20 @@ export const UserManagementModule: React.FC<UserManagementModuleProps> = ({
     if (!nuevoNombreBarbero.trim()) {
       notificarError('El nombre del barbero es obligatorio');
       return;
+    }
+
+    const valNom = validarNombre(nuevoNombreBarbero);
+    if (!valNom.esValido) {
+      notificarError(valNom.motivo || 'El nombre del barbero no es válido.');
+      return;
+    }
+
+    if (nuevoDescripcionBarbero.trim()) {
+      const valDesc = validarTextoSeguro(nuevoDescripcionBarbero, { campo: 'Descripción del Barbero', longitudMaxima: 300 });
+      if (!valDesc.esValido) {
+        notificarError(valDesc.motivo || 'La descripción contiene comandos o código no permitido.');
+        return;
+      }
     }
 
     setCreandoBarbero(true);
@@ -1221,8 +1355,34 @@ export const UserManagementModule: React.FC<UserManagementModuleProps> = ({
                   Cuentas de Usuario Activas ({usuarios.length})
                 </h3>
               </div>
-              <span className="text-[10px] text-[#6F5A4B]">ROLES CONFIGURADOS</span>
+              <div className="flex items-center gap-2">
+                {usuarios.some(u => u.bloqueado || (u.intentosFallidos || 0) > 0) && (
+                  <button
+                    type="button"
+                    onClick={handleDesbloquearTodos}
+                    disabled={desbloqueandoTodos}
+                    className="px-2.5 py-1 bg-[#BA1A1A] hover:bg-[#991B1B] text-white rounded-lg text-[10px] font-bold flex items-center gap-1 transition-colors cursor-pointer shadow-xs"
+                    title="Eliminar todos los bloqueos por intentos fallidos de todo el personal"
+                  >
+                    <ShieldCheck className="w-3.5 h-3.5" />
+                    <span>{desbloqueandoTodos ? 'Desbloqueando...' : 'Desbloquear Todo'}</span>
+                  </button>
+                )}
+                <span className="text-[10px] text-[#6F5A4B]">ROLES CONFIGURADOS</span>
+              </div>
             </div>
+
+            {/* Banner informativo de seguridad en caso de bloqueos */}
+            {usuarios.some(u => u.bloqueado || (u.intentosFallidos || 0) > 0) && (
+              <div className="p-3 bg-[#FEF2F2] border border-[#FCA5A5] rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-[#991B1B]">
+                <div className="flex items-center gap-2">
+                  <ShieldAlert className="w-4 h-4 text-[#DC2626] shrink-0" />
+                  <span className="font-medium">
+                    Hay personal con bloqueos de seguridad temporales o intentos fallidos registrados. Puedes desbloquear cada cuenta con el botón "Desbloquear".
+                  </span>
+                </div>
+              </div>
+            )}
 
             {cargando ? (
               <div className="py-8 text-center text-[#6F5A4B]">Cargando usuarios...</div>
@@ -1281,6 +1441,20 @@ export const UserManagementModule: React.FC<UserManagementModuleProps> = ({
                               {getSucursalById(u.sucursalAsignada || 'suc-chico').nombre}
                             </span>
                           )}
+
+                          {/* Estado de Seguridad / Bloqueo */}
+                          {u.bloqueado && (
+                            <span className="px-2 py-0.5 rounded text-[9px] font-bold uppercase bg-[#FEE2E2] text-[#991B1B] border border-[#F87171] flex items-center gap-1 animate-pulse">
+                              <ShieldAlert className="w-2.5 h-2.5 text-[#DC2626]" />
+                              BLOQUEADO ({u.tiempoBloqueoMinutos || 15}m)
+                            </span>
+                          )}
+                          {!u.bloqueado && (u.intentosFallidos || 0) > 0 && (
+                            <span className="px-2 py-0.5 rounded text-[9px] font-bold uppercase bg-[#FEF3C7] text-[#92400E] border border-[#FCD34D] flex items-center gap-1">
+                              <AlertCircle className="w-2.5 h-2.5 text-[#D97706]" />
+                              {u.intentosFallidos} intento(s) fallido(s)
+                            </span>
+                          )}
                         </div>
                         <div className="flex items-center gap-3 text-[10px] text-[#6F5A4B] mt-0.5">
                           <span className="flex items-center gap-1">
@@ -1294,6 +1468,20 @@ export const UserManagementModule: React.FC<UserManagementModuleProps> = ({
                     </div>
 
                     <div className="flex items-center gap-1.5 self-end sm:self-center flex-wrap">
+                      {/* Botón Desbloquear Acceso (si está bloqueado o con fallos) */}
+                      {(u.bloqueado || (u.intentosFallidos || 0) > 0) && (
+                        <button
+                          type="button"
+                          onClick={() => handleDesbloquearUsuario(u)}
+                          disabled={desbloqueandoId === u.id}
+                          className="px-2.5 py-1 rounded-lg bg-[#DCFCE7] hover:bg-[#BBF7D0] text-[#166534] border border-[#86EFAC] transition-colors flex items-center gap-1 text-[10px] font-bold cursor-pointer shadow-2xs"
+                          title="Restablecer intentos fallidos y desbloquear acceso de inmediato"
+                        >
+                          <ShieldCheck className="w-3.5 h-3.5 text-[#16A34A]" />
+                          <span>{desbloqueandoId === u.id ? 'Desbloqueando...' : 'Desbloquear'}</span>
+                        </button>
+                      )}
+
                       {/* Botón Editar Nombre y Perfil */}
                       <button
                         type="button"

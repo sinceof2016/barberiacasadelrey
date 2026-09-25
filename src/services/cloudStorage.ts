@@ -42,9 +42,9 @@ export interface ResultadoSubidaStorage {
  * Retorna el estado actual y configuración del bucket de Google Cloud Storage
  */
 export function obtenerConfiguracionCloudStorage(): EstadoCloudStorage {
-  const bucketName = firebaseConfig.storageBucket || 'galvanized-emblem-pzp2g.firebasestorage.app';
+  const bucketName = firebaseConfig.storageBucket || (typeof import.meta !== 'undefined' && import.meta.env?.VITE_FIREBASE_STORAGE_BUCKET) || '';
   return {
-    activo: true,
+    activo: Boolean(bucketName),
     bucket: bucketName,
     proveedor: 'Google Cloud Storage (GCS / Firebase Storage)',
     region: 'us-east1 (Google Cloud Multi-Region)',

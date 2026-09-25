@@ -14,17 +14,45 @@ import {
   orderBy 
 } from 'firebase/firestore';
 import { firebaseConfig } from './firebaseConfig';
-import { Cita, Barbero, CorteDiario } from '../types';
+import { Cita, Barbero, CorteDiario, ArqueoCaja } from '../types';
 import { encryptSensitiveCitaData } from './dbEncryption';
 
-// Initialize Firebase App
-const app = initializeApp(firebaseConfig);
+// Initialize Firebase App safely with official config and graceful error recovery
+let appInstance: any;
+let dbInstance: any;
+let authInstance: any;
+let storageInstance: any;
 
-// Initialize Firestore with specific database ID (CRITICAL)
-export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
-export const auth = getAuth(app);
-// Initialize Google Cloud Storage / Firebase Storage
-export const storage = getStorage(app, firebaseConfig.storageBucket ? `gs://${firebaseConfig.storageBucket}` : undefined);
+try {
+  appInstance = initializeApp(firebaseConfig);
+} catch (err: any) {
+  console.warn('[Firebase] initializeApp recovery:', err?.message || err);
+}
+
+try {
+  dbInstance = appInstance ? getFirestore(appInstance, firebaseConfig.firestoreDatabaseId) : ({} as any);
+} catch (err: any) {
+  console.warn('[Firebase] getFirestore recovery:', err?.message || err);
+  dbInstance = {} as any;
+}
+
+try {
+  authInstance = appInstance ? getAuth(appInstance) : ({} as any);
+} catch (err: any) {
+  console.warn('[Firebase] getAuth recovery:', err?.message || err);
+  authInstance = {} as any;
+}
+
+try {
+  storageInstance = appInstance ? getStorage(appInstance, firebaseConfig.storageBucket ? `gs://${firebaseConfig.storageBucket}` : undefined) : ({} as any);
+} catch (err: any) {
+  console.warn('[Firebase] getStorage recovery:', err?.message || err);
+  storageInstance = {} as any;
+}
+
+export const db = dbInstance;
+export const auth = authInstance;
+export const storage = storageInstance;
 
 export enum OperationType {
   CREATE = 'create',
@@ -182,6 +210,45 @@ export async function obtenerCortesDeFirestore(fecha: string): Promise<CorteDiar
       }
     });
     return cortes;
+  } catch (error) {
+    handleFirestoreError(error, OperationType.LIST, path);
+    return [];
+  }
+}
+
+/**
+ * Guardar registro de arqueo oficial de caja en Firestore
+ */
+export async function guardarArqueoEnFirestore(arqueo: ArqueoCaja): Promise<void> {
+  const path = `caja_arqueos/${arqueo.id}`;
+  try {
+    const sanitizedData: Record<string, any> = {};
+    for (const [key, value] of Object.entries(arqueo)) {
+      if (value !== undefined) {
+        sanitizedData[key] = value;
+      }
+    }
+    await setDoc(doc(db, 'caja_arqueos', arqueo.id), sanitizedData);
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, path);
+  }
+}
+
+/**
+ * Obtener todos los arqueos de una fecha o sucursal desde Firestore
+ */
+export async function obtenerArqueosDeFirestore(fecha?: string): Promise<ArqueoCaja[]> {
+  const path = 'caja_arqueos';
+  try {
+    const snapshot = await getDocs(collection(db, 'caja_arqueos'));
+    const arqueos: ArqueoCaja[] = [];
+    snapshot.forEach((docSnap) => {
+      const data = docSnap.data() as ArqueoCaja;
+      if (!fecha || data.fecha === fecha) {
+        arqueos.push(data);
+      }
+    });
+    return arqueos;
   } catch (error) {
     handleFirestoreError(error, OperationType.LIST, path);
     return [];

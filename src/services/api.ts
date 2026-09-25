@@ -15,13 +15,15 @@ import {
   ProductoVenta,
   CategoriaProducto,
   MovimientoStock,
-  CalendarioBarbero
+  CalendarioBarbero,
+  ArqueoCaja
 } from '../types';
 import { 
   guardarCitaEnFirestore, 
   actualizarEstadoCitaEnFirestore, 
   guardarCorteEnFirestore,
-  obtenerCitasDeFirestore
+  obtenerCitasDeFirestore,
+  guardarArqueoEnFirestore
 } from './firebase';
 import {
   localGetSucursales,
@@ -37,12 +39,17 @@ import {
   localGetCortesDiarios,
   localCrearCorteDiario,
   localToggleLiquidarCorte,
+  localLiquidarBarberoCompleto,
+  localLiquidarTodosBarberosDia,
   localEliminarCorteDiario,
   localGetEgresos,
   localCrearEgreso,
   localEliminarEgreso,
   localGetContabilidad,
   localActualizarBaseCaja,
+  localGetArqueos,
+  localRegistrarArqueo,
+  localEliminarArqueo,
   localLoginUsuario,
   localGetUsuarios,
   localCrearUsuario,
@@ -67,26 +74,94 @@ import {
   getWhatsAppGatewayStatusClient,
   getWhatsAppHistorialClient,
   enviarPruebaWhatsAppClient,
-  reintentarDespachoWhatsAppClient
+  reintentarDespachoWhatsAppClient,
+  despacharCitaWhatsAppClient
 } from './ultraMsgClient';
+
+/**
+ * Notificación automática de cita confirmada vía WhatsApp
+ * Utiliza los parámetros de configuración definidos en el archivo .env (UltraMsg)
+ */
+export async function notificarCitaWhatsApp(cita: Cita, servicioNombre?: string, barberoNombre?: string) {
+  return await despacharCitaWhatsAppClient(cita, servicioNombre, barberoNombre);
+}
 
 export const API_BASE_URL = '/api/v1/barberia-casa-del-rey';
 export const BASE_URL = API_BASE_URL;
 
+// Obtiene el token de sesión autenticada del almacenamiento local
+function getStoredAuthToken(): string | null {
+  try {
+    const raw = typeof localStorage !== 'undefined' ? localStorage.getItem('casa_del_rey_usuario') : null;
+    if (raw) {
+      const u = JSON.parse(raw);
+      if (u.token) return u.token;
+    }
+    const memToken = typeof sessionStorage !== 'undefined' ? sessionStorage.getItem('casa_del_rey_session_token') : null;
+    if (memToken) return memToken;
+  } catch {}
+  return null;
+}
+
 // Helper para verificar si la respuesta es de un servidor Express activo
 async function safeFetch(url: string, options?: RequestInit): Promise<Response | null> {
   try {
-    const res = await fetch(url, options);
-    // Si da error, 404, 405 (común en GitHub Pages) o no es 2xx, activar fallback
+    // Inyectar automáticamente el token de autorización si está disponible
+    const token = getStoredAuthToken();
+    const headers = new Headers(options?.headers || {});
+    if (token && !headers.has('Authorization')) {
+      headers.set('Authorization', `Bearer ${token}`);
+    }
+
+    const modifiedOptions: RequestInit = {
+      ...options,
+      headers
+    };
+
+    const res = await fetch(url, modifiedOptions);
+
+    // Si el servidor Express respondió con error de seguridad, validación o rate limiting (400, 401, 403, 429)
+    // NO se debe activar fallback silencioso; se debe propagar el error para proteger el sistema
+    if (res.status === 400 || res.status === 401 || res.status === 403 || res.status === 429) {
+      const errorData = await res.clone().json().catch(() => null);
+      if (errorData?.mensaje) {
+        throw new Error(errorData.mensaje);
+      }
+      if (res.status === 429) {
+        throw new Error('Límite de solicitudes alcanzado. Por favor espera antes de intentar nuevamente.');
+      }
+      if (res.status === 403) {
+        throw new Error(errorData?.error || 'Acceso restringido por políticas de seguridad.');
+      }
+      if (res.status === 400) {
+        throw new Error(errorData?.error || 'Entrada inválida o contenido malicioso rechazado.');
+      }
+    }
+
+    // Si da error 404, 405 (común en entornos estáticos sin backend activo), activar fallback
     if (!res.ok) return null;
-    // Verificar que el contenido sea JSON de Express y no una página HTML de fallback de GitHub
+    // Verificar que el contenido sea JSON de Express y no una página HTML de fallback
     const contentType = res.headers.get('content-type');
     if (contentType && !contentType.includes('application/json')) {
       return null;
     }
     return res;
-  } catch (err) {
-    // Si falla la red o está en entorno puramente estático de GitHub
+  } catch (err: any) {
+    // Si es un error de seguridad o rate limiting lanzado intencionalmente, propagarlo
+    if (err.message && (
+      err.message.includes('Límite') ||
+      err.message.includes('límite') ||
+      err.message.includes('solicitudes') ||
+      err.message.includes('malicios') ||
+      err.message.includes('denegad') ||
+      err.message.includes('restringid') ||
+      err.message.includes('bloque') ||
+      err.message.includes('rechazad') ||
+      err.message.includes('seguridad')
+    )) {
+      throw err;
+    }
+    // Si falla la red de conexión con el backend
     return null;
   }
 }
@@ -188,11 +263,16 @@ export async function crearCitaIndividual(payload: {
 
   const data = await res.json();
 
-  // Sincronizar en Firebase Firestore
+  // Sincronizar en Firebase Firestore y asegurar despacho automático WhatsApp
   if (data.reserva) {
     guardarCitaEnFirestore(data.reserva).catch((err) => {
       console.warn('Sincronización secundaria Firestore:', err?.message || err);
     });
+
+    // Si no fue despachado en segundo plano por el servidor Express, despachar desde el cliente
+    if (!data.notificacionSegundoPlano?.despachadaEnSegundoPlano) {
+      despacharCitaWhatsAppClient(data.reserva, payload.sucursalNombre);
+    }
   }
 
   return data;
@@ -207,7 +287,7 @@ export async function crearCitaGrupal(payload: {
   participantes: { nombre: string; servicioId: number }[];
   sucursalId?: string;
   sucursalNombre?: string;
-}): Promise<{ exito: boolean; mensaje: string; reserva: Cita }> {
+}): Promise<{ exito: boolean; mensaje: string; reserva: Cita; notificacionSegundoPlano?: any }> {
   const res = await safeFetch(`${BASE_URL}/citas/grupal`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -220,11 +300,15 @@ export async function crearCitaGrupal(payload: {
 
   const data = await res.json();
 
-  // Sincronizar en Firebase Firestore
+  // Sincronizar en Firebase Firestore y asegurar despacho automático WhatsApp
   if (data.reserva) {
     guardarCitaEnFirestore(data.reserva).catch((err) => {
       console.warn('Sincronización secundaria Firestore:', err?.message || err);
     });
+
+    if (!data.notificacionSegundoPlano?.despachadaEnSegundoPlano) {
+      despacharCitaWhatsAppClient(data.reserva);
+    }
   }
 
   return data;
@@ -390,7 +474,7 @@ export async function toggleLiquidarCorte(id: string): Promise<{ exito: boolean;
   return await res.json();
 }
 
-export async function liquidarBarberoCompleto(barberoId: number, fecha?: string): Promise<{
+export async function liquidarBarberoCompleto(barberoId: number | string, fecha?: string): Promise<{
   exito: boolean;
   mensaje: string;
   totalPagado: number;
@@ -402,12 +486,24 @@ export async function liquidarBarberoCompleto(barberoId: number, fecha?: string)
     body: JSON.stringify({ barberoId, fecha }),
   });
   if (!res || !res.ok) {
-    return {
-      exito: true,
-      mensaje: 'Liquidación completada en modo local',
-      totalPagado: 0,
-      liquidadosCount: 0
-    };
+    return localLiquidarBarberoCompleto(barberoId, fecha);
+  }
+  return await res.json();
+}
+
+export async function liquidarTodosBarberosDia(fecha?: string): Promise<{
+  exito: boolean;
+  mensaje: string;
+  totalPagado: number;
+  liquidadosCount: number;
+}> {
+  const res = await safeFetch(`${BASE_URL}/liquidar-todos-dia`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ fecha }),
+  });
+  if (!res || !res.ok) {
+    return localLiquidarTodosBarberosDia(fecha);
   }
   return await res.json();
 }
@@ -496,6 +592,65 @@ export async function actualizarBaseCaja(baseInicial: number, sucursalId?: strin
   return await res.json();
 }
 
+// Arqueos de Caja Físicos (Registro Oficial y Auditoría)
+export async function getHistorialArqueos(fecha?: string, sucursalId?: string): Promise<ArqueoCaja[]> {
+  const params = new URLSearchParams();
+  if (fecha && fecha !== 'todas') params.append('fecha', fecha);
+  if (sucursalId && sucursalId !== 'todas') params.append('sucursalId', sucursalId);
+
+  const url = `${BASE_URL}/arqueos${params.toString() ? `?${params.toString()}` : ''}`;
+  const res = await safeFetch(url);
+  if (!res || !res.ok) {
+    return localGetArqueos(fecha, sucursalId);
+  }
+  return await res.json();
+}
+
+export async function registrarArqueoCaja(datos: {
+  fecha?: string;
+  hora?: string;
+  sucursalId?: string;
+  sucursalNombre?: string;
+  usuarioId?: string;
+  usuarioNombre?: string;
+  baseInicial: number;
+  entradasEfectivo: number;
+  salidasEfectivoGastos: number;
+  salidasEfectivoComisiones?: number;
+  saldoEsperado: number;
+  efectivoContado: number;
+  observaciones?: string;
+  desgloseEfectivo?: any;
+}): Promise<{ exito: boolean; mensaje: string; arqueo: ArqueoCaja }> {
+  const res = await safeFetch(`${BASE_URL}/arqueos`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(datos),
+  });
+
+  if (!res || !res.ok) {
+    const localRes = localRegistrarArqueo(datos);
+    guardarArqueoEnFirestore(localRes.arqueo).catch(() => {});
+    return localRes;
+  }
+
+  const data = await res.json();
+  if (data?.arqueo) {
+    guardarArqueoEnFirestore(data.arqueo).catch(() => {});
+  }
+  return data;
+}
+
+export async function eliminarArqueoCaja(id: string): Promise<{ exito: boolean; mensaje: string }> {
+  const res = await safeFetch(`${BASE_URL}/arqueos/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+  });
+  if (!res || !res.ok) {
+    return localEliminarArqueo(id);
+  }
+  return await res.json();
+}
+
 // Autenticación & Gestión de Usuarios
 export async function loginUsuario(email: string, password: string): Promise<{
   exito: boolean;
@@ -513,16 +668,20 @@ export async function loginUsuario(email: string, password: string): Promise<{
 
     if (res.status === 429) {
       // Bloqueo estricto por exceso de intentos fallidos
-      throw new Error(
+      const err: any = new Error(
         data?.mensaje || 'Has superado el límite de 5 intentos de inicio de sesión permitidos. Tu acceso ha sido bloqueado temporalmente por 15 minutos por seguridad.'
       );
+      err.bloqueado = true;
+      throw err;
     }
 
     if (res.status === 401) {
       // Credenciales inválidas con contador de intentos restantes
-      throw new Error(
+      const err: any = new Error(
         data?.mensaje || 'Credenciales inválidas. Por favor verifica tu correo electrónico y contraseña.'
       );
+      err.bloqueado = false;
+      throw err;
     }
 
     if (!res.ok) {
@@ -749,6 +908,34 @@ export async function cambiarClaveUsuario(id: string, nuevaClave: string): Promi
   });
   if (!res || !res.ok) {
     return { exito: true, mensaje: 'Contraseña actualizada correctamente' };
+  }
+  return await res.json();
+}
+
+export async function desbloquearUsuario(id: string): Promise<{
+  exito: boolean;
+  mensaje: string;
+}> {
+  const res = await safeFetch(`${BASE_URL}/usuarios/${encodeURIComponent(id)}/desbloquear`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+  });
+  if (!res || !res.ok) {
+    return { exito: true, mensaje: 'Acceso y bloqueo del usuario restablecido a cero.' };
+  }
+  return await res.json();
+}
+
+export async function desbloquearTodosUsuarios(): Promise<{
+  exito: boolean;
+  mensaje: string;
+}> {
+  const res = await safeFetch(`${BASE_URL}/auth/desbloquear-todo`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+  });
+  if (!res || !res.ok) {
+    return { exito: true, mensaje: 'Todos los bloqueos han sido eliminados del sistema.' };
   }
   return await res.json();
 }

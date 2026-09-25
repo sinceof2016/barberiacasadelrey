@@ -2,9 +2,17 @@ import React, { useState, useEffect } from 'react';
 import { MessageSquare, Check, ExternalLink, ShieldCheck, BellRing, Smartphone } from 'lucide-react';
 import { Cita } from '../types';
 
-// Teléfono oficial de notificaciones y atención de la Barbería La Casa del Rey
-export const WHATSAPP_BARBERIA_NUMERO = '573126441665';
-export const WHATSAPP_BARBERIA_DISPLAY = '+57 312 644 1665';
+// Teléfono oficial de notificaciones y atención de la Barbería La Casa del Rey (desde .env)
+const RAW_ENV_NOTIFY_NUM = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_WHATSAPP_NOTIFY_NUMBER) || '573126441665';
+const RAW_CLEAN_DIGITS = RAW_ENV_NOTIFY_NUM.replace(/\D/g, '');
+export const WHATSAPP_BARBERIA_NUMERO = RAW_CLEAN_DIGITS.length === 10 ? `57${RAW_CLEAN_DIGITS}` : (RAW_CLEAN_DIGITS || '573126441665');
+export const WHATSAPP_BARBERIA_DISPLAY = ((): string => {
+  if (WHATSAPP_BARBERIA_NUMERO.startsWith('57') && WHATSAPP_BARBERIA_NUMERO.length === 12) {
+    const cel = WHATSAPP_BARBERIA_NUMERO.slice(2);
+    return `+57 ${cel.slice(0, 3)} ${cel.slice(3, 6)} ${cel.slice(6)}`;
+  }
+  return `+${WHATSAPP_BARBERIA_NUMERO}`;
+})();
 
 // Construir mensaje elegante y oficial para WhatsApp
 export const generarTextoMensajeReserva = (
@@ -88,11 +96,18 @@ export const WhatsAppConfirmButton: React.FC<WhatsAppConfirmProps> = ({
   servicioNombre,
   barberoNombre,
   precioTotal,
-  className = ''
+  className = '',
+  autoNotificar = true
 }) => {
   const [enviando, setEnviando] = useState(false);
-  const [despachado, setDespachado] = useState(false);
+  const [despachado, setDespachado] = useState(Boolean(autoNotificar));
   const [errorEnvio, setErrorEnvio] = useState(false);
+
+  useEffect(() => {
+    if (autoNotificar) {
+      setDespachado(true);
+    }
+  }, [autoNotificar]);
 
   const mensajeTexto = generarTextoMensajeReserva(cita, servicioNombre, barberoNombre, precioTotal);
   const urlWhatsApp = generarUrlWhatsAppBarberia(mensajeTexto);

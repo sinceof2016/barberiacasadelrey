@@ -31,7 +31,8 @@ export type TabType =
   | 'contabilidad' 
   | 'usuarios' 
   | 'api' 
-  | 'clientes';
+  | 'clientes'
+  | '404';
 
 interface NavbarProps {
   activeTab: TabType;

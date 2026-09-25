@@ -18,16 +18,16 @@ export interface SafeFirebaseConfig {
   oAuthClientId?: string;
 }
 
-// Configuración provista a través de la capa de Bóveda Segura
+// Configuración provista a través de la capa de Bóveda Segura y variables de entorno
 export const firebaseConfig: SafeFirebaseConfig = {
-  apiKey: DEFAULT_PUBLIC_CONFIG.apiKey || 'AIzaSyC2DJw9R_3pK8G9-h0FoC5L9QPluBp5ZZo',
-  authDomain: DEFAULT_PUBLIC_CONFIG.authDomain,
-  projectId: DEFAULT_PUBLIC_CONFIG.projectId,
-  storageBucket: DEFAULT_PUBLIC_CONFIG.storageBucket,
-  messagingSenderId: DEFAULT_PUBLIC_CONFIG.messagingSenderId,
-  appId: DEFAULT_PUBLIC_CONFIG.appId,
-  firestoreDatabaseId: DEFAULT_PUBLIC_CONFIG.firestoreDatabaseId,
-  oAuthClientId: DEFAULT_PUBLIC_CONFIG.oAuthClientId,
+  apiKey: (typeof import.meta !== 'undefined' && import.meta.env?.VITE_FIREBASE_API_KEY) || DEFAULT_PUBLIC_CONFIG.apiKey || 'AIzaSyC2DJw9R_3pK8G9-h0FoC5L9QPluBp5ZZo',
+  authDomain: (typeof import.meta !== 'undefined' && import.meta.env?.VITE_FIREBASE_AUTH_DOMAIN) || DEFAULT_PUBLIC_CONFIG.authDomain || 'galvanized-emblem-pzp2g.firebaseapp.com',
+  projectId: (typeof import.meta !== 'undefined' && import.meta.env?.VITE_FIREBASE_PROJECT_ID) || DEFAULT_PUBLIC_CONFIG.projectId || 'galvanized-emblem-pzp2g',
+  storageBucket: (typeof import.meta !== 'undefined' && import.meta.env?.VITE_FIREBASE_STORAGE_BUCKET) || DEFAULT_PUBLIC_CONFIG.storageBucket || 'galvanized-emblem-pzp2g.firebasestorage.app',
+  messagingSenderId: (typeof import.meta !== 'undefined' && import.meta.env?.VITE_FIREBASE_MESSAGING_SENDER_ID) || DEFAULT_PUBLIC_CONFIG.messagingSenderId || '393020568997',
+  appId: (typeof import.meta !== 'undefined' && import.meta.env?.VITE_FIREBASE_APP_ID) || DEFAULT_PUBLIC_CONFIG.appId || '1:393020568997:web:45a46bfadfecb5bdaae44c',
+  firestoreDatabaseId: (typeof import.meta !== 'undefined' && import.meta.env?.VITE_FIREBASE_DATABASE_ID) || DEFAULT_PUBLIC_CONFIG.firestoreDatabaseId || 'ai-studio-barberacasadelre-368fa07e-9afe-4bc0-b184-87a415921ad5',
+  oAuthClientId: (typeof import.meta !== 'undefined' && import.meta.env?.VITE_FIREBASE_OAUTH_CLIENT_ID) || DEFAULT_PUBLIC_CONFIG.oAuthClientId || '393020568997-r88ugt8i5et2jt59291vlqvfn1cl1e90.apps.googleusercontent.com',
 };
 
 /**

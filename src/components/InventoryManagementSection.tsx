@@ -40,6 +40,7 @@ import {
   VintageCrownIcon, 
   VintageWaxSeal 
 } from './VintageBarberIcons';
+import { validarTextoSeguro } from '../utils/security';
 
 interface InventoryManagementSectionProps {
   onDataUpdated?: () => void;
@@ -151,6 +152,37 @@ export const InventoryManagementSection: React.FC<InventoryManagementSectionProp
       setError('El nombre del producto es obligatorio.');
       return;
     }
+
+    const valNombre = validarTextoSeguro(formNombre, { campo: 'Nombre del Producto', longitudMaxima: 100 });
+    if (!valNombre.esValido) {
+      setError(valNombre.motivo || 'El nombre contiene caracteres o comandos no permitidos.');
+      return;
+    }
+
+    if (formSku.trim()) {
+      const valSku = validarTextoSeguro(formSku, { campo: 'Código SKU', longitudMaxima: 50 });
+      if (!valSku.esValido) {
+        setError(valSku.motivo || 'El SKU contiene código o comandos no válidos.');
+        return;
+      }
+    }
+
+    if (formMarca.trim()) {
+      const valMarca = validarTextoSeguro(formMarca, { campo: 'Marca del Producto', longitudMaxima: 80 });
+      if (!valMarca.esValido) {
+        setError(valMarca.motivo || 'La marca contiene código o comandos no válidos.');
+        return;
+      }
+    }
+
+    if (formDescripcion.trim()) {
+      const valDesc = validarTextoSeguro(formDescripcion, { campo: 'Descripción', longitudMaxima: 500 });
+      if (!valDesc.esValido) {
+        setError(valDesc.motivo || 'La descripción contiene código malicioso no permitido.');
+        return;
+      }
+    }
+
     if (formPrecio <= 0) {
       setError('El precio de venta debe ser superior a 0.');
       return;
@@ -243,6 +275,15 @@ export const InventoryManagementSection: React.FC<InventoryManagementSectionProp
   const handleEjecutarModalAjuste = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!modalAjusteStock) return;
+
+    if (motivoAjuste.trim()) {
+      const valMotivo = validarTextoSeguro(motivoAjuste, { campo: 'Motivo del Ajuste', longitudMaxima: 150 });
+      if (!valMotivo.esValido) {
+        notificarError(valMotivo.motivo || 'El motivo contiene código o comandos no permitidos.');
+        return;
+      }
+    }
+
     const finalDelta = tipoOperacionAjuste === 'sumar' ? Math.abs(deltaAjuste) : -Math.abs(deltaAjuste);
 
     try {

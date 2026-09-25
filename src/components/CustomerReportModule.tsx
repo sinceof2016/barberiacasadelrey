@@ -23,6 +23,7 @@ import {
 } from './VintageBarberIcons';
 import { getReporteClientes, getReporteClientesCsvUrl } from '../services/api';
 import { ClienteReporteItem, ReporteClientesResumen } from '../types';
+import { validarTextoSeguro } from '../utils/security';
 
 interface CustomerReportModuleProps {
   isOpen?: boolean;
@@ -374,7 +375,13 @@ export const CustomerReportModule: React.FC<CustomerReportModuleProps> = ({
               id="input-buscar-reporte-clientes"
               type="text"
               value={busqueda}
-              onChange={(e) => setBusqueda(e.target.value)}
+              onChange={(e) => {
+                const val = e.target.value;
+                const check = validarTextoSeguro(val, { campo: 'Búsqueda de Clientes', longitudMaxima: 80 });
+                if (check.esValido) {
+                  setBusqueda(val);
+                }
+              }}
               placeholder="Buscar por nombre, correo o teléfono..."
               className="w-full bg-[#FFFFFF] border border-[#DFCBB5] rounded-lg pl-8 pr-7 py-1.5 text-xs font-mono text-[#221A14] placeholder-[#A8988B] focus:outline-none focus:border-[#7C571C] focus:ring-1 focus:ring-[#7C571C]"
             />

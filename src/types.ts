@@ -73,12 +73,18 @@ export interface Cita {
   clienteTelefono?: string;
   clienteEmail?: string;
   servicioId?: number;
+  servicio?: string;
+  servicioNombre?: string;
+  precio?: number;
   barberoId?: number | string;
+  barberoNombre?: string;
   sucursalId?: string;
   sucursalNombre?: string;
   fecha: string;
   hora: string;
-  estado: 'Confirmada' | 'En Espera' | 'Cancelada';
+  estado: 'Confirmada' | 'En Espera' | 'Cancelada' | 'Completada';
+  metodoPago?: MetodoPago;
+  corteId?: string;
   responsableNombre?: string;
   responsableTelefono?: string;
   responsableEmail?: string;
@@ -262,6 +268,39 @@ export interface ResumenContable {
   divisionPorSucursal?: ResumenSucursalDivision[];
 }
 
+export interface DesgloseEfectivoArqueo {
+  billetes100k?: number;
+  billetes50k?: number;
+  billetes20k?: number;
+  billetes10k?: number;
+  billetes5k?: number;
+  billetes2k?: number;
+  monedas?: number;
+}
+
+export type EstadoArqueo = 'CUADRADO' | 'SOBRANTE' | 'FALTANTE';
+
+export interface ArqueoCaja {
+  id: string; // 'ARQ-2026-...'
+  fecha: string; // YYYY-MM-DD
+  hora: string; // e.g. '07:30 PM' o '19:30'
+  timestamp: string; // ISO string
+  sucursalId: string;
+  sucursalNombre: string;
+  usuarioId?: string;
+  usuarioNombre: string;
+  baseInicial: number;
+  entradasEfectivo: number;
+  salidasEfectivoGastos: number;
+  salidasEfectivoComisiones: number;
+  saldoEsperado: number;
+  efectivoContado: number;
+  diferencia: number;
+  estado: EstadoArqueo;
+  observaciones?: string;
+  desgloseEfectivo?: DesgloseEfectivoArqueo;
+}
+
 export type RolUsuario = 'SuperAdmin' | 'Administrador' | 'Cajero';
 
 export interface Usuario {
@@ -277,6 +316,10 @@ export interface Usuario {
   activo?: boolean;
   token?: string;
   tokenExpiresAt?: number;
+  bloqueado?: boolean;
+  intentosFallidos?: number;
+  reintentarEnSegundos?: number;
+  tiempoBloqueoMinutos?: number;
 }
 
 /**

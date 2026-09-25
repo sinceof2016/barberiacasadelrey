@@ -10,12 +10,12 @@
 const DEFAULT_SECRET_KEY = 
   (typeof process !== 'undefined' && process.env?.DATABASE_ENCRYPTION_KEY) ||
   (typeof import.meta !== 'undefined' && import.meta.env?.VITE_DATABASE_ENCRYPTION_KEY) ||
-  'casadelrey_aes256_sec_key_2026_99a8b7c6d5e4f3a2';
+  'CasaDelRey-DbAES256GCM-ProductionKey-2026-NIST-SP80038D';
 
 const DEFAULT_SALT = 
-  (typeof process !== 'undefined' && process.env?.DATABASE_ENCRYPTION_SALT) ||
-  (typeof import.meta !== 'undefined' && import.meta.env?.VITE_DATABASE_ENCRYPTION_SALT) ||
-  'casadelrey_salt_security_2026';
+  (typeof process !== 'undefined' && (process.env?.DATABASE_ENCRYPTION_SALT || process.env?.VITE_DATABASE_ENCRYPTION_SALT)) ||
+  (typeof import.meta !== 'undefined' && (import.meta.env?.VITE_DATABASE_ENCRYPTION_SALT || import.meta.env?.DATABASE_ENCRYPTION_SALT)) ||
+  'barberia-casa-del-rey-db-salt-secure-98214';
 
 /**
  * Deriva una CryptoKey AES-GCM de 256 bits a partir de la contraseña secreta usando PBKDF2

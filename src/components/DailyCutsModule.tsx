@@ -4,6 +4,7 @@ import {
   getCortesDiarios, 
   toggleLiquidarCorte, 
   liquidarBarberoCompleto, 
+  liquidarTodosBarberosDia,
   eliminarCorteDiario 
 } from '../services/api';
 import { 
@@ -81,6 +82,24 @@ export const DailyCutsModule: React.FC<DailyCutsModuleProps> = ({
   // Filter in cuts table
   const [filtroBarbero, setFiltroBarbero] = useState<string>('todos');
 
+  // Confirmation modals state (replaces blocked window.confirm)
+  const [liquidandoBarberoId, setLiquidandoBarberoId] = useState<number | null>(null);
+  const [liquidandoTodos, setLiquidandoTodos] = useState<boolean>(false);
+  const [modalConfirmarLiquidar, setModalConfirmarLiquidar] = useState<{
+    barberoId: number;
+    nombre: string;
+    pendientes: number;
+    monto: number;
+  } | null>(null);
+  const [modalConfirmarLiquidarTodos, setModalConfirmarLiquidarTodos] = useState<{
+    totalPendientes: number;
+    totalMonto: number;
+  } | null>(null);
+  const [modalConfirmarEliminar, setModalConfirmarEliminar] = useState<{
+    corteId: string;
+    clienteNombre: string;
+  } | null>(null);
+
   const cargarCortes = async (fecha: string) => {
     setCargando(true);
     setError(null);
@@ -110,30 +129,46 @@ export const DailyCutsModule: React.FC<DailyCutsModuleProps> = ({
     }
   };
 
-  const handleLiquidarBarbero = async (bId: number) => {
+  const ejecutarLiquidarBarbero = async (bId: number) => {
     const barberoObj = barberos.find(b => b.id === bId);
     const nombre = barberoObj?.nombre || 'el barbero';
-    if (!confirm(`¿Confirmas liquidar y marcar como PAGADOS todos los cortes de ${nombre} en la fecha ${fechaSeleccionada}?`)) {
-      return;
-    }
+    setLiquidandoBarberoId(bId);
+    setError(null);
 
     try {
       const res = await liquidarBarberoCompleto(bId, fechaSeleccionada);
       if (res.exito) {
         setMensajeExito(`Se liquidaron ${res.liquidadosCount || 0} cortes de ${nombre} correctamente.`);
-        cargarCortes(fechaSeleccionada);
+        await cargarCortes(fechaSeleccionada);
         if (onDataUpdated) onDataUpdated();
       }
     } catch (err: any) {
       setError(err.message || 'Error al liquidar barbero');
+    } finally {
+      setLiquidandoBarberoId(null);
+      setModalConfirmarLiquidar(null);
     }
   };
 
-  const handleEliminarCorte = async (corteId: string, clienteNombre: string) => {
-    if (!confirm(`¿Deseas anular el registro del corte de "${clienteNombre}"? Esta acción recalculará la caja diaria.`)) {
-      return;
+  const ejecutarLiquidarTodos = async () => {
+    setLiquidandoTodos(true);
+    setError(null);
+    try {
+      const res = await liquidarTodosBarberosDia(fechaSeleccionada);
+      if (res.exito) {
+        setMensajeExito(res.mensaje || 'Se liquidaron todos los cortes del día exitosamente.');
+        await cargarCortes(fechaSeleccionada);
+        if (onDataUpdated) onDataUpdated();
+      }
+    } catch (err: any) {
+      setError(err.message || 'Error al liquidar equipo');
+    } finally {
+      setLiquidandoTodos(false);
+      setModalConfirmarLiquidarTodos(null);
     }
+  };
 
+  const ejecutarEliminarCorte = async (corteId: string) => {
     try {
       const res = await eliminarCorteDiario(corteId);
       if (res.exito) {
@@ -143,6 +178,8 @@ export const DailyCutsModule: React.FC<DailyCutsModuleProps> = ({
       }
     } catch (err: any) {
       setError(err.message || 'Error al anular corte');
+    } finally {
+      setModalConfirmarEliminar(null);
     }
   };
 
@@ -208,12 +245,13 @@ export const DailyCutsModule: React.FC<DailyCutsModuleProps> = ({
 
   // Resumen por barbero
   const resumenBarberos = barberos.map(b => {
-    const cortesB = cortes.filter(c => c.barberoId === b.id);
+    const cortesB = cortes.filter(c => String(c.barberoId) === String(b.id) || Number(c.barberoId) === Number(b.id));
     const totalServicios = cortesB.length;
     const bruto = cortesB.reduce((acc, c) => acc + c.precio + (c.totalProductos || 0), 0);
     const netoBarbero = cortesB.reduce((acc, c) => acc + c.montoBarbero, 0);
     const propinas = cortesB.reduce((acc, c) => acc + (c.propina || 0), 0);
     const pendientes = cortesB.filter(c => !c.liquidadoAlBarbero).length;
+    const montoPendiente = cortesB.filter(c => !c.liquidadoAlBarbero).reduce((acc, c) => acc + c.montoBarbero, 0);
     const pagados = cortesB.filter(c => c.liquidadoAlBarbero).length;
 
     return {
@@ -223,10 +261,14 @@ export const DailyCutsModule: React.FC<DailyCutsModuleProps> = ({
       netoBarbero,
       propinas,
       pendientes,
+      montoPendiente,
       pagados,
       cortes: cortesB,
     };
   });
+
+  const totalPendientesEquipo = resumenBarberos.reduce((acc, rb) => acc + rb.pendientes, 0);
+  const totalMontoPendienteEquipo = resumenBarberos.reduce((acc, rb) => acc + (rb.montoPendiente || 0), 0);
 
   const cortesVisibles = filtroBarbero === 'todos' 
     ? cortes 
@@ -404,7 +446,20 @@ export const DailyCutsModule: React.FC<DailyCutsModuleProps> = ({
               </h3>
             </div>
 
-            <div className="flex items-center gap-2 text-xs">
+            <div className="flex flex-wrap items-center gap-2 text-xs">
+              {totalPendientesEquipo > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setModalConfirmarLiquidarTodos({ totalPendientes: totalPendientesEquipo, totalMonto: totalMontoPendienteEquipo })}
+                  disabled={liquidandoTodos}
+                  className="py-1.5 px-3 rounded-lg bg-[#7C571C] hover:bg-[#684815] text-[#FAF6EE] font-bold text-xs flex items-center gap-1.5 cursor-pointer shadow-xs active:scale-95 transition-all disabled:opacity-50"
+                  title="Liquidar todos los cortes pendientes del equipo de barberos"
+                >
+                  <Check className="w-3.5 h-3.5" />
+                  <span>{liquidandoTodos ? 'Liquidando...' : `Liquidar Todo (${formatCOP(totalMontoPendienteEquipo)})`}</span>
+                </button>
+              )}
+
               <span className="text-[#6F5A4B]">Filtrar Barbero:</span>
               <select
                 value={filtroBarbero}
@@ -501,7 +556,7 @@ export const DailyCutsModule: React.FC<DailyCutsModuleProps> = ({
                       <span className="text-[9px] text-[#8A796D]">ID: {corte.id}</span>
                       <button
                         type="button"
-                        onClick={() => handleEliminarCorte(corte.id, corte.clienteNombre)}
+                        onClick={() => setModalConfirmarEliminar({ corteId: corte.id, clienteNombre: corte.clienteNombre })}
                         className="p-1 text-[#BA1A1A] hover:bg-[#FFDAD6] rounded-lg transition-colors cursor-pointer flex items-center gap-1 text-[10px] font-bold"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
@@ -590,7 +645,7 @@ export const DailyCutsModule: React.FC<DailyCutsModuleProps> = ({
                         <td className="py-2.5 whitespace-nowrap text-center">
                           <button
                             type="button"
-                            onClick={() => handleEliminarCorte(corte.id, corte.clienteNombre)}
+                            onClick={() => setModalConfirmarEliminar({ corteId: corte.id, clienteNombre: corte.clienteNombre })}
                             className="p-1 rounded text-[#6F5A4B] hover:text-[#BA1A1A] hover:bg-[#FFDAD6] transition-colors cursor-pointer"
                             title="Anular corte"
                           >
@@ -612,6 +667,41 @@ export const DailyCutsModule: React.FC<DailyCutsModuleProps> = ({
       {/* ========================================================================= */}
       {subTab === 'liquidacion' && (
         <div className="space-y-4">
+          {/* Banner de Liquidación General del Equipo */}
+          <div className="bg-[#FFF8F5] border border-[#DFCBB5] rounded-2xl p-4 sm:p-5 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <Wallet className="w-5 h-5 text-[#7C571C]" />
+                <h3 className="font-serif text-base font-bold text-[#221A14]">
+                  Liquidación de Ganancias & Comisiones
+                </h3>
+              </div>
+              <p className="text-xs text-[#6F5A4B] font-mono">
+                {totalPendientesEquipo > 0 ? (
+                  <span>
+                    Hay <strong className="text-[#BA1A1A]">{totalPendientesEquipo} cortes</strong> pendientes de pago en el equipo por un total de <strong className="text-[#7C571C]">{formatCOP(totalMontoPendienteEquipo)}</strong>.
+                  </span>
+                ) : (
+                  <span className="text-[#15803D] font-bold">
+                    ✅ Todos los barberos están al día con sus liquidaciones en esta fecha.
+                  </span>
+                )}
+              </p>
+            </div>
+
+            {totalPendientesEquipo > 0 && (
+              <button
+                type="button"
+                onClick={() => setModalConfirmarLiquidarTodos({ totalPendientes: totalPendientesEquipo, totalMonto: totalMontoPendienteEquipo })}
+                disabled={liquidandoTodos}
+                className="py-2.5 px-4 rounded-xl bg-[#7C571C] hover:bg-[#684815] text-[#FAF6EE] font-bold text-xs flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-95 shadow-sm disabled:opacity-50"
+              >
+                <Check className="w-4 h-4" />
+                <span>{liquidandoTodos ? 'Liquidando Todo el Equipo...' : `Liquidar Todo el Equipo (${formatCOP(totalMontoPendienteEquipo)})`}</span>
+              </button>
+            )}
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
             {resumenBarberos.map(rb => (
               <div 
@@ -665,7 +755,7 @@ export const DailyCutsModule: React.FC<DailyCutsModuleProps> = ({
                     </span>
                     {rb.pendientes > 0 && (
                       <span className="px-2 py-0.5 rounded-full bg-[#FFDAD6] text-[#BA1A1A] font-bold border border-[#BA1A1A]/30">
-                        {rb.pendientes} Por Liquidar
+                        {rb.pendientes} Por Liquidar ({formatCOP(rb.montoPendiente)})
                       </span>
                     )}
                   </div>
@@ -684,11 +774,17 @@ export const DailyCutsModule: React.FC<DailyCutsModuleProps> = ({
                   {rb.pendientes > 0 && (
                     <button
                       type="button"
-                      onClick={() => handleLiquidarBarbero(rb.barbero.id)}
-                      className="flex-1 py-2 px-2.5 rounded-xl bg-[#15803D] hover:bg-[#10622F] text-[#FAF6EE] font-bold text-xs flex items-center justify-center gap-1 cursor-pointer transition-all active:scale-95 shadow-sm"
+                      disabled={liquidandoBarberoId === rb.barbero.id}
+                      onClick={() => setModalConfirmarLiquidar({
+                        barberoId: rb.barbero.id,
+                        nombre: rb.barbero.nombre,
+                        pendientes: rb.pendientes,
+                        monto: rb.montoPendiente
+                      })}
+                      className="flex-1 py-2 px-2.5 rounded-xl bg-[#15803D] hover:bg-[#10622F] text-[#FAF6EE] font-bold text-xs flex items-center justify-center gap-1 cursor-pointer transition-all active:scale-95 shadow-sm disabled:opacity-50"
                     >
                       <Check className="w-3.5 h-3.5" />
-                      <span>Liquidar Todo</span>
+                      <span>{liquidandoBarberoId === rb.barbero.id ? 'Liquidando...' : `Liquidar Todo`}</span>
                     </button>
                   )}
                 </div>
@@ -831,6 +927,163 @@ export const DailyCutsModule: React.FC<DailyCutsModuleProps> = ({
                 className="py-2 px-4 bg-[#FBEBE1] text-[#221A14] hover:bg-[#F5E5DB] rounded-lg border border-[#DFCBB5] cursor-pointer font-bold min-h-[44px]"
               >
                 Cerrar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Confirmar Liquidar Barbero */}
+      {modalConfirmarLiquidar && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+          <div className="bg-[#FFF8F5] border border-[#DFCBB5] rounded-2xl max-w-md w-full p-5 shadow-xl font-mono space-y-4">
+            <div className="flex items-center gap-3 text-[#15803D]">
+              <div className="w-10 h-10 rounded-full bg-[#EBF7EE] border border-[#86EFAC] flex items-center justify-center shrink-0">
+                <Check className="w-5 h-5" />
+              </div>
+              <div>
+                <h4 className="font-serif text-base font-bold text-[#221A14]">
+                  Confirmar Liquidación de Barbero
+                </h4>
+                <p className="text-xs text-[#6F5A4B]">
+                  {modalConfirmarLiquidar.nombre}
+                </p>
+              </div>
+            </div>
+
+            <div className="p-3.5 bg-[#FFFFFF] rounded-xl border border-[#DFCBB5] space-y-2 text-xs">
+              <div className="flex justify-between text-[#6F5A4B]">
+                <span>Fecha de Liquidación:</span>
+                <span className="font-bold text-[#221A14]">{fechaSeleccionada}</span>
+              </div>
+              <div className="flex justify-between text-[#6F5A4B]">
+                <span>Cortes Pendientes:</span>
+                <span className="font-bold text-[#BA1A1A]">{modalConfirmarLiquidar.pendientes} cortes</span>
+              </div>
+              <div className="flex justify-between text-[#221A14] pt-2 border-t border-[#DFCBB5] font-bold text-sm">
+                <span>Total a Liquidar / Pagar:</span>
+                <span className="text-[#15803D]">{formatCOP(modalConfirmarLiquidar.monto)}</span>
+              </div>
+            </div>
+
+            <p className="text-[11px] text-[#6F5A4B]">
+              Al confirmar, todos los cortes pendientes de este barbero se marcarán como <strong>PAGADOS</strong> y se reflejará en el libro contable de la fecha.
+            </p>
+
+            <div className="flex gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => setModalConfirmarLiquidar(null)}
+                className="flex-1 py-2.5 px-3 rounded-xl bg-[#FBEBE1] hover:bg-[#F5E5DB] text-[#221A14] font-bold text-xs border border-[#DFCBB5] cursor-pointer"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                disabled={liquidandoBarberoId !== null}
+                onClick={() => ejecutarLiquidarBarbero(modalConfirmarLiquidar.barberoId)}
+                className="flex-1 py-2.5 px-3 rounded-xl bg-[#15803D] hover:bg-[#10622F] text-[#FAF6EE] font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer shadow-sm disabled:opacity-50"
+              >
+                <Check className="w-4 h-4" />
+                <span>{liquidandoBarberoId !== null ? 'Liquidando...' : 'Confirmar y Pagar'}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Confirmar Liquidar Todo el Equipo */}
+      {modalConfirmarLiquidarTodos && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+          <div className="bg-[#FFF8F5] border border-[#DFCBB5] rounded-2xl max-w-md w-full p-5 shadow-xl font-mono space-y-4">
+            <div className="flex items-center gap-3 text-[#7C571C]">
+              <div className="w-10 h-10 rounded-full bg-[#FBEBE1] border border-[#DFCBB5] flex items-center justify-center shrink-0">
+                <Wallet className="w-5 h-5" />
+              </div>
+              <div>
+                <h4 className="font-serif text-base font-bold text-[#221A14]">
+                  Liquidar Todo el Equipo de Barberos
+                </h4>
+                <p className="text-xs text-[#6F5A4B]">
+                  Jornada: {fechaSeleccionada}
+                </p>
+              </div>
+            </div>
+
+            <div className="p-3.5 bg-[#FFFFFF] rounded-xl border border-[#DFCBB5] space-y-2 text-xs">
+              <div className="flex justify-between text-[#6F5A4B]">
+                <span>Total Cortes Pendientes:</span>
+                <span className="font-bold text-[#BA1A1A]">{modalConfirmarLiquidarTodos.totalPendientes} cortes</span>
+              </div>
+              <div className="flex justify-between text-[#221A14] pt-2 border-t border-[#DFCBB5] font-bold text-sm">
+                <span>Monto Total a Liquidar:</span>
+                <span className="text-[#15803D] font-extrabold">{formatCOP(modalConfirmarLiquidarTodos.totalMonto)}</span>
+              </div>
+            </div>
+
+            <p className="text-[11px] text-[#6F5A4B]">
+              ¿Estás seguro de marcar como PAGADOS todos los cortes de todos los barberos para esta fecha?
+            </p>
+
+            <div className="flex gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => setModalConfirmarLiquidarTodos(null)}
+                className="flex-1 py-2.5 px-3 rounded-xl bg-[#FBEBE1] hover:bg-[#F5E5DB] text-[#221A14] font-bold text-xs border border-[#DFCBB5] cursor-pointer"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                disabled={liquidandoTodos}
+                onClick={ejecutarLiquidarTodos}
+                className="flex-1 py-2.5 px-3 rounded-xl bg-[#7C571C] hover:bg-[#684815] text-[#FAF6EE] font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer shadow-sm disabled:opacity-50"
+              >
+                <Check className="w-4 h-4" />
+                <span>{liquidandoTodos ? 'Liquidando Todo...' : 'Sí, Liquidar Todo'}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Confirmar Anular Corte */}
+      {modalConfirmarEliminar && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+          <div className="bg-[#FFF8F5] border border-[#DFCBB5] rounded-2xl max-w-sm w-full p-5 shadow-xl font-mono space-y-4">
+            <div className="flex items-center gap-3 text-[#BA1A1A]">
+              <div className="w-10 h-10 rounded-full bg-[#FFDAD6] border border-[#BA1A1A]/30 flex items-center justify-center shrink-0">
+                <Trash2 className="w-5 h-5 text-[#BA1A1A]" />
+              </div>
+              <div>
+                <h4 className="font-serif text-base font-bold text-[#221A14]">
+                  Anular Registro de Corte
+                </h4>
+                <p className="text-xs text-[#6F5A4B]">
+                  ID: {modalConfirmarEliminar.corteId}
+                </p>
+              </div>
+            </div>
+
+            <p className="text-xs text-[#221A14]">
+              ¿Deseas anular el registro del corte de <strong>"{modalConfirmarEliminar.clienteNombre}"</strong>? Esta acción recalculará los libros contables y devolverá productos al inventario si aplica.
+            </p>
+
+            <div className="flex gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => setModalConfirmarEliminar(null)}
+                className="flex-1 py-2 px-3 rounded-xl bg-[#FBEBE1] hover:bg-[#F5E5DB] text-[#221A14] font-bold text-xs border border-[#DFCBB5] cursor-pointer"
+              >
+                Volver
+              </button>
+              <button
+                type="button"
+                onClick={() => ejecutarEliminarCorte(modalConfirmarEliminar.corteId)}
+                className="flex-1 py-2 px-3 rounded-xl bg-[#BA1A1A] hover:bg-[#93000A] text-[#FAF6EE] font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer shadow-sm"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Sí, Anular</span>
               </button>
             </div>
           </div>

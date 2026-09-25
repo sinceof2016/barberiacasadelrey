@@ -216,7 +216,7 @@ export const VintageDatePicker: React.FC<VintageDatePickerProps> = ({
       {/* Desplegable Vintage Calendar Popover */}
       {desplegado && (
         <div 
-          className={`absolute top-full ${align === 'right' ? 'right-0' : 'left-0'} mt-2 z-50 w-72 sm:w-80 bg-[#FFF8F5] border border-[#DFCBB5] rounded-2xl shadow-2xl p-4 font-mono text-xs overflow-hidden backdrop-blur-md animate-in fade-in zoom-in-95 duration-150 ring-1 ring-[#DFCBB5]`}
+          className={`absolute top-full ${align === 'right' ? 'right-0' : 'left-0'} mt-2 z-50 w-[calc(100vw-2.5rem)] max-w-[320px] sm:w-80 bg-[#FFF8F5] border border-[#DFCBB5] rounded-2xl shadow-2xl p-3.5 sm:p-4 font-mono text-xs overflow-hidden backdrop-blur-md animate-in fade-in zoom-in-95 duration-150 ring-1 ring-[#DFCBB5]`}
         >
           <BarberPoleRibbon className="h-1 -mx-4 -mt-4 mb-3" />
 

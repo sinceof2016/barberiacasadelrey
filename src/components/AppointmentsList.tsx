@@ -44,6 +44,7 @@ import {
 import { createGoogleCalendarEvent, buildGoogleCalendarEventPayload } from '../services/googleCalendar';
 import { getAccessToken, googleSignIn } from '../services/firebaseAuth';
 import { CalendarConfirmDialog } from './CalendarConfirmDialog';
+import { validarTextoSeguro } from '../utils/security';
 
 interface AppointmentsListProps {
   citas: Cita[];
@@ -538,7 +539,13 @@ export const AppointmentsList: React.FC<AppointmentsListProps> = ({
             <input
               type="text"
               value={busquedaTexto}
-              onChange={(e) => setBusquedaTexto(e.target.value)}
+              onChange={(e) => {
+                const val = e.target.value;
+                const check = validarTextoSeguro(val, { campo: 'Búsqueda', longitudMaxima: 80 });
+                if (check.esValido) {
+                  setBusquedaTexto(val);
+                }
+              }}
               placeholder="Buscar por nombre, correo, tel o folio..."
               className="w-full bg-[#FFF8F5] border border-[#DFCBB5] rounded-xl pl-9 pr-7 py-1.5 text-xs font-mono text-[#221A14] placeholder-[#6F5A4B] focus:outline-none focus:border-[#7C571C]"
             />

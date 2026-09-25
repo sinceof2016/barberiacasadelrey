@@ -1,6 +1,4 @@
-import { initializeApp, getApps, getApp } from 'firebase/app';
 import { 
-  getAuth, 
   signInWithPopup, 
   GoogleAuthProvider, 
   onAuthStateChanged, 
@@ -8,11 +6,9 @@ import {
   User,
   Auth
 } from 'firebase/auth';
-import { firebaseConfig } from './firebaseConfig';
+import { auth } from './firebase';
 
-// Initialize Firebase App instance safely (singleton)
-const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
-export const auth: Auth = getAuth(app);
+export { auth };
 
 // Configure Google Auth Provider with Calendar Scopes
 const provider = new GoogleAuthProvider();
@@ -36,20 +32,30 @@ export const initAuth = (
   onAuthSuccess?: (user: User, token: string) => void,
   onAuthFailure?: () => void
 ) => {
-  return onAuthStateChanged(auth, async (user: User | null) => {
-    if (user) {
-      if (cachedAccessToken) {
-        if (onAuthSuccess) onAuthSuccess(user, cachedAccessToken);
-      } else if (!isSigningIn) {
-        // If user is logged in to Firebase but token is not in memory (e.g. page refresh),
-        // we keep the user state and can prompt for token or wait for user action
+  if (!auth || typeof onAuthStateChanged !== 'function') {
+    if (onAuthFailure) onAuthFailure();
+    return () => {};
+  }
+  try {
+    return onAuthStateChanged(auth, async (user: User | null) => {
+      if (user) {
+        if (cachedAccessToken) {
+          if (onAuthSuccess) onAuthSuccess(user, cachedAccessToken);
+        } else if (!isSigningIn) {
+          // If user is logged in to Firebase but token is not in memory (e.g. page refresh),
+          // we keep the user state and can prompt for token or wait for user action
+          if (onAuthFailure) onAuthFailure();
+        }
+      } else {
+        cachedAccessToken = null;
         if (onAuthFailure) onAuthFailure();
       }
-    } else {
-      cachedAccessToken = null;
-      if (onAuthFailure) onAuthFailure();
-    }
-  });
+    });
+  } catch (err) {
+    console.warn('[FirebaseAuth] Error in onAuthStateChanged:', err);
+    if (onAuthFailure) onAuthFailure();
+    return () => {};
+  }
 };
 
 /**

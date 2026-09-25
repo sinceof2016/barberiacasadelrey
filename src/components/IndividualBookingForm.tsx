@@ -47,6 +47,7 @@ import {
   tieneConsentimiento,
   registrarEventoAnalitica 
 } from '../services/cookieService';
+import { validarNombre, validarTelefono, validarEmail, validarTextoSeguro } from '../utils/security';
 
 interface IndividualBookingFormProps {
   servicios: Servicio[];
@@ -252,14 +253,27 @@ export const IndividualBookingForm: React.FC<IndividualBookingFormProps> = ({
       return;
     }
 
-    if (!clienteNombre.trim()) {
-      setErrorMensaje('Por favor ingresa el nombre completo del caballero.');
+    // Validación escrita estricta contra comandos y código malicioso
+    const nombreVal = validarNombre(clienteNombre);
+    if (!nombreVal.esValido) {
+      setErrorMensaje(nombreVal.motivo || 'El nombre ingresado contiene caracteres o formato no válido.');
       return;
     }
-    if (!clienteTelefono.trim()) {
-      setErrorMensaje('Por favor ingresa un número de teléfono o WhatsApp de contacto.');
+
+    const telVal = validarTelefono(clienteTelefono);
+    if (!telVal.esValido) {
+      setErrorMensaje(telVal.motivo || 'El teléfono ingresado contiene caracteres o formato no válido.');
       return;
     }
+
+    if (clienteEmail.trim()) {
+      const emailVal = validarEmail(clienteEmail);
+      if (!emailVal.esValido) {
+        setErrorMensaje(emailVal.motivo || 'El correo electrónico no es válido.');
+        return;
+      }
+    }
+
     if (!hora) {
       setErrorMensaje('Por favor selecciona un horario disponible para el turno.');
       return;
@@ -444,14 +458,17 @@ export const IndividualBookingForm: React.FC<IndividualBookingFormProps> = ({
 
           <div className="p-4 rounded-xl bg-[#FFFFFF] border border-[#DFCBB5] flex flex-col sm:flex-row items-center justify-between gap-3">
             <div>
-              <span className="text-xs font-bold text-[#221A14] block">
-                ¿Deseas confirmar vía WhatsApp oficial?
-              </span>
-              <span className="text-[11px] text-[#6F5A4B]">
-                Envía tus detalles con 1 toque a nuestra línea {WHATSAPP_BARBERIA_DISPLAY}
+              <div className="flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-[#15803D] inline-block animate-pulse" />
+                <span className="text-xs font-bold text-[#221A14]">
+                  Notificación automática WhatsApp activada
+                </span>
+              </div>
+              <span className="text-[11px] text-[#6F5A4B] block mt-0.5">
+                Turno notificado a la línea oficial {WHATSAPP_BARBERIA_DISPLAY}
               </span>
             </div>
-            <WhatsAppConfirmButton cita={citaCreada} className="w-full sm:w-auto" />
+            <WhatsAppConfirmButton cita={citaCreada} autoNotificar={true} className="w-full sm:w-auto" />
           </div>
 
           <button
@@ -471,35 +488,107 @@ export const IndividualBookingForm: React.FC<IndividualBookingFormProps> = ({
   }
 
   return (
-    <div id="booking-section-container" className="rounded-2xl bg-[#FFF8F5] border border-[#DFCBB5] p-4 sm:p-6 shadow-md relative overflow-hidden font-mono text-xs text-[#221A14]">
+    <div id="booking-section-container" className="rounded-2xl bg-[#FFF8F5] border border-[#DFCBB5] p-3 sm:p-6 shadow-md relative overflow-hidden font-mono text-xs text-[#221A14]">
       <BarberPoleRibbon className="h-1 absolute top-0 left-0 right-0" />
 
       {/* HEADER CON NAVEGADOR DE SECCIONES / PASOS */}
-      <div className="border-b border-[#DFCBB5] pb-4 mb-5 pt-1">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
+      <div className="border-b border-[#DFCBB5] pb-3 sm:pb-4 mb-4 sm:mb-5 pt-1">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 sm:gap-2 mb-3 sm:mb-4">
           <div>
-            <div className="flex items-center gap-2">
-              <VintageCrownIcon className="w-5 h-5 text-[#7C571C]" />
-              <h2 className="font-serif text-base sm:text-lg font-bold text-[#221A14] uppercase tracking-wide">
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              <VintageCrownIcon className="w-4 h-4 sm:w-5 sm:h-5 text-[#7C571C]" />
+              <h2 className="font-serif text-sm sm:text-lg font-bold text-[#221A14] uppercase tracking-wide">
                 Reserva de Turno Individual
               </h2>
             </div>
-            <p className="text-[11px] text-[#6F5A4B] font-mono mt-0.5">
-              Experiencia pantalla por pantalla (1 a la vez): avanza paso a paso hasta asegurar tu sillón real
+            <p className="text-[10px] sm:text-[11px] text-[#6F5A4B] font-mono mt-0.5 hidden sm:block">
+              Experiencia pantalla por pantalla: avanza paso a paso hasta asegurar tu sillón real
             </p>
           </div>
 
           <div className="flex items-center gap-1.5 self-start sm:self-auto bg-[#FBEBE1] px-2.5 py-1 rounded-full border border-[#DFCBB5]">
-            <span className="text-[10px] text-[#6F5A4B] font-bold uppercase">Paso {pasoActual} de 5</span>
+            <span className="text-[9px] sm:text-[10px] text-[#6F5A4B] font-bold uppercase">Paso {pasoActual} de 5</span>
             <span className="w-1.5 h-1.5 rounded-full bg-[#7C571C]" />
-            <span className="text-[10px] text-[#7C571C] font-bold">
-              {pasoActual === 1 ? 'Sede' : pasoActual === 2 ? 'Servicio' : pasoActual === 3 ? 'Maestro Barbero' : pasoActual === 4 ? 'Fecha & Hora' : 'Datos & Confirmación'}
+            <span className="text-[9px] sm:text-[10px] text-[#7C571C] font-bold">
+              {pasoActual === 1 ? 'Sede' : pasoActual === 2 ? 'Servicio' : pasoActual === 3 ? 'Barbero' : pasoActual === 4 ? 'Fecha & Hora' : 'Confirmar'}
             </span>
           </div>
         </div>
 
-        {/* Barra de Pasos / Wizard Stepper (Completamente Responsive - 5 Pantallas) */}
-        <div className="grid grid-cols-5 gap-1 sm:gap-2">
+        {/* ========================================================================= */}
+        {/* NAVEGADOR DE PASOS / STEPPER OPTIMIZADO PARA MÓVIL (PANTALLAS < SM)       */}
+        {/* ========================================================================= */}
+        <div className="sm:hidden mb-1">
+          <div className="flex items-center justify-between relative px-2 py-1">
+            {/* Línea conectora de fondo */}
+            <div className="absolute top-1/2 left-6 right-6 -translate-y-1/2 h-1 bg-[#DFCBB5] rounded-full" />
+            {/* Línea de progreso activa */}
+            <div 
+              className="absolute top-1/2 left-6 -translate-y-1/2 h-1 bg-[#7C571C] rounded-full transition-all duration-300"
+              style={{ width: `${((pasoActual - 1) / 4) * 80}%` }}
+            />
+
+            {[
+              { num: 1 as BookingStep, shortLabel: 'Sede' },
+              { num: 2 as BookingStep, shortLabel: 'Servicio' },
+              { num: 3 as BookingStep, shortLabel: 'Barbero' },
+              { num: 4 as BookingStep, shortLabel: 'Horario' },
+              { num: 5 as BookingStep, shortLabel: 'Datos' },
+            ].map(step => {
+              const isActive = pasoActual === step.num;
+              const isDone = pasoActual > step.num;
+              const canClick = step.num < pasoActual ||
+                (step.num === 2 && sucursalId) ||
+                (step.num === 3 && sucursalId && servicioId) ||
+                (step.num === 4 && sucursalId && servicioId) ||
+                (step.num === 5 && sucursalId && servicioId && hora);
+
+              return (
+                <button
+                  key={step.num}
+                  type="button"
+                  onClick={() => {
+                    if (canClick) {
+                      setPasoActual(step.num);
+                      scrollToSectionTop();
+                    }
+                  }}
+                  disabled={!canClick}
+                  className={`relative z-10 flex flex-col items-center gap-1 cursor-pointer transition-all active:scale-90 ${
+                    !canClick ? 'cursor-not-allowed opacity-60' : ''
+                  }`}
+                  aria-label={`Ir al paso ${step.num}: ${step.shortLabel}`}
+                >
+                  <div
+                    className={`w-7 h-7 rounded-full flex items-center justify-center font-bold text-xs transition-all shadow-xs ${
+                      isActive
+                        ? 'bg-[#7C571C] text-[#FAF6EE] ring-3 ring-[#FBEBE1] ring-offset-1 scale-110 font-black'
+                        : isDone
+                        ? 'bg-[#15803D] text-[#FFFFFF]'
+                        : 'bg-[#FFFFFF] text-[#6F5A4B] border border-[#DFCBB5]'
+                    }`}
+                  >
+                    {isDone ? (
+                      <CheckIcon className="w-3.5 h-3.5" />
+                    ) : (
+                      <span>{step.num}</span>
+                    )}
+                  </div>
+                  <span className={`text-[9px] font-mono leading-none tracking-tight font-bold ${
+                    isActive ? 'text-[#7C571C]' : isDone ? 'text-[#15803D]' : 'text-[#8A796D]'
+                  }`}>
+                    {step.shortLabel}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* ========================================================================= */}
+        {/* NAVEGADOR DE PASOS PARA ESCRITORIO / TABLET (SM EN ADELANTE)              */}
+        {/* ========================================================================= */}
+        <div className="hidden sm:grid sm:grid-cols-5 gap-2">
           {[
             { num: 1 as BookingStep, label: 'Sede', icon: Building2 },
             { num: 2 as BookingStep, label: 'Servicio', icon: VintageScissorsIcon },
@@ -534,7 +623,7 @@ export const IndividualBookingForm: React.FC<IndividualBookingFormProps> = ({
                     scrollToSectionTop();
                   }
                 }}
-                className={`py-2 px-1 sm:px-2 rounded-xl border text-center transition-all flex flex-col items-center justify-center cursor-pointer min-h-[50px] relative ${
+                className={`py-2 px-2 rounded-xl border text-center transition-all flex flex-col items-center justify-center cursor-pointer min-h-[50px] relative ${
                   isActive
                     ? 'bg-[#7C571C] text-[#FAF6EE] border-[#7C571C] shadow-sm ring-1 ring-[#7C571C]'
                     : isDone
@@ -542,7 +631,7 @@ export const IndividualBookingForm: React.FC<IndividualBookingFormProps> = ({
                     : 'bg-[#FFFFFF] text-[#8A796D] border-[#DFCBB5]/70 opacity-70'
                 }`}
               >
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-1.5">
                   {isDone ? (
                     <CheckIcon className="w-3.5 h-3.5 text-[#15803D]" />
                   ) : (
@@ -550,7 +639,7 @@ export const IndividualBookingForm: React.FC<IndividualBookingFormProps> = ({
                       {step.num}
                     </span>
                   )}
-                  <span className="text-[10px] sm:text-xs font-bold uppercase truncate">
+                  <span className="text-xs font-bold uppercase truncate">
                     {step.label}
                   </span>
                 </div>
@@ -581,29 +670,29 @@ export const IndividualBookingForm: React.FC<IndividualBookingFormProps> = ({
       {/* PANTALLA 1: SELECCIÓN DE SEDE (1 A LA VEZ) */}
       {/* ========================================================================= */}
       {pasoActual === 1 && (
-        <div className="space-y-5 animate-in fade-in duration-200">
+        <div className="space-y-4 sm:space-y-5 animate-in fade-in duration-200">
           <div>
             <div className="flex items-center justify-between mb-1">
-              <label className="text-xs font-mono font-bold uppercase tracking-wider text-[#7C571C] flex items-center gap-1.5">
-                <Building2 className="w-4 h-4 text-[#7C571C]" />
-                <span>PANTALLA 1 // SELECCIONA LA SEDE DE LA BARBERÍA</span>
+              <label className="text-[11px] sm:text-xs font-mono font-bold uppercase tracking-wider text-[#7C571C] flex items-center gap-1.5">
+                <Building2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#7C571C]" />
+                <span>PANTALLA 1 // SELECCIONA LA SEDE</span>
               </label>
-              <span className="text-[10px] text-[#6F5A4B] font-mono lowercase">
-                ({sucursalesCasaDelRey.length} sedes en Bogotá)
+              <span className="text-[9px] sm:text-[10px] text-[#6F5A4B] font-mono lowercase">
+                ({sucursalesCasaDelRey.length} sedes Bogotá)
               </span>
             </div>
-            <p className="text-[11px] text-[#6F5A4B] mb-3">
-              Toca la sede de tu preferencia. Al seleccionarla, pasarás inmediatamente a la siguiente pantalla para elegir tu servicio.
+            <p className="text-[10px] sm:text-[11px] text-[#6F5A4B] mb-2.5 sm:mb-3">
+              Toca la sede de tu preferencia para avanzar a la carta de servicios.
             </p>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 sm:gap-3">
               {sucursalesCasaDelRey.map(s => {
                 const isSelected = sucursalId === s.id;
                 return (
                   <div
                     key={s.id}
                     onClick={() => handleSeleccionarSede(s.id)}
-                    className={`p-4 rounded-xl border cursor-pointer transition-all flex flex-col justify-between relative active:scale-98 min-h-[105px] ${
+                    className={`p-3.5 sm:p-4 rounded-xl border cursor-pointer transition-all flex flex-col justify-between relative active:scale-[0.99] min-h-[100px] sm:min-h-[105px] ${
                       isSelected
                         ? 'bg-[#FBEBE1] border-[#7C571C] text-[#221A14] shadow-md ring-2 ring-[#7C571C]'
                         : 'bg-[#FFFFFF] border-[#DFCBB5] hover:border-[#7C571C] text-[#6F5A4B] hover:shadow-sm'
@@ -615,8 +704,9 @@ export const IndividualBookingForm: React.FC<IndividualBookingFormProps> = ({
                           {s.nombre}
                         </span>
                         {isSelected ? (
-                          <span className="px-2 py-0.5 rounded-full bg-[#15803D] text-[#FAF6EE] text-[9px] font-bold shrink-0">
-                            Elegida
+                          <span className="px-2 py-0.5 rounded-full bg-[#15803D] text-[#FAF6EE] text-[9px] font-bold shrink-0 flex items-center gap-1">
+                            <CheckIcon className="w-2.5 h-2.5" />
+                            <span>Elegida</span>
                           </span>
                         ) : (
                           <span className="px-2 py-0.5 rounded-full bg-[#FBEBE1] text-[#7C571C] text-[9px] font-mono font-bold shrink-0 border border-[#DFCBB5]">
@@ -639,11 +729,11 @@ export const IndividualBookingForm: React.FC<IndividualBookingFormProps> = ({
           </div>
 
           {/* Botón de Siguiente para la Pantalla 1 */}
-          <div className="pt-3 border-t border-[#DFCBB5] flex items-center justify-between gap-3">
+          <div className="pt-3 border-t border-[#DFCBB5] flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-3">
             <div>
-              <span className="text-[10px] text-[#6F5A4B] block">Sede elegida:</span>
+              <span className="text-[9px] sm:text-[10px] text-[#6F5A4B] block font-mono">Sede elegida:</span>
               <span className="font-bold text-[#221A14] text-xs">
-                {sucursalSeleccionada?.nombre || 'Ninguna'}
+                {sucursalSeleccionada?.nombre || 'Selecciona una sede arriba'}
               </span>
             </div>
 
@@ -651,7 +741,7 @@ export const IndividualBookingForm: React.FC<IndividualBookingFormProps> = ({
               type="button"
               onClick={() => handleAvanzarPaso(2)}
               disabled={!sucursalId}
-              className="px-5 py-2.5 rounded-xl bg-[#7C571C] hover:bg-[#684815] text-[#FAF6EE] font-bold text-xs shadow-sm transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-40 active:scale-95"
+              className="w-full sm:w-auto px-5 py-3 sm:py-2.5 rounded-xl bg-[#7C571C] hover:bg-[#684815] text-[#FAF6EE] font-bold text-xs shadow-sm transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-40 active:scale-95 min-h-[44px]"
             >
               <span>Continuar a Servicios</span>
               <ChevronRight className="w-4 h-4" />
@@ -664,14 +754,14 @@ export const IndividualBookingForm: React.FC<IndividualBookingFormProps> = ({
       {/* PANTALLA 2: SELECCIÓN DE SERVICIO (1 A LA VEZ) */}
       {/* ========================================================================= */}
       {pasoActual === 2 && (
-        <div className="space-y-5 animate-in fade-in duration-200">
+        <div className="space-y-4 sm:space-y-5 animate-in fade-in duration-200">
           {/* Banner de Sede Activa */}
           <div className="p-2.5 px-3 rounded-xl bg-[#FFFFFF] border border-[#DFCBB5] flex items-center justify-between gap-2 shadow-2xs">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 min-w-0">
               <Building2 className="w-4 h-4 text-[#7C571C] shrink-0" />
-              <div>
+              <div className="truncate">
                 <span className="text-[9px] text-[#6F5A4B] font-mono uppercase block">Sede de atención:</span>
-                <span className="text-xs font-serif font-bold text-[#221A14]">{sucursalSeleccionada?.nombre}</span>
+                <span className="text-xs font-serif font-bold text-[#221A14] truncate block">{sucursalSeleccionada?.nombre}</span>
               </div>
             </div>
             <button
@@ -680,7 +770,7 @@ export const IndividualBookingForm: React.FC<IndividualBookingFormProps> = ({
                 setPasoActual(1);
                 scrollToSectionTop();
               }}
-              className="text-[10px] font-mono font-bold text-[#7C571C] hover:underline px-2.5 py-1 rounded bg-[#FBEBE1] border border-[#DFCBB5] cursor-pointer"
+              className="text-[10px] font-mono font-bold text-[#7C571C] hover:underline px-2.5 py-1 rounded bg-[#FBEBE1] border border-[#DFCBB5] cursor-pointer shrink-0"
             >
               Cambiar Sede
             </button>
@@ -690,11 +780,11 @@ export const IndividualBookingForm: React.FC<IndividualBookingFormProps> = ({
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2.5">
               <label className="text-[10px] font-mono font-bold uppercase tracking-wider text-[#7C571C] flex items-center gap-1.5">
                 <VintageScissorsIcon className="w-3.5 h-3.5 text-[#7C571C]" />
-                <span>PANTALLA 2 // SELECCIONA EL SERVICIO DESEADO</span>
+                <span>PANTALLA 2 // SELECCIONA EL SERVICIO</span>
               </label>
 
               {/* Filtros por Categoría */}
-              <div className="flex items-center gap-1 overflow-x-auto no-scrollbar py-0.5">
+              <div className="flex items-center gap-1 overflow-x-auto no-scrollbar py-0.5 touch-pan-x">
                 {[
                   { id: 'todos', label: 'Todos' },
                   { id: 'cortes', label: 'Cortes' },
@@ -705,7 +795,7 @@ export const IndividualBookingForm: React.FC<IndividualBookingFormProps> = ({
                     key={cat.id}
                     type="button"
                     onClick={() => setCategoriaServicio(cat.id)}
-                    className={`px-2.5 py-1 rounded-full text-[10px] font-bold transition-all cursor-pointer whitespace-nowrap ${
+                    className={`px-3 py-1 rounded-full text-[10px] font-bold transition-all cursor-pointer whitespace-nowrap shrink-0 ${
                       categoriaServicio === cat.id
                         ? 'bg-[#7C571C] text-[#FAF6EE] shadow-2xs'
                         : 'bg-[#FFFFFF] text-[#6F5A4B] border border-[#DFCBB5] hover:bg-[#FBEBE1]'
@@ -717,7 +807,7 @@ export const IndividualBookingForm: React.FC<IndividualBookingFormProps> = ({
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 max-h-[440px] overflow-y-auto pr-1">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 max-h-[50vh] sm:max-h-[440px] overflow-y-auto pr-1">
               {serviciosFiltrados.map(s => {
                 const isSelected = Number(servicioId) === s.id;
                 const esCombo = s.nombre.toLowerCase().includes('combo');
@@ -760,11 +850,11 @@ export const IndividualBookingForm: React.FC<IndividualBookingFormProps> = ({
           </div>
 
           {/* Navegación Pantalla 2 */}
-          <div className="pt-3 border-t border-[#DFCBB5] flex items-center justify-between gap-3">
+          <div className="pt-3 border-t border-[#DFCBB5] grid grid-cols-2 sm:flex sm:items-center sm:justify-between gap-2 sm:gap-3">
             <button
               type="button"
               onClick={handleRetrocederPaso}
-              className="px-4 py-2.5 rounded-xl bg-[#FFFFFF] hover:bg-[#FBEBE1] text-[#6F5A4B] border border-[#DFCBB5] font-bold text-xs transition-all flex items-center gap-1 cursor-pointer active:scale-95"
+              className="w-full sm:w-auto px-4 py-3 sm:py-2.5 rounded-xl bg-[#FFFFFF] hover:bg-[#FBEBE1] text-[#6F5A4B] border border-[#DFCBB5] font-bold text-xs transition-all flex items-center justify-center gap-1 cursor-pointer active:scale-95 min-h-[44px]"
             >
               <ChevronLeft className="w-4 h-4" />
               <span>Atrás (Sede)</span>
@@ -774,7 +864,7 @@ export const IndividualBookingForm: React.FC<IndividualBookingFormProps> = ({
               type="button"
               onClick={() => handleAvanzarPaso(3)}
               disabled={!servicioId}
-              className="px-5 py-2.5 rounded-xl bg-[#7C571C] hover:bg-[#684815] text-[#FAF6EE] font-bold text-xs shadow-sm transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-40 active:scale-95"
+              className="w-full sm:w-auto px-5 py-3 sm:py-2.5 rounded-xl bg-[#7C571C] hover:bg-[#684815] text-[#FAF6EE] font-bold text-xs shadow-sm transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-40 active:scale-95 min-h-[44px]"
             >
               <span>Continuar al Barbero</span>
               <ChevronRight className="w-4 h-4" />
@@ -787,13 +877,13 @@ export const IndividualBookingForm: React.FC<IndividualBookingFormProps> = ({
       {/* PANTALLA 3: ELECCIÓN DEL MAESTRO BARBERO */}
       {/* ========================================================================= */}
       {pasoActual === 3 && (
-        <div className="space-y-5 animate-in fade-in duration-200">
+        <div className="space-y-4 sm:space-y-5 animate-in fade-in duration-200">
           {/* Banner de Resumen Previo */}
           <div className="p-2.5 px-3 rounded-xl bg-[#FFFFFF] border border-[#DFCBB5] flex items-center justify-between gap-2 shadow-2xs">
-            <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-xs">
-              <span className="font-serif font-bold text-[#221A14]">📍 {sucursalSeleccionada?.nombre}</span>
-              <span className="text-[#DFCBB5]">&bull;</span>
-              <span className="text-[#7C571C] font-bold">✂️ {servicioSeleccionado?.nombre}</span>
+            <div className="flex flex-wrap items-center gap-1.5 sm:gap-3 text-xs min-w-0">
+              <span className="font-serif font-bold text-[#221A14] truncate">📍 {sucursalSeleccionada?.nombre}</span>
+              <span className="text-[#DFCBB5] hidden sm:inline">&bull;</span>
+              <span className="text-[#7C571C] font-bold truncate">✂️ {servicioSeleccionado?.nombre}</span>
             </div>
             <button
               type="button"
@@ -803,24 +893,24 @@ export const IndividualBookingForm: React.FC<IndividualBookingFormProps> = ({
               }}
               className="text-[10px] font-mono font-bold text-[#7C571C] hover:underline px-2.5 py-1 rounded bg-[#FBEBE1] border border-[#DFCBB5] cursor-pointer shrink-0"
             >
-              Cambiar Servicio
+              Cambiar
             </button>
           </div>
 
           <div>
-            <label className="block text-[10px] font-mono font-bold uppercase tracking-wider text-[#7C571C] mb-2 flex items-center gap-1.5">
+            <label className="block text-[10px] font-mono font-bold uppercase tracking-wider text-[#7C571C] mb-1.5 flex items-center gap-1.5">
               <StraightRazorIcon className="w-3.5 h-3.5 text-[#7C571C]" />
-              <span>PANTALLA 3 // SELECCIONA A TU MAESTRO BARBERO DE PREFERENCIA</span>
+              <span>PANTALLA 3 // SELECCIONA TU BARBERO</span>
             </label>
-            <p className="text-[11px] text-[#6F5A4B] mb-3">
-              Puedes elegir un maestro específico de la sede o dejar la asignación al primer sillón disponible para mayor rapidez.
+            <p className="text-[10px] sm:text-[11px] text-[#6F5A4B] mb-3">
+              Elige un maestro de la sede o deja la asignación al primer sillón libre.
             </p>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 sm:gap-3">
               {/* Opción Cualquier Maestro */}
               <div
                 onClick={() => setBarberoId('')}
-                className={`p-3.5 rounded-xl border cursor-pointer transition-all flex items-center gap-3 active:scale-98 min-h-[64px] ${
+                className={`p-3 sm:p-3.5 rounded-xl border cursor-pointer transition-all flex items-center gap-3 active:scale-98 min-h-[64px] ${
                   barberoId === ''
                     ? 'bg-[#FBEBE1] border-[#7C571C] text-[#221A14] ring-1.5 ring-[#7C571C] shadow-xs'
                     : 'bg-[#FFFFFF] border-[#DFCBB5] hover:border-[#7C571C] text-[#6F5A4B] shadow-2xs'
@@ -842,7 +932,7 @@ export const IndividualBookingForm: React.FC<IndividualBookingFormProps> = ({
                   <div
                     key={b.id}
                     onClick={() => setBarberoId(b.id)}
-                    className={`p-3.5 rounded-xl border cursor-pointer transition-all flex items-center gap-3 active:scale-98 min-h-[64px] ${
+                    className={`p-3 sm:p-3.5 rounded-xl border cursor-pointer transition-all flex items-center gap-3 active:scale-98 min-h-[64px] ${
                       isSelected
                         ? 'bg-[#FBEBE1] border-[#7C571C] text-[#221A14] ring-1.5 ring-[#7C571C] shadow-xs'
                         : 'bg-[#FFFFFF] border-[#DFCBB5] hover:border-[#7C571C] text-[#6F5A4B] shadow-2xs'
@@ -873,22 +963,22 @@ export const IndividualBookingForm: React.FC<IndividualBookingFormProps> = ({
           </div>
 
           {/* Navegación Pantalla 3 */}
-          <div className="pt-3 border-t border-[#DFCBB5] flex items-center justify-between gap-3">
+          <div className="pt-3 border-t border-[#DFCBB5] grid grid-cols-2 sm:flex sm:items-center sm:justify-between gap-2 sm:gap-3">
             <button
               type="button"
               onClick={handleRetrocederPaso}
-              className="px-4 py-2.5 rounded-xl bg-[#FFFFFF] hover:bg-[#FBEBE1] text-[#6F5A4B] border border-[#DFCBB5] font-bold text-xs transition-all flex items-center gap-1 cursor-pointer active:scale-95"
+              className="w-full sm:w-auto px-4 py-3 sm:py-2.5 rounded-xl bg-[#FFFFFF] hover:bg-[#FBEBE1] text-[#6F5A4B] border border-[#DFCBB5] font-bold text-xs transition-all flex items-center justify-center gap-1 cursor-pointer active:scale-95 min-h-[44px]"
             >
               <ChevronLeft className="w-4 h-4" />
-              <span>Atrás (Servicio)</span>
+              <span>Atrás</span>
             </button>
 
             <button
               type="button"
               onClick={() => handleAvanzarPaso(4)}
-              className="px-5 py-2.5 rounded-xl bg-[#7C571C] hover:bg-[#684815] text-[#FAF6EE] font-bold text-xs shadow-sm transition-all flex items-center gap-1.5 cursor-pointer active:scale-95"
+              className="w-full sm:w-auto px-5 py-3 sm:py-2.5 rounded-xl bg-[#7C571C] hover:bg-[#684815] text-[#FAF6EE] font-bold text-xs shadow-sm transition-all flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 min-h-[44px]"
             >
-              <span>Elegir Fecha & Hora</span>
+              <span>Elegir Horario</span>
               <ChevronRight className="w-4 h-4" />
             </button>
           </div>
@@ -899,15 +989,15 @@ export const IndividualBookingForm: React.FC<IndividualBookingFormProps> = ({
       {/* PANTALLA 4: FECHA Y HORA DEL TURNO */}
       {/* ========================================================================= */}
       {pasoActual === 4 && (
-        <div className="space-y-5 animate-in fade-in duration-200">
+        <div className="space-y-4 sm:space-y-5 animate-in fade-in duration-200">
           {/* Banner de Resumen Previo */}
           <div className="p-2.5 px-3 rounded-xl bg-[#FFFFFF] border border-[#DFCBB5] flex items-center justify-between gap-2 shadow-2xs">
-            <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-xs">
-              <span className="font-serif font-bold text-[#221A14]">📍 {sucursalSeleccionada?.nombre}</span>
-              <span className="text-[#DFCBB5]">&bull;</span>
-              <span className="text-[#7C571C] font-bold">✂️ {servicioSeleccionado?.nombre}</span>
-              <span className="text-[#DFCBB5]">&bull;</span>
-              <span className="text-[#6F5A4B]">💈 {barberoSeleccionado?.nombre || 'Cualquier Barbero'}</span>
+            <div className="flex flex-wrap items-center gap-1.5 sm:gap-3 text-xs min-w-0">
+              <span className="font-serif font-bold text-[#221A14] truncate">📍 {sucursalSeleccionada?.nombre}</span>
+              <span className="text-[#DFCBB5] hidden sm:inline">&bull;</span>
+              <span className="text-[#7C571C] font-bold truncate">✂️ {servicioSeleccionado?.nombre}</span>
+              <span className="text-[#DFCBB5] hidden sm:inline">&bull;</span>
+              <span className="text-[#6F5A4B] truncate">💈 {barberoSeleccionado?.nombre || 'Cualquier Barbero'}</span>
             </div>
             <button
               type="button"
@@ -917,17 +1007,17 @@ export const IndividualBookingForm: React.FC<IndividualBookingFormProps> = ({
               }}
               className="text-[10px] font-mono font-bold text-[#7C571C] hover:underline px-2.5 py-1 rounded bg-[#FBEBE1] border border-[#DFCBB5] cursor-pointer shrink-0"
             >
-              Cambiar Barbero
+              Cambiar
             </button>
           </div>
 
           {/* Banner de Sincronización con Reloj Colombia */}
-          <div className="p-3 rounded-xl bg-[#FFFFFF] border border-[#DFCBB5] flex flex-col sm:flex-row sm:items-center justify-between gap-2 shadow-2xs">
+          <div className="p-2.5 sm:p-3 rounded-xl bg-[#FFFFFF] border border-[#DFCBB5] flex flex-col sm:flex-row sm:items-center justify-between gap-2 shadow-2xs">
             <div className="flex items-center gap-2">
               <Clock className="w-4 h-4 text-[#7C571C] animate-pulse shrink-0" />
               <div>
                 <div className="text-[11px] font-mono text-[#221A14] font-bold">
-                  Horario Oficial Bogotá, Colombia (UTC-5)
+                  Horario Oficial Bogotá (UTC-5)
                 </div>
                 <div className="text-[9px] font-mono text-[#6F5A4B]">
                   {colClock.fechaTexto}
@@ -942,7 +1032,7 @@ export const IndividualBookingForm: React.FC<IndividualBookingFormProps> = ({
             </div>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-5">
             {/* Selector de Fecha */}
             <div className="lg:col-span-5 space-y-2">
               <VintageDatePicker
@@ -954,7 +1044,7 @@ export const IndividualBookingForm: React.FC<IndividualBookingFormProps> = ({
               />
               <div className="text-[10px] text-[#6F5A4B] font-mono bg-[#FFFFFF] p-2.5 rounded-xl border border-[#DFCBB5] flex items-center gap-2 shadow-2xs">
                 <Clock className="w-3.5 h-3.5 text-[#7C571C] shrink-0" />
-                <span>Horario habitual: Lunes a Domingo de 9:00 AM a 7:00 PM</span>
+                <span>Horario: Lun a Dom 9:00 AM - 7:00 PM</span>
               </div>
             </div>
 
@@ -962,7 +1052,7 @@ export const IndividualBookingForm: React.FC<IndividualBookingFormProps> = ({
             <div className="lg:col-span-7">
               <div className="flex items-center justify-between mb-1.5">
                 <label className="block text-[10px] font-mono font-bold uppercase tracking-wider text-[#7C571C]">
-                  PANTALLA 4 // HORARIOS DISPONIBLES (9:00 AM – 7:00 PM)
+                  PANTALLA 4 // TURNOS DISPONIBLES
                 </label>
                 {barberoSeleccionado && (
                   <span className="text-[9px] font-mono text-[#7C571C] font-bold">
@@ -980,11 +1070,11 @@ export const IndividualBookingForm: React.FC<IndividualBookingFormProps> = ({
                 <div className="h-32 flex flex-col items-center justify-center text-[11px] font-mono text-[#6F5A4B] bg-[#FFFFFF] rounded-xl border border-[#DFCBB5] shadow-2xs p-4 text-center">
                   <Ban className="w-5 h-5 text-[#BA1A1A] mb-1" />
                   <span className="font-bold text-[#BA1A1A]">No hay turnos disponibles para esta fecha.</span>
-                  <span className="text-[10px] text-[#6F5A4B] mt-1">Por favor selecciona otro día en el calendario de la izquierda.</span>
+                  <span className="text-[10px] text-[#6F5A4B] mt-1">Por favor selecciona otro día en el calendario.</span>
                 </div>
               ) : (
                 <div>
-                  <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 max-h-56 overflow-y-auto p-2.5 bg-[#FFFFFF] rounded-xl border border-[#DFCBB5] scrollbar-thin shadow-2xs">
+                  <div className="grid grid-cols-3 sm:grid-cols-4 gap-1.5 sm:gap-2 max-h-56 overflow-y-auto p-2 sm:p-2.5 bg-[#FFFFFF] rounded-xl border border-[#DFCBB5] scrollbar-thin shadow-2xs">
                     {(slotsDisponibilidad.length > 0 ? slotsDisponibilidad : horariosDisponibles.map(h => ({
                       hora24: h,
                       hora12: h,
@@ -1000,7 +1090,7 @@ export const IndividualBookingForm: React.FC<IndividualBookingFormProps> = ({
                             type="button"
                             key={slot.hora12}
                             disabled
-                            className="py-2.5 px-1.5 rounded-xl text-[10px] font-mono bg-[#F8F5F1] text-[#A8988B] border border-[#E8E0D7] cursor-not-allowed flex flex-col items-center justify-center opacity-60 select-none min-h-[44px]"
+                            className="py-2.5 px-1 rounded-xl text-[10px] font-mono bg-[#F8F5F1] text-[#A8988B] border border-[#E8E0D7] cursor-not-allowed flex flex-col items-center justify-center opacity-60 select-none min-h-[46px]"
                           >
                             <span className="line-through">{slot.hora12}</span>
                             <span className="text-[8px] uppercase tracking-tight text-[#8A796D] font-bold">
@@ -1016,7 +1106,7 @@ export const IndividualBookingForm: React.FC<IndividualBookingFormProps> = ({
                             type="button"
                             key={slot.hora12}
                             disabled
-                            className="py-2.5 px-1.5 rounded-xl text-[10px] font-mono bg-[#FFDAD6]/50 text-[#BA1A1A] border border-[#BA1A1A]/30 cursor-not-allowed flex flex-col items-center justify-center opacity-70 select-none min-h-[44px]"
+                            className="py-2.5 px-1 rounded-xl text-[10px] font-mono bg-[#FFDAD6]/50 text-[#BA1A1A] border border-[#BA1A1A]/30 cursor-not-allowed flex flex-col items-center justify-center opacity-70 select-none min-h-[46px]"
                           >
                             <span className="line-through">{slot.hora12}</span>
                             <span className="text-[8px] uppercase tracking-tight text-[#BA1A1A] font-bold">
@@ -1032,14 +1122,14 @@ export const IndividualBookingForm: React.FC<IndividualBookingFormProps> = ({
                           key={slot.hora12}
                           id={`btn-hora-${slot.hora12.replace(/[\s:]/g, '')}`}
                           onClick={() => setHora(slot.hora12)}
-                          className={`py-2.5 px-1.5 rounded-xl text-[10px] font-mono font-bold transition-all flex flex-col items-center justify-center cursor-pointer min-h-[44px] active:scale-95 ${
+                          className={`py-2.5 px-1 rounded-xl text-[10px] sm:text-xs font-mono font-bold transition-all flex flex-col items-center justify-center cursor-pointer min-h-[46px] active:scale-95 ${
                             isSelected
                               ? 'bg-[#7C571C] text-[#FAF6EE] shadow-sm font-black ring-1.5 ring-[#7C571C] scale-[1.02]'
                               : 'bg-[#FFFFFF] hover:bg-[#FBEBE1] text-[#221A14] border border-[#DFCBB5] hover:border-[#7C571C]'
                           }`}
                         >
                           <span>{slot.hora12}</span>
-                          <span className={`text-[8px] uppercase tracking-tight mt-0.5 ${isSelected ? 'text-[#FAF6EE]' : 'text-[#15803D]'}`}>
+                          <span className={`text-[8px] uppercase tracking-tight mt-0.5 font-bold ${isSelected ? 'text-[#FAF6EE]' : 'text-[#15803D]'}`}>
                             Libre
                           </span>
                         </button>
@@ -1068,23 +1158,23 @@ export const IndividualBookingForm: React.FC<IndividualBookingFormProps> = ({
           </div>
 
           {/* Navegación Pantalla 4 */}
-          <div className="pt-3 border-t border-[#DFCBB5] flex items-center justify-between gap-3">
+          <div className="pt-3 border-t border-[#DFCBB5] grid grid-cols-2 sm:flex sm:items-center sm:justify-between gap-2 sm:gap-3">
             <button
               type="button"
               onClick={handleRetrocederPaso}
-              className="px-4 py-2.5 rounded-xl bg-[#FFFFFF] hover:bg-[#FBEBE1] text-[#6F5A4B] border border-[#DFCBB5] font-bold text-xs transition-all flex items-center gap-1 cursor-pointer active:scale-95"
+              className="w-full sm:w-auto px-4 py-3 sm:py-2.5 rounded-xl bg-[#FFFFFF] hover:bg-[#FBEBE1] text-[#6F5A4B] border border-[#DFCBB5] font-bold text-xs transition-all flex items-center justify-center gap-1 cursor-pointer active:scale-95 min-h-[44px]"
             >
               <ChevronLeft className="w-4 h-4" />
-              <span>Atrás (Barbero)</span>
+              <span>Atrás</span>
             </button>
 
             <button
               type="button"
               onClick={() => handleAvanzarPaso(5)}
               disabled={!hora}
-              className="px-5 py-2.5 rounded-xl bg-[#7C571C] hover:bg-[#684815] text-[#FAF6EE] font-bold text-xs shadow-sm transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-40 active:scale-95"
+              className="w-full sm:w-auto px-5 py-3 sm:py-2.5 rounded-xl bg-[#7C571C] hover:bg-[#684815] text-[#FAF6EE] font-bold text-xs shadow-sm transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-40 active:scale-95 min-h-[44px]"
             >
-              <span>Completar mis Datos</span>
+              <span>Mis Datos</span>
               <ChevronRight className="w-4 h-4" />
             </button>
           </div>
@@ -1095,16 +1185,14 @@ export const IndividualBookingForm: React.FC<IndividualBookingFormProps> = ({
       {/* PANTALLA 5: DATOS DEL CABALLERO & CONFIRMACIÓN */}
       {/* ========================================================================= */}
       {pasoActual === 5 && (
-        <form onSubmit={handleSubmit} className="space-y-5 animate-in fade-in duration-200">
+        <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-5 animate-in fade-in duration-200">
           {/* Banner de Resumen Previo */}
           <div className="p-2.5 px-3 rounded-xl bg-[#FFFFFF] border border-[#DFCBB5] flex items-center justify-between gap-2 shadow-2xs">
-            <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-xs">
-              <span className="font-serif font-bold text-[#221A14]">📍 {sucursalSeleccionada?.nombre}</span>
-              <span className="text-[#DFCBB5]">&bull;</span>
-              <span className="text-[#7C571C] font-bold">✂️ {servicioSeleccionado?.nombre}</span>
-              <span className="text-[#DFCBB5]">&bull;</span>
-              <span className="text-[#6F5A4B]">💈 {barberoSeleccionado?.nombre || 'Cualquier Barbero'}</span>
-              <span className="text-[#DFCBB5]">&bull;</span>
+            <div className="flex flex-wrap items-center gap-1.5 sm:gap-3 text-xs min-w-0">
+              <span className="font-serif font-bold text-[#221A14] truncate">📍 {sucursalSeleccionada?.nombre}</span>
+              <span className="text-[#DFCBB5] hidden sm:inline">&bull;</span>
+              <span className="text-[#7C571C] font-bold truncate">✂️ {servicioSeleccionado?.nombre}</span>
+              <span className="text-[#DFCBB5] hidden sm:inline">&bull;</span>
               <span className="text-[#7C571C] font-mono font-bold">📅 {fecha} {hora}</span>
             </div>
             <button
@@ -1115,19 +1203,20 @@ export const IndividualBookingForm: React.FC<IndividualBookingFormProps> = ({
               }}
               className="text-[10px] font-mono font-bold text-[#7C571C] hover:underline px-2.5 py-1 rounded bg-[#FBEBE1] border border-[#DFCBB5] cursor-pointer shrink-0"
             >
-              Cambiar Horario
+              Cambiar
             </button>
           </div>
 
           <div className="flex items-center justify-between">
             <label className="text-[10px] font-mono font-bold uppercase tracking-wider text-[#7C571C] flex items-center gap-1.5">
               <User className="w-3.5 h-3.5 text-[#7C571C]" />
-              <span>PANTALLA 5 // INFORMACIÓN DEL CABALLERO PARA EL TURNO</span>
+              <span>PANTALLA 5 // INFORMACIÓN DEL CABALLERO</span>
             </label>
             {cookieFuncionalActiva && datosCargadosDeCookie && (
               <span className="text-[9px] font-mono text-[#15803D] bg-[#EBF7EE] px-2 py-0.5 rounded-full border border-[#86EFAC] flex items-center gap-1 font-semibold">
                 <Sparkles className="w-2.5 h-2.5" />
-                <span>Autocompletado con Cookies</span>
+                <span className="hidden sm:inline">Autocompletado con Cookies</span>
+                <span className="sm:hidden">Guardado</span>
               </span>
             )}
           </div>
@@ -1147,7 +1236,7 @@ export const IndividualBookingForm: React.FC<IndividualBookingFormProps> = ({
                   placeholder="Ej. Andrés Cepeda"
                   value={clienteNombre}
                   onChange={(e) => setClienteNombre(e.target.value)}
-                  className="w-full bg-[#FFFFFF] border border-[#DFCBB5] rounded-xl py-2.5 pl-9 pr-3 text-xs text-[#221A14] placeholder-[#8A796D] focus:outline-none focus:border-[#7C571C] transition-colors shadow-2xs min-h-[44px]"
+                  className="w-full bg-[#FFFFFF] border border-[#DFCBB5] rounded-xl py-2.5 pl-9 pr-3 text-base sm:text-xs text-[#221A14] placeholder-[#8A796D] focus:outline-none focus:border-[#7C571C] transition-colors shadow-2xs min-h-[46px]"
                   required
                 />
               </div>
@@ -1167,7 +1256,7 @@ export const IndividualBookingForm: React.FC<IndividualBookingFormProps> = ({
                   placeholder="Ej. +57 300 123 4567"
                   value={clienteTelefono}
                   onChange={(e) => setClienteTelefono(e.target.value)}
-                  className="w-full bg-[#FFFFFF] border border-[#DFCBB5] rounded-xl py-2.5 pl-9 pr-3 text-xs text-[#221A14] placeholder-[#8A796D] focus:outline-none focus:border-[#7C571C] transition-colors shadow-2xs min-h-[44px]"
+                  className="w-full bg-[#FFFFFF] border border-[#DFCBB5] rounded-xl py-2.5 pl-9 pr-3 text-base sm:text-xs text-[#221A14] placeholder-[#8A796D] focus:outline-none focus:border-[#7C571C] transition-colors shadow-2xs min-h-[46px]"
                   required
                 />
               </div>
@@ -1192,7 +1281,7 @@ export const IndividualBookingForm: React.FC<IndividualBookingFormProps> = ({
                   placeholder="caballero@ejemplo.com"
                   value={clienteEmail}
                   onChange={(e) => setClienteEmail(e.target.value)}
-                  className="w-full bg-[#FFFFFF] border border-[#DFCBB5] rounded-xl py-2.5 pl-9 pr-3 text-xs text-[#221A14] placeholder-[#8A796D] focus:outline-none focus:border-[#7C571C] transition-colors shadow-2xs min-h-[44px]"
+                  className="w-full bg-[#FFFFFF] border border-[#DFCBB5] rounded-xl py-2.5 pl-9 pr-3 text-base sm:text-xs text-[#221A14] placeholder-[#8A796D] focus:outline-none focus:border-[#7C571C] transition-colors shadow-2xs min-h-[46px]"
                 />
               </div>
             </div>
@@ -1212,10 +1301,10 @@ export const IndividualBookingForm: React.FC<IndividualBookingFormProps> = ({
           </div>
 
           {/* Resumen Completo del Turno a Confirmar */}
-          <div className="bg-[#FFFFFF] border border-[#DFCBB5] rounded-2xl p-4 space-y-2.5 shadow-2xs">
+          <div className="bg-[#FFFFFF] border border-[#DFCBB5] rounded-2xl p-3 sm:p-4 space-y-2.5 shadow-2xs">
             <div className="flex items-center justify-between border-b border-[#DFCBB5] pb-2 text-[10px] text-[#6F5A4B] uppercase font-bold">
               <span>RESUMEN FINAL DE TU CITA:</span>
-              <span className="text-[#7C571C]">BARBERÍA LA CASA DEL REY</span>
+              <span className="text-[#7C571C]">LA CASA DEL REY</span>
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
@@ -1249,15 +1338,15 @@ export const IndividualBookingForm: React.FC<IndividualBookingFormProps> = ({
             </div>
 
             <div className="pt-2 border-t border-[#DFCBB5]/60 flex items-center justify-between text-xs">
-              <span className="text-[#6F5A4B] font-bold uppercase">VALOR A CANCELAR EN SALÓN:</span>
-              <span className="text-base font-bold text-[#7C571C]">
+              <span className="text-[#6F5A4B] font-bold uppercase">VALOR EN SALÓN:</span>
+              <span className="text-sm sm:text-base font-bold text-[#7C571C]">
                 {servicioSeleccionado ? formatPrecio(servicioSeleccionado.precio) : '$ 35.000'}
               </span>
             </div>
           </div>
 
           {/* Habeas Data Checkbox */}
-          <div className="pt-2 flex items-start gap-2.5">
+          <div className="pt-1 flex items-start gap-2.5">
             <input
               id="checkbox-terminos-individual"
               type="checkbox"
@@ -1266,7 +1355,7 @@ export const IndividualBookingForm: React.FC<IndividualBookingFormProps> = ({
               className="mt-0.5 w-4 h-4 rounded border-[#DFCBB5] bg-[#FFFFFF] text-[#7C571C] focus:ring-0 cursor-pointer accent-[#7C571C]"
             />
             <label htmlFor="checkbox-terminos-individual" className="text-[10px] font-mono text-[#6F5A4B] leading-relaxed cursor-pointer select-none">
-              Acepto el tratamiento de datos para la asignación del turno y confirmación por WhatsApp / SMS conforme a la Ley 1581 de 2012.
+              Acepto el tratamiento de datos para la confirmación de la cita conforme a la Ley 1581 de 2012.
             </label>
           </div>
 
@@ -1275,17 +1364,17 @@ export const IndividualBookingForm: React.FC<IndividualBookingFormProps> = ({
             <button
               type="button"
               onClick={handleRetrocederPaso}
-              className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-[#FFFFFF] hover:bg-[#FBEBE1] text-[#6F5A4B] border border-[#DFCBB5] font-bold text-xs transition-all flex items-center justify-center gap-1 cursor-pointer active:scale-95"
+              className="w-full sm:w-auto px-4 py-3 sm:py-2.5 rounded-xl bg-[#FFFFFF] hover:bg-[#FBEBE1] text-[#6F5A4B] border border-[#DFCBB5] font-bold text-xs transition-all flex items-center justify-center gap-1 cursor-pointer active:scale-95 min-h-[44px]"
             >
               <ChevronLeft className="w-4 h-4" />
-              <span>Atrás (Fecha & Hora)</span>
+              <span>Atrás (Horario)</span>
             </button>
 
             <button
               type="submit"
               id="btn-confirmar-reserva-individual"
               disabled={enviando || !hora || !clienteNombre.trim() || !clienteTelefono.trim()}
-              className="w-full sm:w-auto px-7 py-3 rounded-xl bg-[#7C571C] hover:bg-[#684815] text-[#FAF6EE] font-mono font-bold text-xs shadow-md transition-all active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2 tracking-wider cursor-pointer min-h-[46px]"
+              className="w-full sm:w-auto px-7 py-3.5 sm:py-3 rounded-xl bg-[#7C571C] hover:bg-[#684815] text-[#FAF6EE] font-mono font-bold text-xs shadow-md transition-all active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2 tracking-wider cursor-pointer min-h-[48px]"
             >
               {enviando ? (
                 <>

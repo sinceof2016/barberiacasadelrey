@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Usuario } from '../types';
 import { loginUsuario } from '../services/api';
+import { validarTextoSeguro } from '../utils/security';
 import { 
   Lock, 
   Mail, 
@@ -44,6 +45,18 @@ export const LoginModal: React.FC<LoginModalProps> = ({
       return;
     }
 
+    const valEmail = validarTextoSeguro(email, { campo: 'Correo o Usuario', longitudMaxima: 100 });
+    if (!valEmail.esValido) {
+      setError(valEmail.motivo || 'El usuario ingresado contiene comandos o caracteres no permitidos.');
+      return;
+    }
+
+    const valPass = validarTextoSeguro(password, { campo: 'Contraseña', longitudMaxima: 128 });
+    if (!valPass.esValido) {
+      setError(valPass.motivo || 'La contraseña contiene comandos o caracteres sospechosos.');
+      return;
+    }
+
     setCargando(true);
     setError(null);
     setEsBloqueado(false);
@@ -58,9 +71,16 @@ export const LoginModal: React.FC<LoginModalProps> = ({
     } catch (err: any) {
       const msg = err.message || 'Credenciales incorrectas';
       setError(msg);
-      if (msg.includes('bloque') || msg.includes('superado') || msg.includes('límite')) {
-        setEsBloqueado(true);
-      }
+      // Solo marcar como bloqueado si es un bloqueo efectivo por límite de intentos, NO si es aviso de intentos restantes
+      const esBloqueoReal = (
+        err?.bloqueado === true ||
+        msg.includes('ha sido bloquead') ||
+        msg.includes('acceso está bloqueado') ||
+        msg.includes('temporalmente bloquead') ||
+        msg.includes('superado el límite')
+      ) && !msg.includes('quedan');
+
+      setEsBloqueado(esBloqueoReal);
     } finally {
       setCargando(false);
     }
@@ -107,18 +127,22 @@ export const LoginModal: React.FC<LoginModalProps> = ({
         <form onSubmit={handleSubmit} className="mt-5 space-y-4">
           <div>
             <label className="text-[10px] text-[#4F4539] block uppercase font-bold mb-1">
-              Correo Electrónico:
+              Usuario o Correo Institucional:
             </label>
             <div className="relative">
               <Mail className="w-4 h-4 absolute left-3 top-2.5 text-[#7C571C]" />
               <input
-                type="email"
+                type="text"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="ejemplo@casadelrey.com"
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  setError(null);
+                  setEsBloqueado(false);
+                }}
+                placeholder="Ingresa tu usuario o correo corporativo"
                 required
-                disabled={cargando || esBloqueado}
-                autoComplete="email"
+                disabled={cargando}
+                autoComplete="username"
                 className="w-full bg-[#FFFFFF] border border-[#DFCBB5] text-[#221A14] placeholder:text-[#A8988B] rounded-lg pl-9 pr-3 py-2 text-xs focus:outline-none focus:border-[#7C571C] focus:ring-1 focus:ring-[#7C571C] disabled:bg-[#F2EAE1] disabled:opacity-60"
               />
             </div>
@@ -133,10 +157,14 @@ export const LoginModal: React.FC<LoginModalProps> = ({
               <input
                 type={mostrarPassword ? 'text' : 'password'}
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                onChange={(e) => {
+                  setPassword(e.target.value);
+                  setError(null);
+                  setEsBloqueado(false);
+                }}
                 placeholder="••••••••"
                 required
-                disabled={cargando || esBloqueado}
+                disabled={cargando}
                 autoComplete="current-password"
                 className="w-full bg-[#FFFFFF] border border-[#DFCBB5] text-[#221A14] placeholder:text-[#A8988B] rounded-lg pl-9 pr-10 py-2 text-xs focus:outline-none focus:border-[#7C571C] focus:ring-1 focus:ring-[#7C571C] disabled:bg-[#F2EAE1] disabled:opacity-60"
               />
@@ -153,20 +181,34 @@ export const LoginModal: React.FC<LoginModalProps> = ({
           </div>
 
           {error && (
-            <div className={`p-3 rounded-lg border text-xs flex items-start gap-2.5 ${
+            <div className={`p-3 rounded-lg border text-xs flex flex-col gap-1.5 ${
               esBloqueado 
                 ? 'bg-[#FEF2F2] border-[#EF4444] text-[#991B1B]' 
                 : 'bg-[#FFFBEB] border-[#F59E0B] text-[#92400E]'
             }`}>
-              {esBloqueado ? (
-                <ShieldAlert className="w-4 h-4 shrink-0 text-[#DC2626] mt-0.5" />
-              ) : (
-                <AlertCircle className="w-4 h-4 shrink-0 text-[#D97706] mt-0.5" />
-              )}
-              <div className="leading-relaxed">
-                <span className="font-bold">{esBloqueado ? 'BLOQUEO TEMPORAL DE SEGURIDAD: ' : 'AVISO: '}</span>
-                <span>{error}</span>
+              <div className="flex items-start gap-2">
+                {esBloqueado ? (
+                  <ShieldAlert className="w-4 h-4 shrink-0 text-[#DC2626] mt-0.5" />
+                ) : (
+                  <AlertCircle className="w-4 h-4 shrink-0 text-[#D97706] mt-0.5" />
+                )}
+                <div className="leading-relaxed">
+                  <span className="font-bold">{esBloqueado ? 'BLOQUEO TEMPORAL DE SEGURIDAD: ' : 'AVISO: '}</span>
+                  <span>{error}</span>
+                </div>
               </div>
+              {esBloqueado && (
+                <div className="mt-1 pt-1.5 border-t border-[#FCA5A5] text-[10px] text-[#7F1D1D] flex items-center justify-between">
+                  <span>💡 Un Administrador puede desbloquear tu usuario de inmediato en el Panel de Usuarios.</span>
+                  <button
+                    type="button"
+                    onClick={() => { setEsBloqueado(false); setError(null); }}
+                    className="ml-2 underline font-bold hover:text-black shrink-0"
+                  >
+                    Reintentar
+                  </button>
+                </div>
+              )}
             </div>
           )}
 
