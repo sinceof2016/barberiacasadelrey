@@ -144,31 +144,78 @@ export default function App() {
     };
   }, []);
 
+  // Función de resolución de rutas compatible con GitHub Pages (subdirectorios de repositorio)
+  const parseRouteFromLocation = (): TabType => {
+    if (typeof window === 'undefined') return 'servicios';
+
+    const validTabs: TabType[] = ['reservar', 'servicios', 'barberos', 'agenda', 'registrar-corte', 'cortes', 'contabilidad', 'usuarios', 'api', 'clientes'];
+
+    // 1. Verificar hash (#/reservar o #reservar)
+    if (window.location.hash) {
+      const hashClean = window.location.hash.replace(/^#\/?/, '').toLowerCase().trim();
+      if (validTabs.includes(hashClean as TabType)) {
+        return hashClean as TabType;
+      }
+    }
+
+    // 2. Verificar parámetro de búsqueda (?tab=reservar o ?p=/reservar)
+    const searchParams = new URLSearchParams(window.location.search);
+    const tabParam = searchParams.get('tab') || searchParams.get('p');
+    if (tabParam) {
+      const cleanParam = tabParam.replace(/^\/+|\/+$/g, '').toLowerCase();
+      if (validTabs.includes(cleanParam as TabType)) {
+        return cleanParam as TabType;
+      }
+    }
+
+    // 3. Analizar segmentos de ruta
+    const path = window.location.pathname.toLowerCase().trim();
+    const segments = path.split('/').filter(Boolean);
+
+    // Si es la raíz del dominio o del subdominio de GitHub Pages
+    if (segments.length === 0) {
+      return 'servicios';
+    }
+
+    const lastSegment = segments[segments.length - 1];
+
+    // Si el último segmento coincide exactamente con una pestaña válida
+    if (validTabs.includes(lastSegment as TabType)) {
+      return lastSegment as TabType;
+    }
+
+    // Si el segmento es el nombre del repositorio en GitHub Pages (ej. /barberiacasadelrey/ o /barberia-casa-del-rey)
+    if (
+      lastSegment === 'barberiacasadelrey' || 
+      lastSegment === 'barberia-casa-del-rey' ||
+      lastSegment === 'index.html' || 
+      lastSegment.includes('barberia') ||
+      (segments.length === 1 && (lastSegment.includes('casadelrey') || lastSegment === 'barberia'))
+    ) {
+      return 'servicios';
+    }
+
+    // Si algún segmento secundario es una pestaña válida
+    for (const seg of segments) {
+      if (validTabs.includes(seg as TabType)) {
+        return seg as TabType;
+      }
+    }
+
+    return '404';
+  };
+
   // Inicialización y seguimiento de Google Analytics (GA4) y resolución de rutas
   useEffect(() => {
     initGoogleAnalytics();
 
-    // Sincronizar ruta inicial si el usuario ingresa por una URL directa (ej. /reservar, /servicios, /ruta-inexistente)
+    // Sincronizar ruta inicial si el usuario ingresa por una URL directa
     if (typeof window !== 'undefined') {
-      const path = window.location.pathname.toLowerCase().replace(/^\/+|\/+$/g, '');
-      const validTabs: TabType[] = ['reservar', 'servicios', 'barberos', 'agenda', 'registrar-corte', 'cortes', 'contabilidad', 'usuarios', 'api', 'clientes'];
-      if (path && path !== '') {
-        if (validTabs.includes(path as TabType)) {
-          setActiveTab(path as TabType);
-        } else {
-          setActiveTab('404');
-        }
-      }
+      const initialTab = parseRouteFromLocation();
+      setActiveTab(initialTab);
 
       const handlePopState = () => {
-        const curPath = window.location.pathname.toLowerCase().replace(/^\/+|\/+$/g, '');
-        if (!curPath || curPath === '') {
-          setActiveTab('servicios');
-        } else if (validTabs.includes(curPath as TabType)) {
-          setActiveTab(curPath as TabType);
-        } else {
-          setActiveTab('404');
-        }
+        setActiveTab(parseRouteFromLocation());
       };
 
       window.addEventListener('popstate', handlePopState);
