@@ -121,7 +121,7 @@ export const ServiceCatalog: React.FC<ServiceCatalogProps> = ({
   };
 
   return (
-    <div className="w-full pb-24">
+    <div id="seccion-servicios" className="w-full pb-24 scroll-mt-20">
       {/* 1. Header Section */}
       <section className="text-center pt-2 pb-6 px-4">
         <div className="inline-flex items-center gap-1.5 text-xs tracking-widest uppercase font-semibold text-[#7C571C] mb-2 font-mono">

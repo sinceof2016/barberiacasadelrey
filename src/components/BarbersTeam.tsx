@@ -13,7 +13,7 @@ export const BarbersTeam: React.FC<BarbersTeamProps> = ({
   onSelectBarbero,
 }) => {
   return (
-    <section className="py-4 px-2 sm:px-0">
+    <section id="seccion-barberos" className="py-4 px-2 sm:px-0 scroll-mt-20">
       <div className="flex items-center justify-between border-b border-[#DFCBB5] pb-3 mb-6">
         <div>
           <div className="flex items-center gap-2">

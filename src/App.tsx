@@ -223,10 +223,13 @@ export default function App() {
     }
   }, []);
 
-  // Registro de analítica anónima y Google Analytics al cambiar de pestaña
+  // Registro de analítica anónima, Google Analytics y desplazamiento al inicio al cambiar de pestaña
   useEffect(() => {
     registrarEventoAnalitica('visita_pestana', { pestana: activeTab });
     trackPageView(activeTab, `Barbería La Casa del Rey - ${activeTab.toUpperCase()}`);
+    if (typeof window !== 'undefined') {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
   }, [activeTab]);
 
   useEffect(() => {
@@ -311,7 +314,7 @@ export default function App() {
     setActiveTab('reservar');
     const s = servicios.find(x => x.id === servicioId);
     if (s) trackServiceSelect(s);
-    window.scrollTo({ top: 200, behavior: 'smooth' });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleSelectBarbero = (barberoId: number) => {
@@ -320,7 +323,7 @@ export default function App() {
     setActiveTab('reservar');
     const b = barberos.find(x => x.id === barberoId);
     if (b) trackBarberSelect(b);
-    window.scrollTo({ top: 200, behavior: 'smooth' });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleBookingSuccess = (nuevaCita: Cita) => {
@@ -406,7 +409,7 @@ export default function App() {
           <>
             {/* View: RESERVAR CITA */}
             {activeTab === 'reservar' && (
-              <section className="space-y-6">
+              <section id="seccion-reservar" className="space-y-6 scroll-mt-20">
                 <HeroBanner
                   bookingType={bookingType}
                   setBookingType={setBookingType}

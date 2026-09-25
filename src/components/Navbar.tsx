@@ -20,6 +20,7 @@ import {
   HERITAGE_EMBLEM_LOGO, 
   HERITAGE_AVATAR_PROFILE 
 } from '../utils/assets';
+import { handleTabNavigationWithScroll } from '../utils/navigationScroll';
 
 export type TabType = 
   | 'reservar' 
@@ -82,7 +83,10 @@ export const Navbar: React.FC<NavbarProps> = ({
         <div className="flex items-center justify-between h-16">
           {/* Left: Brand Identity with Emblem */}
           <div 
-            onClick={() => setActiveTab('servicios')}
+            onClick={() => {
+              setActiveTab('servicios');
+              if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
             className="flex items-center gap-3 cursor-pointer group select-none"
           >
             <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-full overflow-hidden border-2 border-[#C49756] bg-[#221A14] shadow-md group-hover:scale-105 transition-transform shrink-0 flex items-center justify-center ring-2 ring-[#DFCBB5]/50">
@@ -113,7 +117,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           <nav className="hidden md:flex items-center gap-1.5 bg-[#FBEBE1] p-1 rounded-full border border-[#DFCBB5]/60 shadow-inner">
             <button
               id="nav-tab-servicios"
-              onClick={() => setActiveTab('servicios')}
+              onClick={(e) => handleTabNavigationWithScroll({ activeTab, targetTab: 'servicios', setActiveTab, event: e })}
               className={`px-3.5 py-1.5 rounded-full text-xs font-medium tracking-wide transition-all cursor-pointer ${
                 activeTab === 'servicios'
                   ? 'bg-[#7C571C] text-[#FFFFFF] shadow-sm font-semibold'
@@ -125,7 +129,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 
             <button
               id="nav-tab-reservar"
-              onClick={() => setActiveTab('reservar')}
+              onClick={(e) => handleTabNavigationWithScroll({ activeTab, targetTab: 'reservar', setActiveTab, event: e })}
               className={`px-3.5 py-1.5 rounded-full text-xs font-medium tracking-wide transition-all cursor-pointer ${
                 activeTab === 'reservar'
                   ? 'bg-[#7C571C] text-[#FFFFFF] shadow-sm font-semibold'
@@ -137,7 +141,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 
             <button
               id="nav-tab-barberos"
-              onClick={() => setActiveTab('barberos')}
+              onClick={(e) => handleTabNavigationWithScroll({ activeTab, targetTab: 'barberos', setActiveTab, event: e })}
               className={`px-3.5 py-1.5 rounded-full text-xs font-medium tracking-wide transition-all cursor-pointer ${
                 activeTab === 'barberos'
                   ? 'bg-[#7C571C] text-[#FFFFFF] shadow-sm font-semibold'
