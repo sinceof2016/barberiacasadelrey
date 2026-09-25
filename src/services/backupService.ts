@@ -6,7 +6,7 @@
  * de Firestore y base de datos hacia Google Cloud Storage / Firebase Storage cada 24 horas.
  */
 
-import { API_BASE_URL } from './api';
+import { API_BASE_URL, isStaticEnvironment } from './api';
 import { subirArchivoAGoogleCloudStorage } from './cloudStorage';
 
 export interface MetadataRespaldo {
@@ -48,16 +48,18 @@ export interface EstadoSistemaRespaldo {
  * Consulta el estado del sistema de respaldo automático de 24 horas
  */
 export async function getEstadoRespaldos(): Promise<EstadoSistemaRespaldo> {
-  try {
-    const res = await fetch(`${API_BASE_URL}/backups/status`);
-    if (res.ok) {
-      const data = await res.json();
-      if (data.exito) {
-        return data.estado;
+  if (!isStaticEnvironment) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/backups/status`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.exito) {
+          return data.estado;
+        }
       }
+    } catch (err) {
+      console.warn('[BackupService] Error al consultar estado de respaldos en backend:', err);
     }
-  } catch (err) {
-    console.warn('[BackupService] Error al consultar estado de respaldos en backend:', err);
   }
 
   // Fallback seguro en memoria de cliente
@@ -80,16 +82,18 @@ export async function getEstadoRespaldos(): Promise<EstadoSistemaRespaldo> {
  * Obtiene la lista histórica de respaldos almacenados en el bucket
  */
 export async function getListaRespaldos(): Promise<MetadataRespaldo[]> {
-  try {
-    const res = await fetch(`${API_BASE_URL}/backups/list`);
-    if (res.ok) {
-      const data = await res.json();
-      if (data.exito && Array.isArray(data.respaldos)) {
-        return data.respaldos;
+  if (!isStaticEnvironment) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/backups/list`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.exito && Array.isArray(data.respaldos)) {
+          return data.respaldos;
+        }
       }
+    } catch (err) {
+      console.warn('[BackupService] Error al listar respaldos:', err);
     }
-  } catch (err) {
-    console.warn('[BackupService] Error al listar respaldos:', err);
   }
   return [];
 }

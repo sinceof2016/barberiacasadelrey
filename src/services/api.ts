@@ -89,6 +89,12 @@ export async function notificarCitaWhatsApp(cita: Cita, servicioNombre?: string,
 export const API_BASE_URL = '/api/v1/barberia-casa-del-rey';
 export const BASE_URL = API_BASE_URL;
 
+// Identifica si la aplicación está corriendo en un hosting estático (ej. GitHub Pages) sin servidor Node Express activo
+export const isStaticEnvironment = typeof window !== 'undefined' && (
+  window.location.hostname.endsWith('github.io') ||
+  window.location.protocol === 'file:'
+);
+
 // Obtiene el token de sesión autenticada del almacenamiento local
 function getStoredAuthToken(): string | null {
   try {
@@ -105,6 +111,11 @@ function getStoredAuthToken(): string | null {
 
 // Helper para verificar si la respuesta es de un servidor Express activo
 async function safeFetch(url: string, options?: RequestInit): Promise<Response | null> {
+  // En alojamientos estáticos como GitHub Pages, usar directamente la capa de persistencia local sin peticiones 404
+  if (isStaticEnvironment) {
+    return null;
+  }
+
   try {
     // Inyectar automáticamente el token de autorización si está disponible
     const token = getStoredAuthToken();
@@ -657,6 +668,10 @@ export async function loginUsuario(email: string, password: string): Promise<{
   mensaje: string;
   usuario: Usuario;
 }> {
+  if (isStaticEnvironment) {
+    return await localLoginUsuario(email, password);
+  }
+
   try {
     const res = await fetch(`${BASE_URL}/auth/login`, {
       method: 'POST',
