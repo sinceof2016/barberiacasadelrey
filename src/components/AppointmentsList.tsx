@@ -31,6 +31,7 @@ import { getGoogleCalendarUrl, downloadAppleCalendarIcs } from './AddToCalendarB
 import { 
   generarTextoMensajeReserva, 
   generarUrlWhatsAppBarberia, 
+  generarUrlWhatsAppCliente,
   WHATSAPP_BARBERIA_DISPLAY 
 } from './WhatsAppConfirmButton';
 import { VintageDatePicker } from './VintageDatePicker';
@@ -909,23 +910,26 @@ export const AppointmentsList: React.FC<AppointmentsListProps> = ({
                                 <Download className="w-3.5 h-3.5" />
                               </button>
 
-                              {/* Notificación rápida a WhatsApp oficial */}
-                              <a
-                                href={generarUrlWhatsAppBarberia(
-                                  generarTextoMensajeReserva(
-                                    c,
-                                    servicio?.nombre,
-                                    barbero?.nombre,
-                                    servicio?.precio
-                                  )
-                                )}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="p-1.5 rounded-xl bg-[#EBF7EE] hover:bg-[#25D366] text-[#15803D] hover:text-[#0A180E] border border-[#86EFAC] transition-all cursor-pointer shadow-2xs"
-                                title={`Notificar por WhatsApp a ${WHATSAPP_BARBERIA_DISPLAY}`}
-                              >
-                                <MessageSquare className="w-3.5 h-3.5 fill-current" />
-                              </a>
+                              {/* Notificación directa por WhatsApp al cliente */}
+                              {(() => {
+                                const telCliente = c.clienteTelefono || c.responsableTelefono || (c as any).telefono;
+                                const mensaje = generarTextoMensajeReserva(c, servicio?.nombre, barbero?.nombre, servicio?.precio);
+                                const targetUrl = telCliente 
+                                  ? (generarUrlWhatsAppCliente(telCliente, mensaje) || generarUrlWhatsAppBarberia(mensaje))
+                                  : generarUrlWhatsAppBarberia(mensaje);
+
+                                return (
+                                  <a
+                                    href={targetUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="p-1.5 rounded-xl bg-[#EBF7EE] hover:bg-[#25D366] text-[#15803D] hover:text-[#0A180E] border border-[#86EFAC] transition-all cursor-pointer shadow-2xs"
+                                    title={telCliente ? `Contactar al cliente por WhatsApp (${c.clienteNombre || 'Caballero'} - ${telCliente})` : `Notificar por WhatsApp a ${WHATSAPP_BARBERIA_DISPLAY}`}
+                                  >
+                                    <MessageSquare className="w-3.5 h-3.5 fill-current" />
+                                  </a>
+                                );
+                              })()}
                               <button
                                 onClick={() => handleCancelar(c.idReserva)}
                                 disabled={cancelandoId === c.idReserva}

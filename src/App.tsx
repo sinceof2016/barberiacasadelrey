@@ -25,6 +25,7 @@ import { NotFoundPage } from './components/NotFoundPage';
 import { PrivacyPolicyModal } from './components/PrivacyPolicyModal';
 import { CookieConsentBanner } from './components/CookieConsentBanner';
 import { CookiePreferencesModal } from './components/CookiePreferencesModal';
+import { GSAPParallaxController } from './components/GSAPParallaxController';
 import { registrarEventoAnalitica } from './services/cookieService';
 import { 
   initGoogleAnalytics, 
@@ -342,6 +343,9 @@ export default function App() {
 
   return (
     <div className="min-h-screen min-h-[100dvh] relative flex flex-col font-sans selection:bg-[#C49756] selection:text-[#FFFFFF] bg-[#FFF8F5] text-[#221A14] pb-16">
+      {/* GSAP & ScrollTrigger Parallax Controller */}
+      <GSAPParallaxController activeTab={activeTab} />
+
       {/* Subtle Warm Heritage Background Texture */}
       <div 
         className="fixed inset-0 pointer-events-none -z-10 bg-[#FFF8F5]" 

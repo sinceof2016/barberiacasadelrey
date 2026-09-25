@@ -199,7 +199,7 @@ export const ServiceCatalog: React.FC<ServiceCatalogProps> = ({
               <div
                 key={s.id}
                 id={`service-card-${s.id}`}
-                className={`p-5 rounded-2xl border transition-all duration-200 bg-[#FFF1E9] relative ${
+                className={`gsap-expand-card p-5 rounded-2xl border transition-all duration-200 bg-[#FFF1E9] relative ${
                   isSelected
                     ? 'border-[#7C571C] ring-2 ring-[#7C571C]/20 shadow-md'
                     : 'border-[#DFCBB5] hover:border-[#C49756]/60 shadow-sm'

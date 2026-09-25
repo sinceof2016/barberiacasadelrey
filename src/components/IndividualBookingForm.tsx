@@ -370,26 +370,26 @@ export const IndividualBookingForm: React.FC<IndividualBookingFormProps> = ({
       <div className="rounded-2xl bg-[#FFF8F5] border border-[#DFCBB5] p-5 sm:p-7 shadow-md relative overflow-hidden font-mono text-xs text-[#221A14]">
         <BarberPoleRibbon className="h-1 absolute top-0 left-0 right-0" />
 
-        <div className="flex items-center justify-between border-b border-[#DFCBB5] pb-4 mb-5 pt-1">
-          <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-2xl bg-[#EBF7EE] border border-[#86EFAC] text-[#15803D] flex items-center justify-center shadow-2xs">
-              <CheckCircle2 className="w-6 h-6" />
+        <div className="flex items-start sm:items-center justify-between border-b border-[#DFCBB5] pb-4 mb-5 pt-1 max-w-full">
+          <div className="flex items-start gap-2.5 sm:gap-3 min-w-0 flex-1 max-w-full">
+            <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl bg-[#EBF7EE] border border-[#86EFAC] text-[#15803D] flex items-center justify-center shadow-2xs shrink-0 mt-0.5 sm:mt-0">
+              <CheckCircle2 className="w-5 h-5 sm:w-6 sm:h-6" />
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h3 className="text-base sm:text-lg font-serif font-bold text-[#221A14] tracking-wide">
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+                <h3 className="text-xs sm:text-lg font-serif font-bold text-[#221A14] tracking-wide leading-tight break-words">
                   TURNO CONFIRMADO EN EL LIBRO DE CITAS
                 </h3>
-                <span className="px-2 py-0.5 bg-[#EBF7EE] text-[#15803D] text-[9px] font-mono font-bold rounded-full border border-[#86EFAC]">
+                <span className="px-1.5 py-0.5 bg-[#EBF7EE] text-[#15803D] text-[9px] font-mono font-bold rounded-full border border-[#86EFAC] shrink-0">
                   {citaCreada.estado}
                 </span>
               </div>
-              <p className="text-xs text-[#6F5A4B] font-mono mt-0.5">
-                CÓDIGO OFICIAL: {citaCreada.idReserva}
+              <p className="text-[11px] sm:text-xs text-[#6F5A4B] font-mono mt-0.5 break-all">
+                CÓDIGO OFICIAL: <span className="font-bold text-[#7C571C]">{citaCreada.idReserva}</span>
               </p>
             </div>
           </div>
-          <VintageWaxSeal text="CONFIRMADO" className="hidden sm:inline-flex" />
+          <VintageWaxSeal text="CONFIRMADO" className="hidden sm:inline-flex shrink-0 ml-2" />
         </div>
 
         {/* Vintage Voucher card */}

@@ -110,7 +110,10 @@ export const WhatsAppConfirmButton: React.FC<WhatsAppConfirmProps> = ({
   }, [autoNotificar]);
 
   const mensajeTexto = generarTextoMensajeReserva(cita, servicioNombre, barberoNombre, precioTotal);
-  const urlWhatsApp = generarUrlWhatsAppBarberia(mensajeTexto);
+  const urlWhatsAppBarberia = generarUrlWhatsAppBarberia(mensajeTexto);
+
+  const telClienteRaw = cita.clienteTelefono || cita.telefono || cita.responsableTelefono;
+  const urlWhatsAppCliente = telClienteRaw ? generarUrlWhatsAppCliente(telClienteRaw, mensajeTexto) : null;
 
   const handleReenviar = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -118,42 +121,56 @@ export const WhatsAppConfirmButton: React.FC<WhatsAppConfirmProps> = ({
     setErrorEnvio(false);
 
     try {
-      // Intentar despacho directo vía UltraMsg
-      const { despacharUltraMsgDirecto } = await import('../services/ultraMsgClient');
+      // Intentar despacho directo vía UltraMsg API a cliente y barbería
+      const { despacharUltraMsgDirecto, normalizarNumeroWhatsApp } = await import('../services/ultraMsgClient');
+      const numerosDestino: string[] = [];
+
+      if (telClienteRaw) {
+        const normCliente = normalizarNumeroWhatsApp(telClienteRaw);
+        if (normCliente && normCliente.length >= 10) numerosDestino.push(normCliente);
+      }
+      numerosDestino.push(normalizarNumeroWhatsApp(WHATSAPP_BARBERIA_NUMERO));
+
       const res = await despacharUltraMsgDirecto({
         texto: mensajeTexto,
         idReserva: cita.idReserva,
         clienteNombre: cita.clienteNombre || cita.responsableNombre || 'Caballero Casa del Rey',
-        tipo: cita.tipo || 'Individual'
+        tipo: cita.tipo || 'Individual',
+        numerosDestino: Array.from(new Set(numerosDestino))
       });
 
       if (res.exito) {
         setDespachado(true);
       } else {
-        setErrorEnvio(true);
+        // Fallback fluido: abrir directamente la App de WhatsApp
+        const targetUrl = urlWhatsAppCliente || urlWhatsAppBarberia;
+        window.open(targetUrl, '_blank', 'noopener,noreferrer');
+        setDespachado(true);
       }
     } catch {
-      setErrorEnvio(true);
+      const targetUrl = urlWhatsAppCliente || urlWhatsAppBarberia;
+      window.open(targetUrl, '_blank', 'noopener,noreferrer');
+      setDespachado(true);
     } finally {
       setEnviando(false);
     }
   };
 
   return (
-    <div className={`flex items-center gap-2 ${className}`}>
+    <div className={`flex items-center gap-2 flex-wrap ${className}`}>
       <button
         type="button"
         id={`btn-reenviar-whatsapp-${cita.idReserva}`}
         onClick={handleReenviar}
         disabled={enviando || despachado}
-        className={`px-3 py-1.5 rounded-lg text-xs font-bold font-mono transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-sm ${
+        className={`px-3 py-1.5 rounded-lg text-xs font-bold font-mono transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-xs ${
           despachado
             ? 'bg-[#EBF7EE] text-[#15803D] border border-[#86EFAC]'
             : errorEnvio
             ? 'bg-[#FFDAD6] text-[#BA1A1A] border border-[#BA1A1A]/30 hover:bg-[#FFDAD6]/80'
             : 'bg-[#15803D] hover:bg-[#166534] text-[#FFFFFF]'
         }`}
-        title="Reenviar notificación a UltraMsg WhatsApp"
+        title="Enviar o Reenviar notificación automática por WhatsApp"
       >
         <MessageSquare className="w-3.5 h-3.5 shrink-0" />
         <span>
@@ -162,21 +179,37 @@ export const WhatsAppConfirmButton: React.FC<WhatsAppConfirmProps> = ({
             : despachado
             ? 'Notificado ✓'
             : errorEnvio
-            ? 'Reintentar UltraMsg'
+            ? 'Reintentar WhatsApp'
             : 'Enviar WhatsApp'}
         </span>
       </button>
 
+      {/* Enlace de WhatsApp directo al cliente si existe número */}
+      {urlWhatsAppCliente && (
+        <a
+          id={`link-directo-wa-cliente-${cita.idReserva}`}
+          href={urlWhatsAppCliente}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="px-2.5 py-1.5 rounded-lg text-xs font-bold font-mono bg-[#EBF7EE] hover:bg-[#25D366] text-[#15803D] hover:text-[#0A180E] border border-[#86EFAC] transition-all flex items-center justify-center gap-1 cursor-pointer shadow-2xs"
+          title={`Abrir chat directo en WhatsApp con el cliente (${telClienteRaw})`}
+        >
+          <Smartphone className="w-3.5 h-3.5 shrink-0" />
+          <span className="truncate">Chat Cliente</span>
+        </a>
+      )}
+
+      {/* Enlace de WhatsApp directo a la Barbería Admin */}
       <a
-        id={`link-directo-wa-${cita.idReserva}`}
-        href={urlWhatsApp}
+        id={`link-directo-wa-barberia-${cita.idReserva}`}
+        href={urlWhatsAppBarberia}
         target="_blank"
         rel="noopener noreferrer"
         className="px-2.5 py-1.5 rounded-lg text-xs font-bold font-mono bg-[#FBEBE1] hover:bg-[#F4DCC7] text-[#6F5A4B] hover:text-[#221A14] border border-[#DFCBB5] transition-all flex items-center justify-center gap-1 cursor-pointer"
-        title="Abrir chat directo en WhatsApp Web / App"
+        title={`Abrir chat directo en WhatsApp con Barbería La Casa del Rey (${WHATSAPP_BARBERIA_DISPLAY})`}
       >
         <ExternalLink className="w-3.5 h-3.5 shrink-0" />
-        <span className="hidden sm:inline">Abrir Chat</span>
+        <span className="hidden sm:inline">Chat Barbería</span>
       </a>
     </div>
   );

@@ -36,14 +36,15 @@ export const BarbersTeam: React.FC<BarbersTeamProps> = ({
           <div
             key={b.id}
             id={`barber-card-${b.id}`}
-            className="p-5 rounded-2xl bg-[#FFF1E9] border border-[#DFCBB5] hover:border-[#7C571C] transition-all flex flex-col justify-between shadow-sm hover:shadow-md group"
+            className="gsap-expand-card p-5 rounded-2xl bg-[#FFF1E9] border border-[#DFCBB5] hover:border-[#7C571C] transition-all flex flex-col justify-between shadow-sm hover:shadow-md group"
           >
             <div className="flex items-start gap-4">
               <div className="w-14 h-14 rounded-2xl overflow-hidden border-2 border-[#DFCBB5] group-hover:border-[#7C571C] shadow-sm shrink-0 bg-[#FBEBE1] flex items-center justify-center">
                 <img
                   src={b.foto || HERITAGE_AVATAR_PROFILE}
                   alt={b.nombre}
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 gsap-parallax-img"
+                  data-parallax="true"
                   referrerPolicy="no-referrer"
                 />
               </div>

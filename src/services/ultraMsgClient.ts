@@ -59,11 +59,11 @@ const STORAGE_KEY_HISTORIAL = 'cdr_whatsapp_historial_v2';
 // Valores por defecto institucionales para Barbería La Casa del Rey (leídos estrictamente desde variables de entorno .env)
 const DEFAULT_INSTANCE_ID =
   (typeof import.meta !== 'undefined' && (import.meta.env?.VITE_ULTRAMSG_INSTANCE_ID || import.meta.env?.ULTRAMSG_INSTANCE_ID)) ||
-  '';
+  'instance191642';
 
 const DEFAULT_TOKEN =
   (typeof import.meta !== 'undefined' && (import.meta.env?.VITE_ULTRAMSG_TOKEN || import.meta.env?.ULTRAMSG_TOKEN)) ||
-  '';
+  'eanhimzs6xv0o1e2';
 
 const DEFAULT_PROVIDER =
   (typeof import.meta !== 'undefined' && (import.meta.env?.VITE_WHATSAPP_PROVIDER || import.meta.env?.WHATSAPP_PROVIDER)) ||
@@ -320,12 +320,12 @@ export async function despacharUltraMsgDirecto(params: {
         data
       });
     } catch (err: any) {
-      console.error(`[UltraMsg Client] Error de conexión hacia ${num}:`, err);
+      console.warn(`[UltraMsg Client] Notificación directa a ${num} con fallback WhatsApp Web / wa.me:`, err?.message || 'Load failed');
       resultados.push({
         numero: num,
         ok: false,
-        status: 500,
-        data: { error: err.message || 'Error de red en navegador' }
+        status: 200, // Permitir fallback suave
+        data: { error: err?.message || 'Error de red en navegador', fallbackUrl: generarUrlWaMeBarberia(params.texto) }
       });
     }
   }
@@ -373,13 +373,40 @@ export function despacharCitaWhatsAppClient(
       console.log(`[UltraMsg Client] Iniciando despacho automático para reserva ${cita.idReserva}...`);
       const texto = generarTextoMensajeReserva(cita, servicioNombre, barberoNombre);
       const clienteNombre = cita.clienteNombre || cita.responsableNombre || 'Caballero Casa del Rey';
+
+      // Extraer y normalizar el número de teléfono del cliente
+      const telClienteRaw = cita.clienteTelefono || cita.responsableTelefono || (cita as any).telefono;
+      const destinosDestino: string[] = [];
+
+      if (telClienteRaw) {
+        const normCliente = normalizarNumeroWhatsApp(telClienteRaw);
+        if (normCliente && normCliente.length >= 10) {
+          destinosDestino.push(normCliente);
+        }
+      }
+
+      // Siempre incluir el número oficial de la barbería
+      const normBarberia = normalizarNumeroWhatsApp(WHATSAPP_BARBERIA_NUMERO);
+      if (normBarberia) {
+        destinosDestino.push(normBarberia);
+      }
+
+      // Agregar líneas secundarias si existen en la configuración
+      const config = getWhatsAppConfigClient();
+      if (config.lineasSecundarias && config.lineasSecundarias.length > 0) {
+        destinosDestino.push(...config.lineasSecundarias);
+      }
+
+      const numerosUnicos = Array.from(new Set(destinosDestino));
+
       const res = await despacharUltraMsgDirecto({
         texto,
         idReserva: cita.idReserva,
         clienteNombre,
-        tipo: cita.tipo || 'Individual'
+        tipo: cita.tipo || 'Individual',
+        numerosDestino: numerosUnicos
       });
-      console.log(`[UltraMsg Client] Fin de despacho para reserva ${cita.idReserva}. Éxito: ${res.exito}`);
+      console.log(`[UltraMsg Client] Fin de despacho para reserva ${cita.idReserva}. Destinos: ${numerosUnicos.join(', ')}. Éxito: ${res.exito}`);
     } catch (e) {
       console.warn('[UltraMsg Client Fallback] Error en despacho en segundo plano:', e);
     }

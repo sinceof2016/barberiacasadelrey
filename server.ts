@@ -2635,8 +2635,8 @@ export const whatsAppGatewayConfig: WhatsAppGatewayConfig = {
   phoneNumberId: process.env.WHATSAPP_PHONE_NUMBER_ID || '',
   apiToken: process.env.WHATSAPP_API_TOKEN || '',
   gatewayUrl: process.env.WHATSAPP_GATEWAY_URL || '',
-  ultramsgInstanceId: (process.env.ULTRAMSG_INSTANCE_ID || process.env.VITE_ULTRAMSG_INSTANCE_ID || '').trim(),
-  ultramsgToken: (process.env.ULTRAMSG_TOKEN || process.env.VITE_ULTRAMSG_TOKEN || '').trim(),
+  ultramsgInstanceId: (process.env.ULTRAMSG_INSTANCE_ID || process.env.VITE_ULTRAMSG_INSTANCE_ID || 'instance191642').trim(),
+  ultramsgToken: (process.env.ULTRAMSG_TOKEN || process.env.VITE_ULTRAMSG_TOKEN || 'eanhimzs6xv0o1e2').trim(),
   telegramBotToken: process.env.TELEGRAM_BOT_TOKEN || '',
   telegramChatId: process.env.TELEGRAM_CHAT_ID || '',
   lineasSecundarias: parseLineasSecundariasEnv(process.env.WHATSAPP_SECONDARY_NUMBERS),
@@ -2740,8 +2740,12 @@ async function despacharWhatsAppSegundoPlano(
   const randomSuffix = Math.random().toString(36).substring(2, 8).toUpperCase();
   const messageId = `wamid.HBgL${numeroLimpio}FQIAEhgg${Date.now().toString(36)}${randomSuffix}`;
 
-  // Despachar a la línea principal y a las líneas secundarias configuradas
+  // Despachar al número del cliente (si existe), a la línea principal y a las líneas secundarias configuradas
+  const telClienteRaw = cita.clienteTelefono || cita.responsableTelefono || (cita as any).telefono;
+  const numClienteLimpio = telClienteRaw ? normalizarNumeroWhatsAppColombia(telClienteRaw) : '';
+
   const numerosDestino = Array.from(new Set([
+    ...(numClienteLimpio && numClienteLimpio.length >= 10 ? [numClienteLimpio] : []),
     numeroLimpio,
     ...(whatsAppGatewayConfig.lineasSecundarias || [])
   ]));
