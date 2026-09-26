@@ -16,6 +16,12 @@ export const BottomNav: React.FC<BottomNavProps> = ({
 }) => {
   const esPersonal = !!usuario;
 
+  // En la vista de agendamiento para clientes, el módulo de reserva cuenta con su propia
+  // barra inferior flotante ("Resumen" + "Siguiente" / "Confirmar") estilo WeBook.
+  if (activeTab === 'reservar' && !esPersonal) {
+    return null;
+  }
+
   return (
     <nav 
       id="heritage-bottom-nav"
@@ -136,7 +142,28 @@ export const BottomNav: React.FC<BottomNavProps> = ({
           </>
         ) : (
           <>
-            {/* Client Tab 1: Servicios */}
+            {/* Client Tab 1: Reservar */}
+            <button
+              id="bottom-tab-reservar"
+              onClick={() => {
+                setActiveTab('reservar');
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
+              className={`flex flex-col items-center justify-center transition-all cursor-pointer min-h-[44px] ${
+                activeTab === 'reservar'
+                  ? 'text-[#7C571C]'
+                  : 'text-[#6F5A4B] hover:text-[#221A14]'
+              }`}
+            >
+              <div className={`p-1 rounded-xl ${activeTab === 'reservar' ? 'bg-[#7C571C] text-[#FFFFFF]' : ''}`}>
+                <Calendar className="w-5 h-5" />
+              </div>
+              <span className={`text-[10px] tracking-wider uppercase mt-0.5 ${activeTab === 'reservar' ? 'font-bold text-[#7C571C]' : 'font-medium'}`}>
+                Reservar
+              </span>
+            </button>
+
+            {/* Client Tab 2: Servicios */}
             <button
               id="bottom-tab-servicios"
               onClick={() => {
@@ -156,27 +183,6 @@ export const BottomNav: React.FC<BottomNavProps> = ({
               {activeTab === 'servicios' && (
                 <span className="w-1 h-1 rounded-full bg-[#7C571C] mt-0.5" />
               )}
-            </button>
-
-            {/* Client Tab 2: Reservar */}
-            <button
-              id="bottom-tab-reservar"
-              onClick={() => {
-                setActiveTab('reservar');
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-              }}
-              className={`flex flex-col items-center justify-center transition-all cursor-pointer min-h-[44px] ${
-                activeTab === 'reservar'
-                  ? 'text-[#7C571C]'
-                  : 'text-[#6F5A4B] hover:text-[#221A14]'
-              }`}
-            >
-              <div className={`p-1 rounded-xl ${activeTab === 'reservar' ? 'bg-[#7C571C] text-[#FAF6EE]' : ''}`}>
-                <Calendar className="w-5 h-5" />
-              </div>
-              <span className={`text-[10px] tracking-wider uppercase mt-0.5 ${activeTab === 'reservar' ? 'font-bold text-[#7C571C]' : 'font-medium'}`}>
-                Reservar
-              </span>
             </button>
 
             {/* Client Tab 3: Barberos */}

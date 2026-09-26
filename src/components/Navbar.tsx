@@ -84,7 +84,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           {/* Left: Brand Identity with Emblem */}
           <div 
             onClick={() => {
-              setActiveTab('servicios');
+              setActiveTab('reservar');
               if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' });
             }}
             className="flex items-center gap-3 cursor-pointer group select-none"
@@ -116,18 +116,6 @@ export const Navbar: React.FC<NavbarProps> = ({
           {/* Center: Desktop Navigation Pills */}
           <nav className="hidden md:flex items-center gap-1.5 bg-[#FBEBE1] p-1 rounded-full border border-[#DFCBB5]/60 shadow-inner">
             <button
-              id="nav-tab-servicios"
-              onClick={(e) => handleTabNavigationWithScroll({ activeTab, targetTab: 'servicios', setActiveTab, event: e })}
-              className={`px-3.5 py-1.5 rounded-full text-xs font-medium tracking-wide transition-all cursor-pointer ${
-                activeTab === 'servicios'
-                  ? 'bg-[#7C571C] text-[#FFFFFF] shadow-sm font-semibold'
-                  : 'text-[#6F5A4B] hover:text-[#221A14]'
-              }`}
-            >
-              Servicios
-            </button>
-
-            <button
               id="nav-tab-reservar"
               onClick={(e) => handleTabNavigationWithScroll({ activeTab, targetTab: 'reservar', setActiveTab, event: e })}
               className={`px-3.5 py-1.5 rounded-full text-xs font-medium tracking-wide transition-all cursor-pointer ${
@@ -137,6 +125,18 @@ export const Navbar: React.FC<NavbarProps> = ({
               }`}
             >
               Reservar
+            </button>
+
+            <button
+              id="nav-tab-servicios"
+              onClick={(e) => handleTabNavigationWithScroll({ activeTab, targetTab: 'servicios', setActiveTab, event: e })}
+              className={`px-3.5 py-1.5 rounded-full text-xs font-medium tracking-wide transition-all cursor-pointer ${
+                activeTab === 'servicios'
+                  ? 'bg-[#7C571C] text-[#FFFFFF] shadow-sm font-semibold'
+                  : 'text-[#6F5A4B] hover:text-[#221A14]'
+              }`}
+            >
+              Servicios
             </button>
 
             <button

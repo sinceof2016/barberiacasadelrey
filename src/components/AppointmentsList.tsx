@@ -531,13 +531,13 @@ export const AppointmentsList: React.FC<AppointmentsListProps> = ({
         </div>
       </div>
 
-      {/* Control Toolbar - Heritage Warm Styling */}
-      <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3 p-3.5 rounded-2xl bg-[#FFF8F5] border border-[#DFCBB5] shadow-xs">
-        <div className="flex flex-wrap items-center gap-2 flex-1">
-          {/* Campo de búsqueda rápida por nombre, teléfono o folio */}
-          <div className="relative min-w-[200px] max-w-sm flex-1">
-            <Search className="w-3.5 h-3.5 text-[#6F5A4B] absolute left-3 top-1/2 -translate-y-1/2" />
+      {/* Barra de Búsqueda Rápida en Tiempo Real */}
+      <div className="bg-[#FFF8F5] border border-[#DFCBB5] rounded-2xl p-3 sm:p-4 shadow-xs relative">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+          <div className="relative flex-1">
+            <Search className="w-4 h-4 text-[#7C571C] absolute left-3.5 top-1/2 -translate-y-1/2" />
             <input
+              id="input-busqueda-agenda"
               type="text"
               value={busquedaTexto}
               onChange={(e) => {
@@ -547,19 +547,41 @@ export const AppointmentsList: React.FC<AppointmentsListProps> = ({
                   setBusquedaTexto(val);
                 }
               }}
-              placeholder="Buscar por nombre, correo, tel o folio..."
-              className="w-full bg-[#FFF8F5] border border-[#DFCBB5] rounded-xl pl-9 pr-7 py-1.5 text-xs font-mono text-[#221A14] placeholder-[#6F5A4B] focus:outline-none focus:border-[#7C571C]"
+              placeholder="Buscar cita por nombre de cliente, N° de reserva (ej. CR-...), teléfono o correo..."
+              className="w-full bg-[#FFFFFF] border border-[#DFCBB5] hover:border-[#7C571C] focus:border-[#7C571C] rounded-xl pl-10 pr-9 py-2.5 text-xs font-mono text-[#221A14] placeholder-[#8A796D] focus:outline-none transition-all shadow-2xs"
             />
             {busquedaTexto && (
               <button
+                type="button"
                 onClick={() => setBusquedaTexto('')}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-[#6F5A4B] hover:text-[#221A14]"
+                className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-full text-[#8A796D] hover:text-[#221A14] hover:bg-[#FBEBE1] transition-colors cursor-pointer"
+                title="Borrar búsqueda"
               >
-                <X className="w-3 h-3" />
+                <X className="w-3.5 h-3.5" />
               </button>
             )}
           </div>
 
+          {busquedaTexto.trim() && (
+            <div className="flex items-center justify-between sm:justify-end gap-2 shrink-0 px-1">
+              <span className="text-xs font-mono font-bold text-[#7C571C] bg-[#FBEBE1] border border-[#DFCBB5] px-2.5 py-1.5 rounded-xl shadow-2xs">
+                {citasFiltradas.length} {citasFiltradas.length === 1 ? 'cita encontrada' : 'citas encontradas'}
+              </span>
+              <button
+                type="button"
+                onClick={() => setBusquedaTexto('')}
+                className="text-xs font-mono text-[#6F5A4B] hover:text-[#221A14] underline cursor-pointer px-1"
+              >
+                Limpiar
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Control Toolbar - Heritage Warm Styling */}
+      <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3 p-3.5 rounded-2xl bg-[#FFF8F5] border border-[#DFCBB5] shadow-xs">
+        <div className="flex flex-wrap items-center gap-2 flex-1">
           <span className="text-[10px] font-mono uppercase font-bold text-[#7C571C] hidden sm:inline ml-1">
             FILTRAR:
           </span>
@@ -568,7 +590,7 @@ export const AppointmentsList: React.FC<AppointmentsListProps> = ({
             <select
               value={filtroSede}
               onChange={(e) => setFiltroSede(e.target.value)}
-              className="bg-[#FFF8F5] border border-[#DFCBB5] rounded-xl px-2.5 py-1.5 text-xs font-mono text-[#7C571C] font-bold focus:outline-none focus:border-[#7C571C] cursor-pointer"
+              className="bg-[#FFFFFF] border border-[#DFCBB5] rounded-xl px-2.5 py-1.5 text-xs font-mono text-[#7C571C] font-bold focus:outline-none focus:border-[#7C571C] cursor-pointer shadow-2xs"
               title="Filtrar libro por sede"
             >
               <option value="todas">🏛️ TODAS LAS SEDES ({citas.length})</option>
@@ -593,7 +615,7 @@ export const AppointmentsList: React.FC<AppointmentsListProps> = ({
           <select
             value={filtroTipo}
             onChange={(e: any) => setFiltroTipo(e.target.value)}
-            className="bg-[#FFF8F5] border border-[#DFCBB5] rounded-xl px-2.5 py-1.5 text-xs font-mono text-[#221A14] focus:outline-none focus:border-[#7C571C] cursor-pointer"
+            className="bg-[#FFFFFF] border border-[#DFCBB5] rounded-xl px-2.5 py-1.5 text-xs font-mono text-[#221A14] focus:outline-none focus:border-[#7C571C] cursor-pointer shadow-2xs"
           >
             <option value="todos">TODOS LOS FORMATOS</option>
             <option value="Individual">INDIVIDUAL</option>
@@ -603,7 +625,7 @@ export const AppointmentsList: React.FC<AppointmentsListProps> = ({
           <select
             value={filtroEstado}
             onChange={(e: any) => setFiltroEstado(e.target.value)}
-            className="bg-[#FFF8F5] border border-[#DFCBB5] rounded-xl px-2.5 py-1.5 text-xs font-mono text-[#221A14] focus:outline-none focus:border-[#7C571C] cursor-pointer"
+            className="bg-[#FFFFFF] border border-[#DFCBB5] rounded-xl px-2.5 py-1.5 text-xs font-mono text-[#221A14] focus:outline-none focus:border-[#7C571C] cursor-pointer shadow-2xs"
           >
             <option value="todos">TODOS LOS ESTADOS</option>
             <option value="Confirmada">CONFIRMADAS</option>
@@ -617,7 +639,7 @@ export const AppointmentsList: React.FC<AppointmentsListProps> = ({
               className={`px-3 py-1.5 rounded-xl text-xs font-mono transition-colors flex items-center gap-1 cursor-pointer border ${
                 filtroFechaModo === 'fecha'
                   ? 'bg-[#7C571C] text-white border-[#7C571C] font-bold'
-                  : 'bg-[#FFF8F5] text-[#6F5A4B] border-[#DFCBB5] hover:text-[#221A14]'
+                  : 'bg-[#FFFFFF] text-[#6F5A4B] border-[#DFCBB5] hover:text-[#221A14] shadow-2xs'
               }`}
             >
               <span>📅 Por Fecha</span>
@@ -734,21 +756,47 @@ export const AppointmentsList: React.FC<AppointmentsListProps> = ({
         </div>
 
         {citasFiltradas.length === 0 ? (
-          <div className="text-center py-12 px-4 text-xs font-mono text-[#6F5A4B] space-y-2">
-            <p>
-              No hay citas registradas en el libro {sedeFiltroEfectiva !== 'todas' && sedeActualInfo ? `para ${sedeActualInfo.nombre}` : ''} con los filtros seleccionados.
-            </p>
-            {!esCajeroAislado && sedeFiltroEfectiva !== 'todas' && (
-              <div>
-                <button
-                  type="button"
-                  onClick={() => setFiltroSede('todas')}
-                  className="mt-1 px-3 py-1 bg-[#FBEBE1] hover:bg-[#7C571C] text-[#221A14] hover:text-[#FFFFFF] border border-[#DFCBB5] rounded-xl font-bold transition-all cursor-pointer inline-flex items-center gap-1.5"
-                >
-                  <RotateCcw className="w-3 h-3" />
-                  <span>Ver Todas las Sedes</span>
-                </button>
+          <div className="text-center py-12 px-4 text-xs font-mono text-[#6F5A4B] space-y-3">
+            <div className="w-10 h-10 rounded-full bg-[#FBEBE1] border border-[#DFCBB5] flex items-center justify-center mx-auto text-[#7C571C]">
+              <Search className="w-5 h-5" />
+            </div>
+            {busquedaTexto.trim() ? (
+              <div className="space-y-2 max-w-md mx-auto">
+                <p className="font-bold text-[#221A14]">
+                  No se encontraron citas que coincidan con &ldquo;{busquedaTexto}&rdquo;.
+                </p>
+                <p className="text-[#6F5A4B] text-[11px]">
+                  Verifica el nombre del cliente o el número de folio (ej. CR-...) e intenta nuevamente.
+                </p>
+                <div>
+                  <button
+                    type="button"
+                    onClick={() => setBusquedaTexto('')}
+                    className="mt-2 px-3.5 py-1.5 rounded-xl bg-[#7C571C] text-[#FFFFFF] font-bold text-xs hover:bg-[#684816] transition-colors cursor-pointer inline-flex items-center gap-1.5 shadow-xs"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5" />
+                    <span>Limpiar Búsqueda</span>
+                  </button>
+                </div>
               </div>
+            ) : (
+              <>
+                <p>
+                  No hay citas registradas en el libro {sedeFiltroEfectiva !== 'todas' && sedeActualInfo ? `para ${sedeActualInfo.nombre}` : ''} con los filtros seleccionados.
+                </p>
+                {!esCajeroAislado && sedeFiltroEfectiva !== 'todas' && (
+                  <div>
+                    <button
+                      type="button"
+                      onClick={() => setFiltroSede('todas')}
+                      className="mt-1 px-3 py-1 bg-[#FBEBE1] hover:bg-[#7C571C] text-[#221A14] hover:text-[#FFFFFF] border border-[#DFCBB5] rounded-xl font-bold transition-all cursor-pointer inline-flex items-center gap-1.5"
+                    >
+                      <RotateCcw className="w-3 h-3" />
+                      <span>Ver Todas las Sedes</span>
+                    </button>
+                  </div>
+                )}
+              </>
             )}
           </div>
         ) : (

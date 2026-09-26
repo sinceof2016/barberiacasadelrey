@@ -44,6 +44,7 @@ import {
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { auth } from './services/firebaseAuth';
 import { MapPin, Phone, Clock, Terminal, Scissors, Coins, Lock, Users, ShieldAlert, ShieldCheck, Cookie } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { 
   VintageCrownIcon, 
   StraightRazorIcon, 
@@ -109,7 +110,7 @@ export default function App() {
   const [sessionExpiredNotice, setSessionExpiredNotice] = useState<{ open: boolean; message: string } | null>(null);
 
   // Tab & Flow management
-  const [activeTab, setActiveTab] = useState<TabType>('servicios');
+  const [activeTab, setActiveTab] = useState<TabType>('reservar');
   const [bookingType, setBookingType] = useState<'individual' | 'grupal'>('individual');
   const [preselectedServiceId, setPreselectedServiceId] = useState<number | undefined>(undefined);
   const [preselectedBarberId, setPreselectedBarberId] = useState<number | undefined>(undefined);
@@ -147,7 +148,7 @@ export default function App() {
 
   // Función de resolución de rutas compatible con GitHub Pages (subdirectorios de repositorio)
   const parseRouteFromLocation = (): TabType => {
-    if (typeof window === 'undefined') return 'servicios';
+    if (typeof window === 'undefined') return 'reservar';
 
     const validTabs: TabType[] = ['reservar', 'servicios', 'barberos', 'agenda', 'registrar-corte', 'cortes', 'contabilidad', 'usuarios', 'api', 'clientes'];
 
@@ -175,7 +176,7 @@ export default function App() {
 
     // Si es la raíz del dominio o del subdominio de GitHub Pages
     if (segments.length === 0) {
-      return 'servicios';
+      return 'reservar';
     }
 
     const lastSegment = segments[segments.length - 1];
@@ -193,7 +194,7 @@ export default function App() {
       lastSegment.includes('barberia') ||
       (segments.length === 1 && (lastSegment.includes('casadelrey') || lastSegment === 'barberia'))
     ) {
-      return 'servicios';
+      return 'reservar';
     }
 
     // Si algún segmento secundario es una pestaña válida
@@ -410,222 +411,231 @@ export default function App() {
             <p className="font-royal text-sm text-[#FAF6EE]">Abriendo puertas de Barbería La Casa del Rey...</p>
           </div>
         ) : (
-          <>
-            {/* View: RESERVAR CITA */}
-            {activeTab === 'reservar' && (
-              <section id="seccion-reservar" className="space-y-6 scroll-mt-20">
-                <HeroBanner
-                  bookingType={bookingType}
-                  setBookingType={setBookingType}
-                />
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={activeTab}
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -6 }}
+              transition={{ duration: 0.25, ease: [0.25, 1, 0.5, 1] }}
+              className="w-full"
+            >
+              {/* View: RESERVAR CITA */}
+              {activeTab === 'reservar' && (
+                <section id="seccion-reservar" className="space-y-6 scroll-mt-20">
+                  <HeroBanner
+                    bookingType={bookingType}
+                    setBookingType={setBookingType}
+                  />
 
-                <div className="max-w-4xl mx-auto">
-                  {bookingType === 'individual' ? (
-                    <IndividualBookingForm
-                      servicios={servicios}
-                      barberos={barberos}
-                      preselectedServiceId={preselectedServiceId}
-                      preselectedBarberId={preselectedBarberId}
-                      onBookingSuccess={handleBookingSuccess}
-                    />
-                  ) : (
-                    <GroupBookingForm
-                      servicios={servicios}
-                      onBookingSuccess={handleBookingSuccess}
-                    />
-                  )}
-                </div>
-              </section>
-            )}
-
-            {/* View: SERVICIOS */}
-            {activeTab === 'servicios' && (
-              <section className="space-y-8">
-                <ServiceCatalog
-                  servicios={servicios}
-                  onSelectServicio={handleSelectServicio}
-                />
-                <BarbersTeam
-                  barberos={barberos}
-                  onSelectBarbero={handleSelectBarbero}
-                />
-              </section>
-            )}
-
-            {/* View: BARBEROS */}
-            {activeTab === 'barberos' && (
-              <section className="space-y-8">
-                <BarbersTeam
-                  barberos={barberos}
-                  onSelectBarbero={handleSelectBarbero}
-                />
-              </section>
-            )}
-
-            {/* View: AGENDA Y GESTIÓN DE CITAS */}
-            {activeTab === 'agenda' && (
-              <section className="space-y-4">
-                <div className="flex items-center justify-between border-b border-[#3D2E26] pb-3">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <VintageBarberPole className="w-4 h-4 text-[#C59B27]" />
-                      <h2 className="text-sm font-royal font-bold tracking-wide text-[#FAF6EE] uppercase">
-                        Libro de Turnos & Agenda del Salón
-                      </h2>
-                    </div>
-                    <p className="text-xs text-[#A8988B] mt-0.5 font-mono">
-                      Supervisa citas individuales y comitivas de caballeros en tiempo real
-                    </p>
+                  <div className="max-w-4xl mx-auto">
+                    {bookingType === 'individual' ? (
+                      <IndividualBookingForm
+                        servicios={servicios}
+                        barberos={barberos}
+                        preselectedServiceId={preselectedServiceId}
+                        preselectedBarberId={preselectedBarberId}
+                        onBookingSuccess={handleBookingSuccess}
+                      />
+                    ) : (
+                      <GroupBookingForm
+                        servicios={servicios}
+                        onBookingSuccess={handleBookingSuccess}
+                      />
+                    )}
                   </div>
-                  <span className="px-2.5 py-0.5 bg-[#1A1412] text-[#FAF6EE] text-[10px] font-mono font-bold rounded-md border border-[#3D2E26]">
-                    SINCRONIZACIÓN ACTIVA
-                  </span>
-                </div>
+                </section>
+              )}
 
-                <AppointmentsList
-                  citas={citas}
-                  servicios={servicios}
-                  barberos={barberos}
-                  onRefresh={cargarDatos}
-                  onOpenNewBooking={() => setActiveTab('reservar')}
-                  googleUser={googleUser}
-                  onOpenGoogleCalendarModal={() => setGoogleCalendarModalOpen(true)}
-                  onOpenReporteClientes={() => setCustomerReportModalOpen(true)}
-                  esAdmin={esUsuarioAdmin(usuario)}
-                  sucursalAsignada={usuario?.sucursalAsignada}
-                />
-              </section>
-            )}
+              {/* View: SERVICIOS */}
+              {activeTab === 'servicios' && (
+                <section className="space-y-8">
+                  <ServiceCatalog
+                    servicios={servicios}
+                    onSelectServicio={handleSelectServicio}
+                  />
+                  <BarbersTeam
+                    barberos={barberos}
+                    onSelectBarbero={handleSelectBarbero}
+                  />
+                </section>
+              )}
 
-            {/* View: REGISTRAR CORTE (MÓDULO SEPARADO) */}
-            {activeTab === 'registrar-corte' && (
-              <section className="space-y-4">
-                <RegisterCutModule
-                  servicios={servicios}
-                  barberos={barberos}
-                  citas={citas}
-                  onDataUpdated={cargarDatos}
-                  onVerHistorial={() => setActiveTab('cortes')}
-                />
-              </section>
-            )}
+              {/* View: BARBEROS */}
+              {activeTab === 'barberos' && (
+                <section className="space-y-8">
+                  <BarbersTeam
+                    barberos={barberos}
+                    onSelectBarbero={handleSelectBarbero}
+                  />
+                </section>
+              )}
 
-            {/* View: REGISTRO DE CORTES DEL DÍA & DIVISIÓN POR BARBERO */}
-            {activeTab === 'cortes' && (
-              <section className="space-y-4">
-                <DailyCutsModule
-                  servicios={servicios}
-                  barberos={barberos}
-                  citas={citas}
-                  onDataUpdated={cargarDatos}
-                  onNavegarRegistrarCorte={() => setActiveTab('registrar-corte')}
-                />
-              </section>
-            )}
-
-            {/* View: CONTABILIDAD & ARQUEO DE CAJA */}
-            {activeTab === 'contabilidad' && (
-              <section className="space-y-4">
-                <AccountingModule
-                  barberos={barberos}
-                  onDataUpdated={cargarDatos}
-                  usuario={usuario}
-                />
-              </section>
-            )}
-
-            {/* View: BASE DE DATOS & DIRECTORIO DE CLIENTES (SOLO ADMINISTRADOR Y SUPERADMIN) */}
-            {activeTab === 'clientes' && (
-              <section className="space-y-4">
-                <CustomerReportModule
-                  isModal={false}
-                  onClose={() => setActiveTab('agenda')}
-                  servicios={servicios}
-                  barberos={barberos}
-                />
-              </section>
-            )}
-
-            {/* View: GESTIÓN DE USUARIOS & PERSONAL (EXCLUSIVO DAVID ORJUELA) */}
-            {activeTab === 'usuarios' && esUsuarioDavid(usuario) && (
-              <section className="space-y-4">
-                <UserManagementModule usuarioActual={usuario} />
-              </section>
-            )}
-
-            {/* View: CONSOLA DE PRUEBAS & API (EXCLUSIVO DAVID ORJUELA / SUPER ADMIN) */}
-            {activeTab === 'api' && (
-              puedeUsuarioVerApi(usuario) ? (
+              {/* View: AGENDA Y GESTIÓN DE CITAS */}
+              {activeTab === 'agenda' && (
                 <section className="space-y-4">
                   <div className="flex items-center justify-between border-b border-[#3D2E26] pb-3">
                     <div>
                       <div className="flex items-center gap-2">
-                        <Terminal className="w-4 h-4 text-[#C59B27]" />
+                        <VintageBarberPole className="w-4 h-4 text-[#C59B27]" />
                         <h2 className="text-sm font-royal font-bold tracking-wide text-[#FAF6EE] uppercase">
-                          Tablero de Desarrollador & API REST Vintage
+                          Libro de Turnos & Agenda del Salón
                         </h2>
                       </div>
                       <p className="text-xs text-[#A8988B] mt-0.5 font-mono">
-                        Consola interactiva sobre el servidor Express v4 en puerto 3000 • Acceso Titular Autorizado
+                        Supervisa citas individuales y comitivas de caballeros en tiempo real
                       </p>
                     </div>
-                    <span className="px-2.5 py-0.5 bg-[#1A1412] text-[#86EFAC] text-[10px] font-mono font-bold rounded-md border border-[#3D2E26]">
-                      PUERTO 3000 ACTIVO
+                    <span className="px-2.5 py-0.5 bg-[#1A1412] text-[#FAF6EE] text-[10px] font-mono font-bold rounded-md border border-[#3D2E26]">
+                      SINCRONIZACIÓN ACTIVA
                     </span>
                   </div>
 
-                  <ApiConsole />
+                  <AppointmentsList
+                    citas={citas}
+                    servicios={servicios}
+                    barberos={barberos}
+                    onRefresh={cargarDatos}
+                    onOpenNewBooking={() => setActiveTab('reservar')}
+                    googleUser={googleUser}
+                    onOpenGoogleCalendarModal={() => setGoogleCalendarModalOpen(true)}
+                    onOpenReporteClientes={() => setCustomerReportModalOpen(true)}
+                    esAdmin={esUsuarioAdmin(usuario)}
+                    sucursalAsignada={usuario?.sucursalAsignada}
+                  />
                 </section>
-              ) : (
-                <div className="bg-[#1A1412] border border-[#3D2E26] rounded-xl p-8 text-center space-y-3 font-mono">
-                  <div className="w-12 h-12 rounded-full bg-[#3E161C] border border-[#6B242D] text-[#F87171] mx-auto flex items-center justify-center">
-                    <ShieldAlert className="w-6 h-6" />
-                  </div>
-                  <h3 className="text-base font-royal font-bold text-[#FAF6EE] uppercase tracking-wide">
-                    Acceso Restringido
-                  </h3>
-                  <p className="text-xs text-[#A8988B] max-w-md mx-auto leading-relaxed">
-                    La sección de consola de API no está disponible para usuarios con rol de Administrador de salón. Esta sección está reservada exclusivamente para David Orjuela.
-                  </p>
-                  <button
-                    onClick={() => setActiveTab('agenda')}
-                    className="px-4 py-2 bg-[#C59B27] text-[#120E0C] font-bold text-xs rounded-lg hover:bg-[#D4A373] transition-colors cursor-pointer uppercase tracking-wider"
-                  >
-                    Ir al Libro de Turnos
-                  </button>
-                </div>
-              )
-            )}
+              )}
 
-            {/* View: 404 PÁGINA NO ENCONTRADA */}
-            {(activeTab === '404' || ![
-              'reservar', 
-              'servicios', 
-              'barberos', 
-              'agenda', 
-              'registrar-corte', 
-              'cortes', 
-              'contabilidad', 
-              'usuarios', 
-              'api', 
-              'clientes'
-            ].includes(activeTab)) && (
-              <NotFoundPage
-                onGoHome={() => {
-                  setActiveTab('servicios');
-                  if (typeof window !== 'undefined' && window.history) {
-                    window.history.pushState(null, '', '/');
-                  }
-                }}
-                onNavigateTab={(tab) => {
-                  setActiveTab(tab);
-                  if (typeof window !== 'undefined' && window.history) {
-                    window.history.pushState(null, '', `/${tab}`);
-                  }
-                }}
-              />
-            )}
-          </>
+              {/* View: REGISTRAR CORTE (MÓDULO SEPARADO) */}
+              {activeTab === 'registrar-corte' && (
+                <section className="space-y-4">
+                  <RegisterCutModule
+                    servicios={servicios}
+                    barberos={barberos}
+                    citas={citas}
+                    onDataUpdated={cargarDatos}
+                    onVerHistorial={() => setActiveTab('cortes')}
+                  />
+                </section>
+              )}
+
+              {/* View: REGISTRO DE CORTES DEL DÍA & DIVISIÓN POR BARBERO */}
+              {activeTab === 'cortes' && (
+                <section className="space-y-4">
+                  <DailyCutsModule
+                    servicios={servicios}
+                    barberos={barberos}
+                    citas={citas}
+                    onDataUpdated={cargarDatos}
+                    onNavegarRegistrarCorte={() => setActiveTab('registrar-corte')}
+                  />
+                </section>
+              )}
+
+              {/* View: CONTABILIDAD & ARQUEO DE CAJA */}
+              {activeTab === 'contabilidad' && (
+                <section className="space-y-4">
+                  <AccountingModule
+                    barberos={barberos}
+                    onDataUpdated={cargarDatos}
+                    usuario={usuario}
+                  />
+                </section>
+              )}
+
+              {/* View: BASE DE DATOS & DIRECTORIO DE CLIENTES (SOLO ADMINISTRADOR Y SUPERADMIN) */}
+              {activeTab === 'clientes' && (
+                <section className="space-y-4">
+                  <CustomerReportModule
+                    isModal={false}
+                    onClose={() => setActiveTab('agenda')}
+                    servicios={servicios}
+                    barberos={barberos}
+                  />
+                </section>
+              )}
+
+              {/* View: GESTIÓN DE USUARIOS & PERSONAL (EXCLUSIVO DAVID ORJUELA) */}
+              {activeTab === 'usuarios' && esUsuarioDavid(usuario) && (
+                <section className="space-y-4">
+                  <UserManagementModule usuarioActual={usuario} />
+                </section>
+              )}
+
+              {/* View: CONSOLA DE PRUEBAS & API (EXCLUSIVO DAVID ORJUELA / SUPER ADMIN) */}
+              {activeTab === 'api' && (
+                puedeUsuarioVerApi(usuario) ? (
+                  <section className="space-y-4">
+                    <div className="flex items-center justify-between border-b border-[#3D2E26] pb-3">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <Terminal className="w-4 h-4 text-[#C59B27]" />
+                          <h2 className="text-sm font-royal font-bold tracking-wide text-[#FAF6EE] uppercase">
+                            Tablero de Desarrollador & API REST Vintage
+                          </h2>
+                        </div>
+                        <p className="text-xs text-[#A8988B] mt-0.5 font-mono">
+                          Consola interactiva sobre el servidor Express v4 en puerto 3000 • Acceso Titular Autorizado
+                        </p>
+                      </div>
+                      <span className="px-2.5 py-0.5 bg-[#1A1412] text-[#86EFAC] text-[10px] font-mono font-bold rounded-md border border-[#3D2E26]">
+                        PUERTO 3000 ACTIVO
+                      </span>
+                    </div>
+
+                    <ApiConsole />
+                  </section>
+                ) : (
+                  <div className="bg-[#1A1412] border border-[#3D2E26] rounded-xl p-8 text-center space-y-3 font-mono">
+                    <div className="w-12 h-12 rounded-full bg-[#3E161C] border border-[#6B242D] text-[#F87171] mx-auto flex items-center justify-center">
+                      <ShieldAlert className="w-6 h-6" />
+                    </div>
+                    <h3 className="text-base font-royal font-bold text-[#FAF6EE] uppercase tracking-wide">
+                      Acceso Restringido
+                    </h3>
+                    <p className="text-xs text-[#A8988B] max-w-md mx-auto leading-relaxed">
+                      La sección de consola de API no está disponible para usuarios con rol de Administrador de salón. Esta sección está reservada exclusivamente para David Orjuela.
+                    </p>
+                    <button
+                      onClick={() => setActiveTab('agenda')}
+                      className="px-4 py-2 bg-[#C59B27] text-[#120E0C] font-bold text-xs rounded-lg hover:bg-[#D4A373] transition-colors cursor-pointer uppercase tracking-wider"
+                    >
+                      Ir al Libro de Turnos
+                    </button>
+                  </div>
+                )
+              )}
+
+              {/* View: 404 PÁGINA NO ENCONTRADA */}
+              {(activeTab === '404' || ![
+                'reservar', 
+                'servicios', 
+                'barberos', 
+                'agenda', 
+                'registrar-corte', 
+                'cortes', 
+                'contabilidad', 
+                'usuarios', 
+                'api', 
+                'clientes'
+              ].includes(activeTab)) && (
+                <NotFoundPage
+                  onGoHome={() => {
+                    setActiveTab('servicios');
+                    if (typeof window !== 'undefined' && window.history) {
+                      window.history.pushState(null, '', '/');
+                    }
+                  }}
+                  onNavigateTab={(tab) => {
+                    setActiveTab(tab);
+                    if (typeof window !== 'undefined' && window.history) {
+                      window.history.pushState(null, '', `/${tab}`);
+                    }
+                  }}
+                />
+              )}
+            </motion.div>
+          </AnimatePresence>
         )}
       </main>
 
