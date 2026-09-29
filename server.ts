@@ -549,6 +549,55 @@ function inspectValueForThreats(val: any, path = ''): { detected: boolean; type?
   return { detected: false };
 }
 
+/**
+ * Garantiza que cualquier información o comentario suministrado en formularios
+ * se procese y almacene ESTRICTAMENTE como texto plano en el servidor, neutralizando cualquier
+ * intento de inyección de código ejecutable (HTML, JS, CSS, Shell, Plantillas).
+ */
+function sanitizarComoTextoPlanoServer(str: any, maxLength = 1000): string {
+  if (str === null || str === undefined) return '';
+  let limpio = String(str);
+  limpio = limpio.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
+  limpio = limpio.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
+  limpio = limpio.replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '');
+  limpio = limpio.replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, '');
+  limpio = limpio.replace(/<object\b[^<]*(?:(?!<\/object>)<[^<]*)*<\/object>/gi, '');
+  limpio = limpio.replace(/<embed\b[^<]*(?:(?!<\/embed>)<[^<]*)*<\/embed>/gi, '');
+  limpio = limpio.replace(/<\/?[a-zA-Z0-9_-]+(?:\s+[^>]*)?>/g, '');
+  limpio = limpio.replace(/</g, '').replace(/>/g, '');
+  limpio = limpio.replace(/\b(?:javascript|vbscript|data):/gi, '');
+  limpio = limpio.replace(/\bon\w+\s*=/gi, '');
+  limpio = limpio.replace(/\b(?:eval|Function|execScript)\s*\(/gi, '');
+  limpio = limpio.replace(/\$\{[\s\S]*?\}/g, '');
+  limpio = limpio.replace(/\{\{[\s\S]*?\}\}/g, '');
+  limpio = limpio.replace(/<%[\s\S]*?%>/g, '');
+  limpio = limpio.trim();
+  if (maxLength && limpio.length > maxLength) {
+    limpio = limpio.substring(0, maxLength);
+  }
+  return limpio;
+}
+
+function sanitizarObjetoTextoPlanoServer(obj: any): any {
+  if (obj === null || obj === undefined) return obj;
+  if (typeof obj === 'string') {
+    if (obj.startsWith('sess_cdr_') || obj.length > 5000) return obj;
+    return sanitizarComoTextoPlanoServer(obj);
+  }
+  if (Array.isArray(obj)) {
+    return obj.map(item => sanitizarObjetoTextoPlanoServer(item));
+  }
+  if (typeof obj === 'object') {
+    for (const k of Object.keys(obj)) {
+      if (k.toLowerCase().includes('password') || k.toLowerCase().includes('token')) {
+        continue;
+      }
+      obj[k] = sanitizarObjetoTextoPlanoServer(obj[k]);
+    }
+  }
+  return obj;
+}
+
 function payloadSanitizerMiddleware(req: Request, res: Response, next: NextFunction) {
   // Inspeccionar params, query y body
   if (req.query) {
@@ -561,9 +610,10 @@ function payloadSanitizerMiddleware(req: Request, res: Response, next: NextFunct
         error: 'ENTRADA_MALICIOSA_RECHAZADA',
         tipo: qCheck.type,
         campo: qCheck.path,
-        mensaje: `Petición rechazada: el parámetro contiene código malicioso o comandos no permitidos (${qCheck.msg})`
+        mensaje: `Petición rechazada: el parámetro contiene código ejecutable no permitido. Solo se admite texto plano (${qCheck.msg})`
       });
     }
+    sanitizarObjetoTextoPlanoServer(req.query);
   }
 
   if (req.body && typeof req.body === 'object') {
@@ -576,9 +626,11 @@ function payloadSanitizerMiddleware(req: Request, res: Response, next: NextFunct
         error: 'ENTRADA_MALICIOSA_RECHAZADA',
         tipo: bCheck.type,
         campo: bCheck.path,
-        mensaje: `Entrada rechazada: el campo "${bCheck.path}" contiene código malicioso o comandos disfrazados (${bCheck.msg})`
+        mensaje: `Entrada rechazada: el campo "${bCheck.path}" contiene código ejecutable no permitido. La información debe suministrarse únicamente como texto plano (${bCheck.msg})`
       });
     }
+    // Forzar sanitización estricta a texto plano en todos los campos del cuerpo recibido
+    sanitizarObjetoTextoPlanoServer(req.body);
   }
 
   next();
@@ -964,6 +1016,7 @@ export interface Cita {
   responsableEmail?: string;
   totalPersonas?: number;
   detalles?: ParticipanteGrupal[];
+  notas?: string;
   creadoEn?: string;
 }
 
@@ -3073,6 +3126,7 @@ app.post('/api/v1/barberia-casa-del-rey/citas/individual', bookingRateLimiter, (
     sucursalNombre: sedeNombre,
     fecha: fechaStr,
     hora: horaNormalizada.hora12,
+    notas: req.body.notas ? sanitizarComoTextoPlanoServer(req.body.notas, 400) : undefined,
     estado: 'Confirmada',
     creadoEn: new Date().toISOString()
   };

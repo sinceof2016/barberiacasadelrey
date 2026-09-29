@@ -46,7 +46,7 @@ import {
   tieneConsentimiento,
   registrarEventoAnalitica 
 } from '../services/cookieService';
-import { validarNombre, validarTelefono, validarEmail } from '../utils/security';
+import { validarNombre, validarTelefono, validarEmail, validarComentarioOTextoPlano, sanitizarComoTextoPlano } from '../utils/security';
 
 interface IndividualBookingFormProps {
   servicios: Servicio[];
@@ -109,6 +109,7 @@ export const IndividualBookingForm: React.FC<IndividualBookingFormProps> = ({
   const [clienteNombre, setClienteNombre] = useState<string>('');
   const [clienteTelefono, setClienteTelefono] = useState<string>('');
   const [clienteEmail, setClienteEmail] = useState<string>('');
+  const [clienteNotas, setClienteNotas] = useState<string>('');
   const [aceptaTerminos, setAceptaTerminos] = useState<boolean>(true);
   const [honeypotEmpresa] = useState<string>('');
 
@@ -229,6 +230,14 @@ export const IndividualBookingForm: React.FC<IndividualBookingFormProps> = ({
       }
     }
 
+    if (clienteNotas.trim()) {
+      const notasVal = validarComentarioOTextoPlano(clienteNotas, { campo: 'Comentarios / Indicaciones', longitudMaxima: 350 });
+      if (!notasVal.esValido) {
+        setErrorMensaje(notasVal.motivo || 'La información suministrada contiene código no permitido. Ingrésala únicamente como texto plano.');
+        return;
+      }
+    }
+
     if (!hora) {
       setErrorMensaje('Por favor selecciona una hora disponible para tu cita.');
       setVistaActual('horarios');
@@ -250,15 +259,16 @@ export const IndividualBookingForm: React.FC<IndividualBookingFormProps> = ({
     try {
       const sucursalSel = sucursalesCasaDelRey.find(s => s.id === sucursalId);
       const resp = await crearCitaIndividual({
-        clienteNombre: clienteNombre.trim(),
-        clienteTelefono: clienteTelefono.trim(),
-        clienteEmail: clienteEmail.trim() || undefined,
+        clienteNombre: sanitizarComoTextoPlano(clienteNombre, { longitudMaxima: 80 }),
+        clienteTelefono: sanitizarComoTextoPlano(clienteTelefono, { longitudMaxima: 25 }),
+        clienteEmail: clienteEmail.trim() ? sanitizarComoTextoPlano(clienteEmail, { longitudMaxima: 100 }) : undefined,
         servicioId: Number(servicioId),
         barberoId: barberoId ? Number(barberoId) : undefined,
         fecha,
         hora,
         sucursalId,
         sucursalNombre: sucursalSel?.nombre || 'Sede Chicó Real',
+        notas: clienteNotas.trim() ? sanitizarComoTextoPlano(clienteNotas, { longitudMaxima: 350, permitirSaltosLinea: true }) : undefined,
       });
 
       if (resp.exito && resp.reserva) {
@@ -498,6 +508,13 @@ export const IndividualBookingForm: React.FC<IndividualBookingFormProps> = ({
                 {citaCreada.sucursalNombre || sucursalSeleccionada.nombre}
               </span>
             </div>
+
+            {citaCreada.notas && (
+              <div className="sm:col-span-2 pt-2 border-t border-[#DFCBB5]/60">
+                <span className="text-[10px] text-[#6F5A4B] uppercase block font-mono">Indicaciones / Comentarios del Cliente:</span>
+                <span className="text-xs text-[#221A14] block whitespace-pre-wrap font-sans mt-0.5">{citaCreada.notas}</span>
+              </div>
+            )}
           </div>
         </div>
 
@@ -743,6 +760,27 @@ export const IndividualBookingForm: React.FC<IndividualBookingFormProps> = ({
                 );
               })}
             </div>
+
+            {/* Botón Siguiente al pie del catálogo para móvil y escritorio */}
+            <div className="pt-2">
+              <button
+                type="button"
+                id="btn-inflow-siguiente-servicios"
+                onClick={() => {
+                  setVistaActual('profesional');
+                  scrollToContainer();
+                }}
+                className="w-full py-3.5 px-4 rounded-2xl bg-[#7C571C] hover:bg-[#684715] text-[#FFFFFF] font-bold text-xs sm:text-sm tracking-wide shadow-md flex items-center justify-between cursor-pointer transition-all active:scale-98"
+              >
+                <span className="truncate max-w-[230px] sm:max-w-none">
+                  Continuar con: <strong>{servicioSeleccionado.nombre}</strong>
+                </span>
+                <span className="flex items-center gap-1 shrink-0 font-bold">
+                  <span>Siguiente</span>
+                  <ChevronRight className="w-4 h-4" />
+                </span>
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -859,6 +897,27 @@ export const IndividualBookingForm: React.FC<IndividualBookingFormProps> = ({
                   </div>
                 );
               })}
+            </div>
+
+            {/* Botón Siguiente al pie del paso profesional */}
+            <div className="pt-2">
+              <button
+                type="button"
+                id="btn-inflow-siguiente-profesional"
+                onClick={() => {
+                  setVistaActual('horarios');
+                  scrollToContainer();
+                }}
+                className="w-full py-3.5 px-4 rounded-2xl bg-[#7C571C] hover:bg-[#684715] text-[#FFFFFF] font-bold text-xs sm:text-sm tracking-wide shadow-md flex items-center justify-between cursor-pointer transition-all active:scale-98"
+              >
+                <span className="truncate max-w-[230px] sm:max-w-none">
+                  Barbero: <strong>{barberoSeleccionado?.nombre || 'Cualquier Profesional'}</strong>
+                </span>
+                <span className="flex items-center gap-1 shrink-0 font-bold">
+                  <span>Siguiente: Horarios</span>
+                  <ChevronRight className="w-4 h-4" />
+                </span>
+              </button>
             </div>
           </div>
         </div>
@@ -1136,6 +1195,28 @@ export const IndividualBookingForm: React.FC<IndividualBookingFormProps> = ({
               })}
             </div>
           )}
+
+          {/* Botón Siguiente al pie de selección de horarios */}
+          <div className="pt-2">
+            <button
+              type="button"
+              id="btn-inflow-siguiente-horarios"
+              disabled={!hora}
+              onClick={() => {
+                setVistaActual('datos');
+                scrollToContainer();
+              }}
+              className="w-full py-3.5 px-4 rounded-2xl bg-[#7C571C] hover:bg-[#684715] text-[#FFFFFF] font-bold text-xs sm:text-sm tracking-wide shadow-md flex items-center justify-between cursor-pointer transition-all active:scale-98 disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              <span className="truncate max-w-[230px] sm:max-w-none">
+                {hora ? `Turno: ${fecha} a las ${hora}` : 'Selecciona una hora para continuar'}
+              </span>
+              <span className="flex items-center gap-1 shrink-0 font-bold">
+                <span>Siguiente: Tus Datos</span>
+                <ChevronRight className="w-4 h-4" />
+              </span>
+            </button>
+          </div>
         </div>
       )}
 
@@ -1275,6 +1356,27 @@ export const IndividualBookingForm: React.FC<IndividualBookingFormProps> = ({
               )}
             </div>
 
+            {/* Campo Comentarios / Indicaciones (Solo Texto Plano - Protección contra Código Ejecutable) */}
+            <div>
+              <label className="block text-xs font-semibold text-[#221A14] mb-1.5 flex items-center justify-between">
+                <span>Comentarios o peticiones especiales <span className="text-[#8C7667] font-normal">(opcional)</span></span>
+                <span className="text-[10px] text-[#7C571C] font-mono font-bold bg-[#FBEBE1] px-1.5 py-0.5 rounded border border-[#DFCBB5]">Solo texto plano</span>
+              </label>
+              <div className="relative">
+                <textarea
+                  rows={2}
+                  maxLength={350}
+                  placeholder="Indicaciones para el barbero (ej. estilo preferido, cuero cabelludo sensible, etc.)"
+                  value={clienteNotas}
+                  onChange={(e) => setClienteNotas(e.target.value)}
+                  className="w-full bg-[#FFFFFF] border border-[#DFCBB5] rounded-2xl py-2.5 px-3.5 text-xs text-[#221A14] placeholder-[#8C7667] focus:outline-none focus:border-[#7C571C] transition-colors shadow-2xs resize-none font-sans"
+                />
+              </div>
+              <span className="text-[10px] text-[#6F5A4B] block mt-1">
+                La información se procesa estrictamente como texto plano. No se admiten scripts ni etiquetas ejecutables.
+              </span>
+            </div>
+
             {/* Botón de Política de Cancelación */}
             <div
               onClick={() => setModalPoliticaAbierto(true)}
@@ -1300,6 +1402,28 @@ export const IndividualBookingForm: React.FC<IndividualBookingFormProps> = ({
                 Acepto el tratamiento de datos y recordatorios de turno conforme a la Ley 1581 de 2012.
               </label>
             </div>
+
+            {/* Botón Confirmar al pie del formulario */}
+            <div className="pt-2">
+              <button
+                type="submit"
+                id="btn-inflow-confirmar-datos"
+                disabled={enviando}
+                className="w-full py-4 px-5 rounded-2xl bg-[#7C571C] hover:bg-[#684715] text-[#FFFFFF] font-bold text-sm tracking-wide shadow-md flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-98 disabled:opacity-40"
+              >
+                {enviando ? (
+                  <>
+                    <Clock className="w-4 h-4 animate-spin" />
+                    <span>Confirmando tu reserva...</span>
+                  </>
+                ) : (
+                  <>
+                    <Check className="w-4 h-4" />
+                    <span>Confirmar Reserva de Turno</span>
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </form>
       )}
@@ -1307,19 +1431,22 @@ export const IndividualBookingForm: React.FC<IndividualBookingFormProps> = ({
       {/* ===================================================================== */}
       {/* BARRA STICKY INFERIOR FLOTANTE (RESUMEN ^ + BOTÓN SIGUIENTE / CONFIRMAR) */}
       {/* ===================================================================== */}
-      <div className="fixed bottom-0 left-0 right-0 z-50 bg-[#FFF8F5]/98 backdrop-blur-xl border-t border-[#DFCBB5] px-4 pt-3 pb-[max(14px,env(safe-area-inset-bottom,14px))] shadow-[0_-6px_25px_rgba(44,29,17,0.12)]">
-        <div className="max-w-xl mx-auto flex items-center justify-between gap-4">
+      <div 
+        id="barra-flotante-booking-siguiente"
+        className="fixed bottom-0 left-0 right-0 z-50 bg-[#FFF8F5]/98 backdrop-blur-xl border-t border-[#DFCBB5] px-4 pt-3 pb-[max(16px,env(safe-area-inset-bottom,16px))] shadow-[0_-6px_25px_rgba(44,29,17,0.15)]"
+      >
+        <div className="max-w-xl mx-auto flex items-center justify-between gap-3 sm:gap-4">
           
           {/* Lado Izquierdo: RESUMEN ^ / TOTAL A PAGAR */}
           <div
             onClick={() => setResumenAbierto(!resumenAbierto)}
-            className="cursor-pointer group select-none"
+            className="cursor-pointer group select-none min-w-[110px]"
           >
             <div className="flex items-center gap-1 text-[10px] uppercase font-bold text-[#6F5A4B] group-hover:text-[#7C571C] transition-colors">
               <span>{vistaActual === 'datos' ? 'TOTAL A PAGAR' : 'RESUMEN'}</span>
               {resumenAbierto ? <ChevronDown className="w-3.5 h-3.5 text-[#7C571C]" /> : <ChevronUp className="w-3.5 h-3.5 text-[#7C571C]" />}
             </div>
-            <span className="text-[10px] text-[#6F5A4B] block">Precio a partir de</span>
+            <span className="text-[10px] text-[#6F5A4B] block leading-tight">Precio a partir de</span>
             <span className="text-sm sm:text-base font-serif font-bold text-[#7C571C] block leading-tight">
               {formatPrecio(servicioSeleccionado.precio)}
             </span>
@@ -1329,11 +1456,12 @@ export const IndividualBookingForm: React.FC<IndividualBookingFormProps> = ({
           {vistaActual === 'servicios' && (
             <button
               type="button"
+              id="btn-sticky-siguiente-servicios"
               onClick={() => {
                 setVistaActual('profesional');
                 scrollToContainer();
               }}
-              className="px-6 sm:px-8 py-3 rounded-2xl bg-[#7C571C] hover:bg-[#684715] text-[#FFFFFF] text-xs font-bold transition-all shadow-md flex items-center gap-2 cursor-pointer active:scale-95"
+              className="px-5 sm:px-8 py-3 rounded-2xl bg-[#7C571C] hover:bg-[#684715] text-[#FFFFFF] text-xs sm:text-sm font-bold transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer active:scale-95 shrink-0 min-h-[44px]"
             >
               <span>Siguiente</span>
               <span className="w-5 h-5 rounded-full bg-[#FFFFFF]/25 text-[#FFFFFF] text-[10px] font-bold flex items-center justify-center">
@@ -1345,11 +1473,12 @@ export const IndividualBookingForm: React.FC<IndividualBookingFormProps> = ({
           {vistaActual === 'profesional' && (
             <button
               type="button"
+              id="btn-sticky-siguiente-profesional"
               onClick={() => {
                 setVistaActual('horarios');
                 scrollToContainer();
               }}
-              className="px-6 sm:px-8 py-3 rounded-2xl bg-[#7C571C] hover:bg-[#684715] text-[#FFFFFF] text-xs font-bold transition-all shadow-md flex items-center gap-2 cursor-pointer active:scale-95"
+              className="px-5 sm:px-8 py-3 rounded-2xl bg-[#7C571C] hover:bg-[#684715] text-[#FFFFFF] text-xs sm:text-sm font-bold transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer active:scale-95 shrink-0 min-h-[44px]"
             >
               <span>Siguiente</span>
               <span className="w-5 h-5 rounded-full bg-[#FFFFFF]/25 text-[#FFFFFF] text-[10px] font-bold flex items-center justify-center">
@@ -1361,12 +1490,13 @@ export const IndividualBookingForm: React.FC<IndividualBookingFormProps> = ({
           {vistaActual === 'horarios' && (
             <button
               type="button"
+              id="btn-sticky-siguiente-horarios"
               disabled={!hora}
               onClick={() => {
                 setVistaActual('datos');
                 scrollToContainer();
               }}
-              className="px-6 sm:px-8 py-3 rounded-2xl bg-[#7C571C] hover:bg-[#684715] text-[#FFFFFF] text-xs font-bold transition-all shadow-md flex items-center gap-2 cursor-pointer active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
+              className="px-5 sm:px-8 py-3 rounded-2xl bg-[#7C571C] hover:bg-[#684715] text-[#FFFFFF] text-xs sm:text-sm font-bold transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed shrink-0 min-h-[44px]"
             >
               <span>Siguiente</span>
               <span className="w-5 h-5 rounded-full bg-[#FFFFFF]/25 text-[#FFFFFF] text-[10px] font-bold flex items-center justify-center">
@@ -1378,9 +1508,10 @@ export const IndividualBookingForm: React.FC<IndividualBookingFormProps> = ({
           {vistaActual === 'datos' && (
             <button
               type="button"
+              id="btn-sticky-confirmar-datos"
               disabled={enviando}
               onClick={() => handleSubmit()}
-              className="px-6 sm:px-8 py-3 rounded-2xl bg-[#7C571C] hover:bg-[#684715] text-[#FFFFFF] text-xs font-bold transition-all shadow-md flex items-center gap-2 cursor-pointer active:scale-95 disabled:opacity-40"
+              className="px-5 sm:px-8 py-3 rounded-2xl bg-[#7C571C] hover:bg-[#684715] text-[#FFFFFF] text-xs sm:text-sm font-bold transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer active:scale-95 disabled:opacity-40 shrink-0 min-h-[44px]"
             >
               {enviando ? (
                 <>

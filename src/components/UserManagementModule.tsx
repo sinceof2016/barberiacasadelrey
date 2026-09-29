@@ -81,8 +81,10 @@ import {
   Zap,
   Smartphone,
   Package,
-  ShieldAlert
+  ShieldAlert,
+  QrCode
 } from 'lucide-react';
+import { SuperAdminQrSection } from './SuperAdminQrSection';
 import { 
   VintageCrownIcon, 
   StraightRazorIcon, 
@@ -123,8 +125,8 @@ export const UserManagementModule: React.FC<UserManagementModuleProps> = ({
   usuarioActual,
   onDataUpdated,
 }) => {
-  // Sub-tabs: 'usuarios' | 'barberos' | 'sedes' | 'servicios' | 'boveda' | 'whatsapp' | 'inventario'
-  const [subTab, setSubTab] = useState<'usuarios' | 'barberos' | 'sedes' | 'servicios' | 'boveda' | 'whatsapp' | 'inventario'>('usuarios');
+  // Sub-tabs: 'usuarios' | 'barberos' | 'sedes' | 'servicios' | 'boveda' | 'whatsapp' | 'inventario' | 'qr'
+  const [subTab, setSubTab] = useState<'usuarios' | 'barberos' | 'sedes' | 'servicios' | 'boveda' | 'whatsapp' | 'inventario' | 'qr'>('usuarios');
 
   // Estados de datos
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
@@ -1174,6 +1176,20 @@ export const UserManagementModule: React.FC<UserManagementModuleProps> = ({
           >
             <Package className="w-4 h-4 text-[#C49756]" />
             <span>Inventario de Productos</span>
+          </button>
+
+          {/* Sub-tab: Código QR Oficial con Logo (Super Admin) */}
+          <button
+            id="subtab-qr"
+            onClick={() => setSubTab('qr')}
+            className={`px-3.5 py-1.5 rounded-lg font-bold transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
+              subTab === 'qr'
+                ? 'bg-[#7C571C] text-[#FAF6EE] shadow-sm ring-1 ring-[#C49756]'
+                : 'bg-[#FBEBE1] text-[#6F5A4B] hover:text-[#221A14] border border-[#DFCBB5]'
+            }`}
+          >
+            <QrCode className="w-4 h-4 text-[#C49756]" />
+            <span>Código QR Oficial</span>
           </button>
         </div>
       </div>
@@ -2774,6 +2790,13 @@ export const UserManagementModule: React.FC<UserManagementModuleProps> = ({
       {/* ======================================================== */}
       {subTab === 'inventario' && (
         <InventoryManagementSection onDataUpdated={onDataUpdated} />
+      )}
+
+      {/* ======================================================== */}
+      {/* VISTA 8: CÓDIGO QR OFICIAL CON LOGO (SUPER ADMIN EXCLUSIVO) */}
+      {/* ======================================================== */}
+      {subTab === 'qr' && (
+        <SuperAdminQrSection />
       )}
 
       {/* Modal: Rotar / Actualizar Secreto en Vault */}

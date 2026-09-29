@@ -29,7 +29,7 @@ import {
 } from 'lucide-react';
 import { sucursalesCasaDelRey } from '../services/localData';
 import { dispararAperturaPorEfectivo } from '../services/cashDrawer';
-import { validarNombre, validarTextoSeguro } from '../utils/security';
+import { validarNombre, validarTextoSeguro, validarComentarioOTextoPlano, sanitizarComoTextoPlano } from '../utils/security';
 import { 
   StraightRazorIcon, 
   VintageScissorsIcon, 

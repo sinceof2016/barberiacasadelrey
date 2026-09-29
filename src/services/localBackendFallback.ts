@@ -28,6 +28,7 @@ import {
 } from '../utils/barberAvailability';
 import { guardarCitaEnFirestore, guardarCorteEnFirestore, actualizarEstadoCitaEnFirestore } from './firebase';
 import { despacharCitaWhatsAppClient } from './ultraMsgClient';
+import { sanitizarComoTextoPlano } from '../utils/security';
 
 const STORAGE_KEYS = {
   CITAS: 'cdr_citas_v1',
@@ -452,15 +453,16 @@ export function localCrearCitaIndividual(payload: {
   const nuevaCita: Cita = {
     idReserva: `CDR-${Date.now().toString().slice(-6)}`,
     tipo: 'Individual',
-    clienteNombre: payload.clienteNombre.trim(),
-    clienteTelefono: payload.clienteTelefono.trim(),
-    clienteEmail: payload.clienteEmail?.trim(),
+    clienteNombre: sanitizarComoTextoPlano(payload.clienteNombre, { longitudMaxima: 80 }),
+    clienteTelefono: sanitizarComoTextoPlano(payload.clienteTelefono, { longitudMaxima: 25 }),
+    clienteEmail: payload.clienteEmail ? sanitizarComoTextoPlano(payload.clienteEmail, { longitudMaxima: 100 }) : undefined,
     servicioId: payload.servicioId,
     barberoId: barberoAsignadoId,
     sucursalId: sedeId,
-    sucursalNombre: sedeNombre,
+    sucursalNombre: sanitizarComoTextoPlano(sedeNombre, { longitudMaxima: 80 }),
     fecha: payload.fecha,
     hora: payload.hora,
+    notas: (payload as any).notas ? sanitizarComoTextoPlano((payload as any).notas, { permitirSaltosLinea: true, longitudMaxima: 400 }) : undefined,
     estado: 'Confirmada',
     creadoEn: new Date().toISOString()
   };
@@ -494,18 +496,23 @@ export function localCrearCitaGrupal(payload: {
   const sedeId = payload.sucursalId || 'suc-chico';
   const sucursalInfo = sucursalesCasaDelRey.find(s => s.id === sedeId);
 
+  const participantesLimpios = (payload.participantes || []).map(p => ({
+    nombre: sanitizarComoTextoPlano(p.nombre, { longitudMaxima: 80 }),
+    servicioId: Number(p.servicioId) || 1
+  }));
+
   const nuevaCita: Cita = {
     idReserva: `CDR-GRP-${Date.now().toString().slice(-6)}`,
     tipo: 'Grupal',
-    responsableNombre: payload.responsableNombre.trim(),
-    responsableTelefono: payload.responsableTelefono.trim(),
-    responsableEmail: payload.responsableEmail?.trim(),
+    responsableNombre: sanitizarComoTextoPlano(payload.responsableNombre, { longitudMaxima: 80 }),
+    responsableTelefono: sanitizarComoTextoPlano(payload.responsableTelefono, { longitudMaxima: 25 }),
+    responsableEmail: payload.responsableEmail ? sanitizarComoTextoPlano(payload.responsableEmail, { longitudMaxima: 100 }) : undefined,
     sucursalId: sedeId,
-    sucursalNombre: payload.sucursalNombre || sucursalInfo?.nombre || 'Sede Chicó Real',
+    sucursalNombre: sanitizarComoTextoPlano(payload.sucursalNombre || sucursalInfo?.nombre || 'Sede Chicó Real', { longitudMaxima: 80 }),
     fecha: payload.fecha,
     hora: payload.hora,
-    totalPersonas: payload.participantes.length,
-    detalles: payload.participantes,
+    totalPersonas: participantesLimpios.length,
+    detalles: participantesLimpios,
     estado: 'Confirmada',
     creadoEn: new Date().toISOString()
   };
@@ -619,8 +626,8 @@ export function localCrearCorteDiario(payload: any): { exito: boolean; mensaje: 
     barberoId: Number(payload.barberoId),
     barberoNombre: barbero ? barbero.nombre : `Barbero #${payload.barberoId}`,
     servicioId: Number(payload.servicioId) || 1,
-    servicioNombre: payload.servicioNombre || servicio?.nombre || 'Corte Real',
-    clienteNombre: payload.clienteNombre || 'Caballero Real',
+    servicioNombre: sanitizarComoTextoPlano(payload.servicioNombre || servicio?.nombre || 'Corte Real', { longitudMaxima: 80 }),
+    clienteNombre: sanitizarComoTextoPlano(payload.clienteNombre || 'Caballero Real', { longitudMaxima: 80 }),
     precio,
     propina,
     porcentajeBarbero: pct,
@@ -629,9 +636,9 @@ export function localCrearCorteDiario(payload: any): { exito: boolean; mensaje: 
     metodoPago: payload.metodoPago || 'Efectivo',
     liquidadoAlBarbero: false,
     sucursalId: payload.sucursalId || 'suc-chico',
-    sucursalNombre: payload.sucursalNombre || 'Sede Chicó Real',
+    sucursalNombre: sanitizarComoTextoPlano(payload.sucursalNombre || 'Sede Chicó Real', { longitudMaxima: 80 }),
     citaIdReserva: payload.citaIdReserva,
-    notas: payload.notas,
+    notas: payload.notas ? sanitizarComoTextoPlano(payload.notas, { permitirSaltosLinea: true, longitudMaxima: 400 }) : undefined,
     productosVendidos,
     totalProductos: totalProductos > 0 ? totalProductos : undefined,
     totalCobrado,
@@ -776,13 +783,13 @@ export function localCrearEgreso(payload: any): { exito: boolean; mensaje: strin
     id: `GASTO-${Date.now().toString().slice(-6)}`,
     fecha: payload.fecha || getColombiaDateTimeClient().fecha,
     hora: payload.hora || getColombiaDateTimeClient().hora12,
-    concepto: payload.concepto,
-    categoria: payload.categoria || 'Otros',
+    concepto: sanitizarComoTextoPlano(payload.concepto, { longitudMaxima: 120 }),
+    categoria: sanitizarComoTextoPlano(payload.categoria || 'Otros', { longitudMaxima: 50 }) as GastoDiario['categoria'],
     monto: Number(payload.monto) || 0,
     metodoPago: payload.metodoPago || 'Efectivo Caja',
     sucursalId: payload.sucursalId || 'suc-chico',
-    sucursalNombre: payload.sucursalNombre || 'Sede Chicó Real',
-    comprobante: payload.comprobante,
+    sucursalNombre: sanitizarComoTextoPlano(payload.sucursalNombre || 'Sede Chicó Real', { longitudMaxima: 80 }),
+    comprobante: payload.comprobante ? sanitizarComoTextoPlano(payload.comprobante, { longitudMaxima: 100 }) : undefined,
     creadoEn: new Date().toISOString()
   };
 
@@ -907,7 +914,7 @@ export function localRegistrarArqueo(payload: {
     sucursalId: sedeId,
     sucursalNombre: payload.sucursalNombre || sucursalInfo?.nombre || 'Sede Chicó Real',
     usuarioId: payload.usuarioId,
-    usuarioNombre: payload.usuarioNombre || 'Cajero de Turno',
+    usuarioNombre: sanitizarComoTextoPlano(payload.usuarioNombre || 'Cajero de Turno', { longitudMaxima: 80 }),
     baseInicial: Number(payload.baseInicial) || 0,
     entradasEfectivo: Number(payload.entradasEfectivo) || 0,
     salidasEfectivoGastos: Number(payload.salidasEfectivoGastos) || 0,
@@ -916,7 +923,7 @@ export function localRegistrarArqueo(payload: {
     efectivoContado: efectivoReal,
     diferencia,
     estado,
-    observaciones: payload.observaciones?.trim(),
+    observaciones: payload.observaciones ? sanitizarComoTextoPlano(payload.observaciones, { permitirSaltosLinea: true, longitudMaxima: 500 }) : undefined,
     desgloseEfectivo: payload.desgloseEfectivo
   };
 

@@ -301,18 +301,20 @@ export const Navbar: React.FC<NavbarProps> = ({
               )}
 
               {esDavid && (
-                <button
-                  id="nav-tab-usuarios"
-                  onClick={() => setActiveTab('usuarios')}
-                  className={`px-3 py-1 text-xs rounded-lg font-medium transition-all shrink-0 cursor-pointer flex items-center gap-1.5 ${
-                    activeTab === 'usuarios'
-                      ? 'bg-[#7C571C] text-[#FFFFFF] shadow-sm font-semibold'
-                      : 'bg-[#FFF8F5] text-[#4F4539] hover:bg-[#F5E5DB] border border-[#DFCBB5]'
-                  }`}
-                >
-                  <ShieldCheck className="w-3.5 h-3.5" />
-                  <span>Super Admin</span>
-                </button>
+                <>
+                  <button
+                    id="nav-tab-usuarios"
+                    onClick={() => setActiveTab('usuarios')}
+                    className={`px-3 py-1 text-xs rounded-lg font-medium transition-all shrink-0 cursor-pointer flex items-center gap-1.5 ${
+                      activeTab === 'usuarios'
+                        ? 'bg-[#7C571C] text-[#FFFFFF] shadow-sm font-semibold'
+                        : 'bg-[#FFF8F5] text-[#4F4539] hover:bg-[#F5E5DB] border border-[#DFCBB5]'
+                    }`}
+                  >
+                    <ShieldCheck className="w-3.5 h-3.5" />
+                    <span>Super Admin</span>
+                  </button>
+                </>
               )}
 
               {puedeVerApi && (

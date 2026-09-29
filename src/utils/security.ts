@@ -155,6 +155,196 @@ export function sanitizarTexto(texto?: string | null): string {
 }
 
 /**
+ * Garantiza que cualquier información o comentario suministrado en formularios
+ * se procese y almacene ESTRICTAMENTE como texto plano, neutralizando cualquier
+ * intento de inyección de código ejecutable (HTML, JS, CSS, Shell, Plantillas).
+ */
+export function sanitizarComoTextoPlano(
+  texto?: string | null,
+  opciones?: {
+    permitirSaltosLinea?: boolean;
+    longitudMaxima?: number;
+  }
+): string {
+  if (texto === undefined || texto === null) return '';
+
+  let limpio = String(texto);
+
+  // 1. Desactivar caracteres nulos y de control invisibles
+  limpio = limpio.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
+
+  // 2. Eliminar completamente etiquetas y elementos HTML ejecutables (<script>, <style>, <iframe>, <svg>, etc.)
+  limpio = limpio.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
+  limpio = limpio.replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '');
+  limpio = limpio.replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, '');
+  limpio = limpio.replace(/<object\b[^<]*(?:(?!<\/object>)<[^<]*)*<\/object>/gi, '');
+  limpio = limpio.replace(/<embed\b[^<]*(?:(?!<\/embed>)<[^<]*)*<\/embed>/gi, '');
+
+  // 3. Eliminar cualquier etiqueta HTML remanente para garantizar texto plano literal
+  limpio = limpio.replace(/<\/?[a-zA-Z0-9_-]+(?:\s+[^>]*)?>/g, '');
+
+  // 4. Neutralizar caracteres angulares sueltos para que nunca puedan ser interpretados por motores DOM
+  limpio = limpio.replace(/</g, '').replace(/>/g, '');
+
+  // 5. Neutralizar pseudoprotocolos ejecutables (javascript:, vbscript:, data:)
+  limpio = limpio.replace(/\b(?:javascript|vbscript|data):/gi, '');
+
+  // 6. Neutralizar atributos de eventos ejecutables (onerror=, onload=, onclick=, etc.)
+  limpio = limpio.replace(/\bon\w+\s*=/gi, '');
+
+  // 7. Neutralizar expresiones de ejecución de código (eval(, Function(, alert(, etc.)
+  limpio = limpio.replace(/\b(?:eval|Function|execScript)\s*\(/gi, '');
+
+  // 8. Neutralizar inyección de plantillas (${...}, {{...}}, <%...%>)
+  limpio = limpio.replace(/\$\{[\s\S]*?\}/g, '');
+  limpio = limpio.replace(/\{\{[\s\S]*?\}\}/g, '');
+  limpio = limpio.replace(/<%[\s\S]*?%>/g, '');
+
+  // 9. Control de saltos de línea y espacios
+  if (!opciones?.permitirSaltosLinea) {
+    limpio = limpio.replace(/[\r\n\t]+/g, ' ');
+  } else {
+    // Normalizar saltos de línea a \n estándar y evitar acumulación excesiva
+    limpio = limpio.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+    limpio = limpio.replace(/\n{3,}/g, '\n\n');
+  }
+
+  // Recortar espacios en extremos
+  limpio = limpio.trim();
+
+  // 10. Truncar si supera longitud máxima
+  if (opciones?.longitudMaxima && limpio.length > opciones.longitudMaxima) {
+    limpio = limpio.substring(0, opciones.longitudMaxima);
+  }
+
+  return limpio;
+}
+
+/**
+ * Validador estricto para comentarios, notas u observaciones de formularios.
+ * Rechaza activamente cualquier intento de suministrar código ejecutable
+ * y garantiza que solo se acepte texto plano seguro.
+ */
+export function validarComentarioOTextoPlano(
+  texto?: string | null,
+  opciones?: {
+    campo?: string;
+    longitudMaxima?: number;
+    obligatorio?: boolean;
+    permitirSaltosLinea?: boolean;
+  }
+): ValidationResult {
+  const nombreCampo = opciones?.campo || 'Comentario / Información';
+
+  if (!texto || !String(texto).trim()) {
+    if (opciones?.obligatorio) {
+      return {
+        esValido: false,
+        motivo: `El campo "${nombreCampo}" es obligatorio.`
+      };
+    }
+    return { esValido: true };
+  }
+
+  const str = String(texto);
+  const maxLen = opciones?.longitudMaxima || 500;
+
+  if (str.length > maxLen) {
+    return {
+      esValido: false,
+      amenazaDetectada: 'LENGTH_EXCEEDED',
+      motivo: `El campo "${nombreCampo}" no puede exceder ${maxLen} caracteres (actual: ${str.length}).`
+    };
+  }
+
+  // 0. Ejecutar chequeo general de amenazas conocidas (SQLi, NoSQL, Path Traversal, SSTI, etc.)
+  const checkAmenazas = validarTextoSeguro(str, { campo: nombreCampo, longitudMaxima: maxLen });
+  if (!checkAmenazas.esValido) {
+    return {
+      esValido: false,
+      amenazaDetectada: checkAmenazas.amenazaDetectada || 'SECURITY_THREAT_DETECTED',
+      motivo: `Información no admitida en "${nombreCampo}": No se permite código ejecutable, únicamente texto plano.`
+    };
+  }
+
+  // 1. Detectar scripts o código ejecutable
+  const patronScript = /<script\b|javascript:|vbscript:|data:text\/html|\bon\w+\s*=|eval\s*\(|Function\s*\(|setTimeout\s*\(|setInterval\s*\(|window\.|document\./i;
+  if (patronScript.test(str)) {
+    return {
+      esValido: false,
+      amenazaDetectada: 'EXECUTABLE_SCRIPT_DETECTED',
+      motivo: `La información suministrada en "${nombreCampo}" contiene código ejecutable no permitido. Ingrésala únicamente como texto plano.`
+    };
+  }
+
+  // 2. Detectar etiquetas HTML de cualquier tipo
+  const patronHtml = /<\/?[a-zA-Z0-9_-]+(?:\s+[^>]*)?>|<[^>]+>/;
+  if (patronHtml.test(str)) {
+    return {
+      esValido: false,
+      amenazaDetectada: 'HTML_TAGS_DETECTED',
+      motivo: `El campo "${nombreCampo}" no admite etiquetas HTML ni sintaxis de código. La información suministrada se procesa únicamente como texto plano.`
+    };
+  }
+
+  // 3. Detectar inyecciones de comandos o tuberías
+  const patronComandos = /(?:;|&&|\|\||`|\$\([^)]+\))\s*(?:rm|bash|sh|curl|wget|nc|cat|sudo)\b/i;
+  if (patronComandos.test(str)) {
+    return {
+      esValido: false,
+      amenazaDetectada: 'COMMAND_INJECTION_DETECTED',
+      motivo: `No se permiten instrucciones o comandos de sistema en "${nombreCampo}". Solo texto plano.`
+    };
+  }
+
+  // 4. Validar caracteres de control
+  const caracteresControl = /[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/;
+  if (caracteresControl.test(str)) {
+    return {
+      esValido: false,
+      amenazaDetectada: 'CONTROL_CHARACTERS',
+      motivo: `El campo "${nombreCampo}" contiene caracteres de control no permitidos.`
+    };
+  }
+
+  return { esValido: true };
+}
+
+/**
+ * Convierte cualquier valor a texto plano puro garantizado, eliminando
+ * todo intento de inyección de código ejecutable.
+ */
+export function asegurarSoloTextoPlano(texto?: string | null, maxLen = 500): string {
+  return sanitizarComoTextoPlano(texto, { longitudMaxima: maxLen, permitirSaltosLinea: true });
+}
+
+/**
+ * Sanitiza recursivamente cualquier estructura de datos (objeto o array) asegurando
+ * que cada valor de tipo cadena se procese y guarde únicamente como texto plano.
+ */
+export function asegurarObjetoTextoPlano<T>(data: T): T {
+  if (data === null || data === undefined) return data;
+
+  if (typeof data === 'string') {
+    return sanitizarComoTextoPlano(data, { permitirSaltosLinea: true }) as unknown as T;
+  }
+
+  if (Array.isArray(data)) {
+    return data.map(item => asegurarObjetoTextoPlano(item)) as unknown as T;
+  }
+
+  if (typeof data === 'object') {
+    const res: any = {};
+    for (const key of Object.keys(data as any)) {
+      res[key] = asegurarObjetoTextoPlano((data as any)[key]);
+    }
+    return res as T;
+  }
+
+  return data;
+}
+
+/**
  * Validador específico para nombres de personas
  */
 export function validarNombre(nombre?: string | null): ValidationResult {

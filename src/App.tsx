@@ -43,7 +43,7 @@ import {
 } from './services/sessionManager';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { auth } from './services/firebaseAuth';
-import { MapPin, Phone, Clock, Terminal, Scissors, Coins, Lock, Users, ShieldAlert, ShieldCheck, Cookie } from 'lucide-react';
+import { MapPin, Phone, Clock, Terminal, Scissors, Coins, Lock, Users, ShieldAlert, ShieldCheck, Cookie, QrCode } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   VintageCrownIcon, 
@@ -414,10 +414,10 @@ export default function App() {
           <AnimatePresence mode="wait">
             <motion.div
               key={activeTab}
-              initial={{ opacity: 0, y: 6 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -6 }}
-              transition={{ duration: 0.25, ease: [0.25, 1, 0.5, 1] }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
               className="w-full"
             >
               {/* View: RESERVAR CITA */}

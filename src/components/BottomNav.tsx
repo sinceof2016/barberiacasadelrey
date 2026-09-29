@@ -16,9 +16,10 @@ export const BottomNav: React.FC<BottomNavProps> = ({
 }) => {
   const esPersonal = !!usuario;
 
-  // En la vista de agendamiento para clientes, el módulo de reserva cuenta con su propia
-  // barra inferior flotante ("Resumen" + "Siguiente" / "Confirmar") estilo WeBook.
-  if (activeTab === 'reservar' && !esPersonal) {
+  // En la vista de agendamiento, el módulo de reserva cuenta con su propia
+  // barra inferior flotante ("Resumen" + "Siguiente" / "Confirmar").
+  // Ocultamos la barra global de navegación para no solapar el botón de "Siguiente" en móvil.
+  if (activeTab === 'reservar') {
     return null;
   }
 

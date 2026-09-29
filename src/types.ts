@@ -90,6 +90,7 @@ export interface Cita {
   responsableEmail?: string;
   totalPersonas?: number;
   detalles?: ParticipanteGrupal[];
+  notas?: string;
   creadoEn?: string;
   googleCalendarEventId?: string;
   googleCalendarHtmlLink?: string;

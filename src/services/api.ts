@@ -261,6 +261,7 @@ export async function crearCitaIndividual(payload: {
   hora: string;
   sucursalId?: string;
   sucursalNombre?: string;
+  notas?: string;
 }): Promise<{ exito: boolean; mensaje: string; reserva: Cita }> {
   const res = await safeFetch(`${BASE_URL}/citas/individual`, {
     method: 'POST',
