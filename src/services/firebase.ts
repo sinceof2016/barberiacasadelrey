@@ -144,10 +144,14 @@ export async function guardarCitaEnFirestore(cita: Cita): Promise<void> {
 }
 
 /**
- * Obtener todas las citas desde Firestore
+ * Obtener todas las citas desde Firestore (Solo para personal autenticado)
  */
 export async function obtenerCitasDeFirestore(): Promise<Cita[]> {
   const path = 'citas';
+  // Guard de autenticación: evitar llamadas no autorizadas y errores de permisos para visitantes anónimos
+  if (!authInstance?.currentUser) {
+    return [];
+  }
   try {
     const q = query(collection(db, 'citas'), orderBy('fecha', 'desc'));
     const snapshot = await getDocs(q);

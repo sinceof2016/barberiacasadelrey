@@ -67,19 +67,20 @@ export const CookieConsentBanner: React.FC<CookieConsentBannerProps> = ({
     <aside
       id="cdr-cookie-consent-banner"
       aria-label="Aviso de Cookies y Privacidad"
-      className="fixed z-[60] bottom-[calc(4.75rem+env(safe-area-inset-bottom,0px))] sm:bottom-6 left-3 right-3 sm:left-auto sm:right-6 sm:max-w-lg bg-[#FFF8F5] border-2 border-[#7C571C] rounded-2xl shadow-[0_12px_36px_rgba(34,26,20,0.25)] p-4 sm:p-5 font-sans animate-in slide-in-from-bottom-5 duration-300 backdrop-blur-md"
+      role="region"
+      className="fixed z-[45] bottom-20 sm:bottom-6 left-3 right-3 sm:left-auto sm:right-6 sm:max-w-md bg-[#FFF8F5]/98 border-2 border-[#7C571C] rounded-2xl shadow-[0_8px_30px_rgba(34,26,20,0.22)] p-3 sm:p-4 font-sans animate-in slide-in-from-bottom-5 duration-300 backdrop-blur-md"
     >
-      <div className="flex items-start gap-3">
+      <div className="flex items-start gap-2.5 sm:gap-3">
         {/* Icono Vintage Barber */}
-        <div className="w-10 h-10 rounded-xl bg-[#7C571C] text-[#FAF6EE] flex items-center justify-center shrink-0 shadow-sm mt-0.5">
-          <Cookie className="w-5 h-5 text-[#FAF6EE]" />
+        <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-[#7C571C] text-[#FAF6EE] flex items-center justify-center shrink-0 shadow-xs mt-0.5">
+          <Cookie className="w-4 h-4 text-[#FAF6EE]" />
         </div>
 
-        <div className="flex-1 min-w-0 space-y-2">
+        <div className="flex-1 min-w-0 space-y-1.5">
           {/* Título y badge legal */}
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-1.5 font-bold font-serif text-sm sm:text-base text-[#221A14] truncate">
-              <span>Uso de Cookies en La Casa del Rey</span>
+          <div className="flex items-center justify-between gap-1.5">
+            <div className="flex items-center gap-1.5 font-bold font-serif text-xs sm:text-sm text-[#221A14] truncate">
+              <span>Cookies en La Casa del Rey</span>
             </div>
             <button
               type="button"
@@ -88,56 +89,44 @@ export const CookieConsentBanner: React.FC<CookieConsentBannerProps> = ({
               title="Continuar solo con cookies técnicas necesarias"
               aria-label="Cerrar y conservar solo necesarias"
             >
-              <X className="w-4 h-4" />
+              <X className="w-3.5 h-3.5" />
             </button>
           </div>
 
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <span className="text-[10px] font-mono text-[#15803D] bg-[#EBF7EE] px-2 py-0.5 rounded-full border border-[#86EFAC] flex items-center gap-1 font-semibold">
-              <ShieldCheck className="w-3 h-3 text-[#15803D]" />
-              <span>Ley 1581 / Habeas Data</span>
-            </span>
-            <span className="text-[10px] font-mono text-[#6F5A4B]">
-              • Privacidad y Control
-            </span>
-          </div>
-
-          <p className="text-xs text-[#4F4539] leading-relaxed">
-            Utilizamos cookies técnicas para el funcionamiento seguro de la plataforma y cookies opcionales para recordar tu sede y estilista predilecto, agilizando tus próximas reservas de barbería.
+          <p className="text-[11px] sm:text-xs text-[#4F4539] leading-snug line-clamp-2 sm:line-clamp-none">
+            Usamos cookies técnicas para garantizar reservas seguras y opcionales para recordar tu barbero y sede predilecta (Ley 1581 / Habeas Data).
           </p>
 
-          {/* Botonera adaptativa y ergonómica */}
-          <div className="pt-2 flex flex-col sm:flex-row items-stretch sm:items-center gap-2 font-mono text-xs">
+          {/* Botonera compacta para mobile */}
+          <div className="pt-1 flex items-center gap-1.5 flex-wrap sm:flex-nowrap font-mono text-[11px]">
             <button
               type="button"
               id="btn-aceptar-todas-cookies"
               onClick={handleAceptarTodas}
-              className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-[#7C571C] hover:bg-[#684815] text-[#FAF6EE] font-bold transition-all shadow-sm cursor-pointer flex items-center justify-center gap-1.5 text-xs active:scale-[0.98]"
+              className="flex-1 sm:flex-initial px-3 py-1.5 rounded-lg bg-[#7C571C] hover:bg-[#684815] text-[#FAF6EE] font-bold transition-all shadow-xs cursor-pointer flex items-center justify-center gap-1 active:scale-95"
             >
-              <Check className="w-3.5 h-3.5" />
-              <span>Aceptar Todas</span>
+              <Check className="w-3 h-3" />
+              <span>Aceptar</span>
             </button>
 
-            <div className="flex items-center gap-2 w-full sm:w-auto">
-              <button
-                type="button"
-                id="btn-solo-necesarias-cookies"
-                onClick={handleSoloNecesarias}
-                className="flex-1 sm:flex-none px-3.5 py-2.5 rounded-xl border border-[#DFCBB5] bg-[#FFFFFF] hover:bg-[#FBEBE1] text-[#4F4539] font-bold transition-all cursor-pointer text-xs text-center active:scale-[0.98]"
-              >
-                Solo Necesarias
-              </button>
+            <button
+              type="button"
+              id="btn-solo-necesarias-cookies"
+              onClick={handleSoloNecesarias}
+              className="flex-1 sm:flex-initial px-2.5 py-1.5 rounded-lg border border-[#DFCBB5] bg-[#FFFFFF] hover:bg-[#FBEBE1] text-[#4F4539] font-semibold transition-all cursor-pointer text-center active:scale-95"
+            >
+              Solo Necesarias
+            </button>
 
-              <button
-                type="button"
-                id="btn-configurar-cookies"
-                onClick={handleAbrirConfiguracion}
-                className="flex-1 sm:flex-none px-3 py-2.5 rounded-xl text-[#7C571C] hover:bg-[#FBEBE1] border border-transparent hover:border-[#DFCBB5] font-bold transition-all cursor-pointer flex items-center justify-center gap-1 text-xs"
-              >
-                <Sliders className="w-3.5 h-3.5" />
-                <span>Personalizar</span>
-              </button>
-            </div>
+            <button
+              type="button"
+              id="btn-configurar-cookies"
+              onClick={handleAbrirConfiguracion}
+              className="px-2 py-1.5 rounded-lg text-[#7C571C] hover:bg-[#FBEBE1] font-semibold transition-all cursor-pointer flex items-center justify-center gap-1"
+            >
+              <Sliders className="w-3 h-3" />
+              <span className="hidden xs:inline sm:inline">Ajustar</span>
+            </button>
           </div>
         </div>
       </div>

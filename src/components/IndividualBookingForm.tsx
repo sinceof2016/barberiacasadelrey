@@ -34,8 +34,10 @@ import {
 import { VintageDatePicker } from './VintageDatePicker';
 import { useColombiaClock, getColombiaDateTime, isSlotPassedInColombia } from '../utils/colombiaTime';
 import { sucursalesCasaDelRey } from '../services/localData';
-import comboCabelloBarbaCejasImg from '../assets/images/combo_cabello_barba_cejas_1790442966946.jpg';
-import corteCabelloCejasImg from '../assets/images/corte_cabello_cejas_barber_1790442983111.jpg';
+import { 
+  CORTE_CABELLO_CEJAS_IMG, 
+  COMBO_CABELLO_BARBA_CEJAS_IMG 
+} from '../utils/assets';
 import { 
   BarberPoleRibbon,
   VintageWaxSeal 
@@ -64,9 +66,9 @@ const FOTOS_SERVICIOS: Record<number, string> = {
   2: 'https://images.unsplash.com/photo-1621605815971-fbc98d665033?auto=format&fit=crop&w=400&q=80',
   3: 'https://images.unsplash.com/photo-1503951914875-452162b0f3f1?auto=format&fit=crop&w=400&q=80',
   4: 'https://images.unsplash.com/photo-1585747860715-2ba37e788b70?auto=format&fit=crop&w=400&q=80',
-  5: corteCabelloCejasImg,
+  5: CORTE_CABELLO_CEJAS_IMG,
   6: 'https://images.unsplash.com/photo-1622286342621-4bd786c2447c?auto=format&fit=crop&w=400&q=80',
-  7: comboCabelloBarbaCejasImg,
+  7: COMBO_CABELLO_BARBA_CEJAS_IMG,
 };
 
 const FOTOS_BARBEROS_DEFAULT: Record<number, string> = {

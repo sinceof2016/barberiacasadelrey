@@ -1,17 +1,43 @@
 import logoJpg from '../assets/logo-casa-del-rey.jpg';
 import logoWebp from '../assets/logo-casa-del-rey.webp';
+import logoWebp400 from '../assets/logo-casa-del-rey-400w.webp';
+import logoWebp800 from '../assets/logo-casa-del-rey-800w.webp';
 import bgJpg from '../assets/barber-chair-bg.jpg';
 import bgWebp from '../assets/barber-chair-bg.webp';
+
+// Servicios optimizados
+import comboCabelloWebp from '../assets/images/combo_cabello_barba_cejas.webp';
+import comboCabelloWebp400 from '../assets/images/combo_cabello_barba_cejas-400w.webp';
+import comboCabelloWebp800 from '../assets/images/combo_cabello_barba_cejas-800w.webp';
+import comboCabelloJpg400 from '../assets/images/combo_cabello_barba_cejas-400w.jpg';
+
+import corteCabelloWebp from '../assets/images/corte_cabello_cejas.webp';
+import corteCabelloWebp400 from '../assets/images/corte_cabello_cejas-400w.webp';
+import corteCabelloWebp800 from '../assets/images/corte_cabello_cejas-800w.webp';
+import corteCabelloJpg400 from '../assets/images/corte_cabello_cejas-400w.jpg';
 
 /**
  * URLs de activos gestionadas directamente por el empaquetador Vite.
  * Esto garantiza compatibilidad total con GitHub Pages (incluyendo subdirectorios /nombre-del-repo/)
  * evitando errores 404 causados por rutas absolutas con barra inicial "/".
  */
-export const LOGO_CASA_DEL_REY = logoJpg;
+export const LOGO_CASA_DEL_REY = logoWebp;
+export const LOGO_CASA_DEL_REY_FALLBACK = logoJpg;
 export const LOGO_CASA_DEL_REY_WEBP = logoWebp;
-export const BG_BARBERIA = bgJpg;
+export const LOGO_SRCSET_WEBP = `${logoWebp400} 400w, ${logoWebp800} 800w`;
+
+export const BG_BARBERIA = bgWebp;
+export const BG_BARBERIA_FALLBACK = bgJpg;
 export const BG_BARBERIA_WEBP = bgWebp;
+
+// Servicios exportados con alta compresión WebP y versiones responsive
+export const COMBO_CABELLO_BARBA_CEJAS_IMG = comboCabelloWebp;
+export const COMBO_CABELLO_SRCSET = `${comboCabelloWebp400} 400w, ${comboCabelloWebp800} 800w`;
+export const COMBO_CABELLO_FALLBACK = comboCabelloJpg400;
+
+export const CORTE_CABELLO_CEJAS_IMG = corteCabelloWebp;
+export const CORTE_CABELLO_SRCSET = `${corteCabelloWebp400} 400w, ${corteCabelloWebp800} 800w`;
+export const CORTE_CABELLO_FALLBACK = corteCabelloJpg400;
 
 /**
  * Enlaces directos a imágenes de alta definición estilo Heritage Barber / Barbería La Casa del Rey
