@@ -68,7 +68,7 @@ export const CookieConsentBanner: React.FC<CookieConsentBannerProps> = ({
       id="cdr-cookie-consent-banner"
       aria-label="Aviso de Cookies y Privacidad"
       role="region"
-      className="fixed z-[45] bottom-20 sm:bottom-6 left-3 right-3 sm:left-auto sm:right-6 sm:max-w-md bg-[#FFF8F5]/98 border-2 border-[#7C571C] rounded-2xl shadow-[0_8px_30px_rgba(34,26,20,0.22)] p-3 sm:p-4 font-sans animate-in slide-in-from-bottom-5 duration-300 backdrop-blur-md"
+      className="fixed z-[55] top-16 sm:top-auto sm:bottom-6 left-3 right-3 sm:left-auto sm:right-6 sm:max-w-md bg-[#FFF8F5]/98 border-2 border-[#7C571C] rounded-2xl shadow-[0_8px_30px_rgba(34,26,20,0.22)] p-3 sm:p-4 font-sans animate-in slide-in-from-top-4 sm:slide-in-from-bottom-5 duration-300 backdrop-blur-md"
     >
       <div className="flex items-start gap-2.5 sm:gap-3">
         {/* Icono Vintage Barber */}

@@ -329,19 +329,7 @@ export interface Usuario {
  */
 export function puedeUsuarioVerApi(usuario: Usuario | null | undefined): boolean {
   if (!usuario) return false;
-  if (usuario.puedeVerApi === true) return true;
-  if (usuario.rol === 'SuperAdmin') return true;
-  const email = (usuario.email || '').toLowerCase().trim();
-  const nombre = (usuario.nombre || '').toLowerCase().trim();
-  if (
-    email.includes('orjuela') ||
-    email.includes('david') ||
-    nombre.includes('david') ||
-    nombre.includes('orjuela')
-  ) {
-    return true;
-  }
-  return false;
+  return usuario.rol === 'SuperAdmin' || usuario.puedeVerApi === true;
 }
 
 /**
@@ -349,18 +337,15 @@ export function puedeUsuarioVerApi(usuario: Usuario | null | undefined): boolean
  */
 export function esUsuarioAdmin(usuario: Usuario | null | undefined): boolean {
   if (!usuario) return false;
-  return (
-    usuario.rol === 'Administrador' ||
-    usuario.rol === 'SuperAdmin' ||
-    puedeUsuarioVerApi(usuario)
-  );
+  return usuario.rol === 'Administrador' || usuario.rol === 'SuperAdmin';
 }
 
 /**
- * Determina si el usuario actual corresponde a David Orjuela (acceso exclusivo a gestión de usuarios y API).
+ * Determina si el usuario actual corresponde a SuperAdmin.
  */
 export function esUsuarioDavid(usuario: Usuario | null | undefined): boolean {
-  return puedeUsuarioVerApi(usuario);
+  if (!usuario) return false;
+  return usuario.rol === 'SuperAdmin';
 }
 
 export interface ClienteReporteItem {

@@ -11,10 +11,11 @@ import {
   collection, 
   updateDoc, 
   query, 
+  where,
   orderBy 
 } from 'firebase/firestore';
 import { firebaseConfig } from './firebaseConfig';
-import { Cita, Barbero, CorteDiario, ArqueoCaja } from '../types';
+import { Cita, Barbero, CorteDiario, ArqueoCaja, GastoDiario } from '../types';
 import { encryptSensitiveCitaData } from './dbEncryption';
 
 // Initialize Firebase App safely with official config and graceful error recovery
@@ -144,16 +145,24 @@ export async function guardarCitaEnFirestore(cita: Cita): Promise<void> {
 }
 
 /**
- * Obtener todas las citas desde Firestore (Solo para personal autenticado)
+ * Obtener citas desde Firestore (Solo para personal autenticado; con filtro por sede si corresponde)
  */
-export async function obtenerCitasDeFirestore(): Promise<Cita[]> {
+export async function obtenerCitasDeFirestore(sucursalId?: string): Promise<Cita[]> {
   const path = 'citas';
-  // Guard de autenticación: evitar llamadas no autorizadas y errores de permisos para visitantes anónimos
   if (!authInstance?.currentUser) {
     return [];
   }
   try {
-    const q = query(collection(db, 'citas'), orderBy('fecha', 'desc'));
+    let q;
+    if (sucursalId && sucursalId !== 'todas') {
+      q = query(
+        collection(db, 'citas'),
+        where('sucursalId', '==', sucursalId),
+        orderBy('fecha', 'desc')
+      );
+    } else {
+      q = query(collection(db, 'citas'), orderBy('fecha', 'desc'));
+    }
     const snapshot = await getDocs(q);
     const citas: Cita[] = [];
     snapshot.forEach((docSnap) => {
@@ -193,6 +202,10 @@ export async function guardarCorteEnFirestore(corte: CorteDiario): Promise<void>
         sanitizedData[key] = value;
       }
     }
+    // Asegurar sede por defecto si no viene explícita
+    if (!sanitizedData.sucursalId) {
+      sanitizedData.sucursalId = 'suc-chico';
+    }
     await setDoc(doc(db, 'cortes_diarios', corte.id), sanitizedData);
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, path);
@@ -200,18 +213,35 @@ export async function guardarCorteEnFirestore(corte: CorteDiario): Promise<void>
 }
 
 /**
- * Obtener todos los cortes de una fecha desde Firestore
+ * Obtener cortes desde Firestore (filtrado por fecha y sucursal si corresponde)
  */
-export async function obtenerCortesDeFirestore(fecha: string): Promise<CorteDiario[]> {
+export async function obtenerCortesDeFirestore(fecha?: string, sucursalId?: string): Promise<CorteDiario[]> {
   const path = 'cortes_diarios';
   try {
-    const snapshot = await getDocs(collection(db, 'cortes_diarios'));
+    let q;
+    if (sucursalId && sucursalId !== 'todas' && fecha) {
+      q = query(
+        collection(db, 'cortes_diarios'),
+        where('sucursalId', '==', sucursalId),
+        where('fecha', '==', fecha)
+      );
+    } else if (sucursalId && sucursalId !== 'todas') {
+      q = query(
+        collection(db, 'cortes_diarios'),
+        where('sucursalId', '==', sucursalId)
+      );
+    } else if (fecha) {
+      q = query(
+        collection(db, 'cortes_diarios'),
+        where('fecha', '==', fecha)
+      );
+    } else {
+      q = query(collection(db, 'cortes_diarios'));
+    }
+    const snapshot = await getDocs(q);
     const cortes: CorteDiario[] = [];
     snapshot.forEach((docSnap) => {
-      const data = docSnap.data() as CorteDiario;
-      if (data.fecha === fecha) {
-        cortes.push(data);
-      }
+      cortes.push(docSnap.data() as CorteDiario);
     });
     return cortes;
   } catch (error) {
@@ -232,6 +262,9 @@ export async function guardarArqueoEnFirestore(arqueo: ArqueoCaja): Promise<void
         sanitizedData[key] = value;
       }
     }
+    if (!sanitizedData.sucursalId) {
+      sanitizedData.sucursalId = 'suc-chico';
+    }
     await setDoc(doc(db, 'caja_arqueos', arqueo.id), sanitizedData);
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, path);
@@ -239,20 +272,96 @@ export async function guardarArqueoEnFirestore(arqueo: ArqueoCaja): Promise<void
 }
 
 /**
- * Obtener todos los arqueos de una fecha o sucursal desde Firestore
+ * Obtener arqueos desde Firestore (filtrado por sucursal y fecha si corresponde)
  */
-export async function obtenerArqueosDeFirestore(fecha?: string): Promise<ArqueoCaja[]> {
+export async function obtenerArqueosDeFirestore(fecha?: string, sucursalId?: string): Promise<ArqueoCaja[]> {
   const path = 'caja_arqueos';
   try {
-    const snapshot = await getDocs(collection(db, 'caja_arqueos'));
+    let q;
+    if (sucursalId && sucursalId !== 'todas' && fecha) {
+      q = query(
+        collection(db, 'caja_arqueos'),
+        where('sucursalId', '==', sucursalId),
+        where('fecha', '==', fecha)
+      );
+    } else if (sucursalId && sucursalId !== 'todas') {
+      q = query(
+        collection(db, 'caja_arqueos'),
+        where('sucursalId', '==', sucursalId)
+      );
+    } else if (fecha) {
+      q = query(
+        collection(db, 'caja_arqueos'),
+        where('fecha', '==', fecha)
+      );
+    } else {
+      q = query(collection(db, 'caja_arqueos'));
+    }
+    const snapshot = await getDocs(q);
     const arqueos: ArqueoCaja[] = [];
     snapshot.forEach((docSnap) => {
-      const data = docSnap.data() as ArqueoCaja;
-      if (!fecha || data.fecha === fecha) {
-        arqueos.push(data);
-      }
+      arqueos.push(docSnap.data() as ArqueoCaja);
     });
     return arqueos;
+  } catch (error) {
+    handleFirestoreError(error, OperationType.LIST, path);
+    return [];
+  }
+}
+
+/**
+ * Guardar registro de gasto operativo en Firestore
+ */
+export async function guardarGastoEnFirestore(gasto: GastoDiario): Promise<void> {
+  const path = `gastos/${gasto.id}`;
+  try {
+    const sanitizedData: Record<string, any> = {};
+    for (const [key, value] of Object.entries(gasto)) {
+      if (value !== undefined) {
+        sanitizedData[key] = value;
+      }
+    }
+    if (!sanitizedData.sucursalId) {
+      sanitizedData.sucursalId = 'suc-chico';
+    }
+    await setDoc(doc(db, 'gastos', gasto.id), sanitizedData);
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, path);
+  }
+}
+
+/**
+ * Obtener gastos operativos desde Firestore
+ */
+export async function obtenerGastosDeFirestore(fecha?: string, sucursalId?: string): Promise<GastoDiario[]> {
+  const path = 'gastos';
+  try {
+    let q;
+    if (sucursalId && sucursalId !== 'todas' && fecha) {
+      q = query(
+        collection(db, 'gastos'),
+        where('sucursalId', '==', sucursalId),
+        where('fecha', '==', fecha)
+      );
+    } else if (sucursalId && sucursalId !== 'todas') {
+      q = query(
+        collection(db, 'gastos'),
+        where('sucursalId', '==', sucursalId)
+      );
+    } else if (fecha) {
+      q = query(
+        collection(db, 'gastos'),
+        where('fecha', '==', fecha)
+      );
+    } else {
+      q = query(collection(db, 'gastos'));
+    }
+    const snapshot = await getDocs(q);
+    const gastos: GastoDiario[] = [];
+    snapshot.forEach((docSnap) => {
+      gastos.push(docSnap.data() as GastoDiario);
+    });
+    return gastos;
   } catch (error) {
     handleFirestoreError(error, OperationType.LIST, path);
     return [];

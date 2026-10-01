@@ -18,7 +18,8 @@ import { User } from 'firebase/auth';
 import { Usuario, puedeUsuarioVerApi, esUsuarioAdmin, esUsuarioDavid } from '../types';
 import { 
   HERITAGE_EMBLEM_LOGO, 
-  HERITAGE_AVATAR_PROFILE 
+  HERITAGE_AVATAR_PROFILE,
+  LOGO_SRCSET_WEBP
 } from '../utils/assets';
 import { handleTabNavigationWithScroll } from '../utils/navigationScroll';
 
@@ -92,8 +93,12 @@ export const Navbar: React.FC<NavbarProps> = ({
             <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-full overflow-hidden border-2 border-[#C49756] bg-[#221A14] shadow-md group-hover:scale-105 transition-transform shrink-0 flex items-center justify-center ring-2 ring-[#DFCBB5]/50">
               <img
                 src={HERITAGE_EMBLEM_LOGO}
+                srcSet={LOGO_SRCSET_WEBP}
+                sizes="(max-width: 640px) 44px, 48px"
                 alt="Emblema Barbería La Casa del Rey"
                 className="w-full h-full object-cover scale-105"
+                width={48}
+                height={48}
                 referrerPolicy="no-referrer"
               />
             </div>

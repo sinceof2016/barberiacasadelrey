@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { CorteDiario, Servicio, Barbero, Cita } from '../types';
+import { CorteDiario, Servicio, Barbero, Cita, Usuario } from '../types';
 import { 
   getCortesDiarios, 
   toggleLiquidarCorte, 
@@ -45,6 +45,8 @@ interface DailyCutsModuleProps {
   servicios: Servicio[];
   barberos: Barbero[];
   citas: Cita[];
+  usuario?: Usuario | null;
+  sucursalAsignada?: string;
   onDataUpdated?: () => void;
   onNavegarRegistrarCorte?: () => void;
 }
@@ -55,6 +57,8 @@ export const DailyCutsModule: React.FC<DailyCutsModuleProps> = ({
   servicios,
   barberos,
   citas,
+  usuario,
+  sucursalAsignada,
   onDataUpdated,
   onNavegarRegistrarCorte,
 }) => {
@@ -104,7 +108,8 @@ export const DailyCutsModule: React.FC<DailyCutsModuleProps> = ({
     setCargando(true);
     setError(null);
     try {
-      const data = await getCortesDiarios(fecha);
+      const sedeFiltro = usuario?.rol === 'Cajero' ? (usuario.sucursalAsignada || 'suc-chico') : sucursalAsignada;
+      const data = await getCortesDiarios(fecha, undefined, sedeFiltro);
       setCortes(data);
     } catch (err: any) {
       setError(err.message || 'Error al cargar cortes del día');

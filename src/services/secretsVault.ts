@@ -86,7 +86,7 @@ export function enmascararSecreto(valor?: string): string {
   return `${inicio}${'•'.repeat(Math.min(12, len - 7))}${fin}`;
 }
 
-const VAULT_STORAGE_KEY = 'cdr_vault_protected_meta_v2';
+const VAULT_STORAGE_KEY = 'cdr_vault_metadata_v1';
 
 /**
  * Catálogo maestro de definiciones de secretos del sistema
@@ -183,9 +183,8 @@ export function obtenerMetadatosInicialesVault(): SecretoMetadatos[] {
       mascara = '••••••••••••••••••••••••••••••••••••••••••••••••';
       longitud = 48;
     } else if (def.clave === 'WHATSAPP_API_TOKEN') {
-      const t = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_ULTRAMSG_TOKEN) || '';
-      mascara = t ? enmascararSecreto(t) : '••••••••••••••••••••••••••••••••••••••••••••••••••••';
-      longitud = t ? t.length : 32;
+      mascara = '••••••••••••••••••••••••••••••••••••••••••••••••••••';
+      longitud = 32;
     }
 
     return {

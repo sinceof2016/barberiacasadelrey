@@ -309,7 +309,7 @@ export const ApiConsole: React.FC = () => {
             status: 200,
             data: {
               exito: true,
-              servidor: { estado: 'Protegido y Operativo', modo: 'Bóveda Criptográfica Local / Express Activo' },
+              servidor: { estado: 'Operativo', modo: 'Bóveda Criptográfica Local / Express Activo' },
               rateLimiting: { activo: true, limiteGlobalPorMinuto: 150, limiteLoginPorMinuto: 10, intentosMaxFuerzaBruta: 5 },
               ipLimiting: { activo: true, maxPeticionesPorMinutoPorIp: 120, duracionSuspensionMinutos: 15 },
               rowLevelSecurity: { activo: true, proveedor: 'Firestore Security Rules 2.0 (Zero-Trust RLS)' },

@@ -151,9 +151,9 @@ export const UserManagementModule: React.FC<UserManagementModuleProps> = ({
   const [webhookUrlInput, setWebhookUrlInput] = useState<string>('');
   const [telegramTokenInput, setTelegramTokenInput] = useState<string>('');
   const [telegramChatIdInput, setTelegramChatIdInput] = useState<string>('');
-  const [ultramsgInstanceInput, setUltramsgInstanceInput] = useState<string>('instance191642');
-  const [ultramsgTokenInput, setUltramsgTokenInput] = useState<string>('eanhimzs6xv0o1e2');
-  const [lineasSecundariasInput, setLineasSecundariasInput] = useState<string>('3204509804');
+  const [ultramsgInstanceInput, setUltramsgInstanceInput] = useState<string>('');
+  const [ultramsgTokenInput, setUltramsgTokenInput] = useState<string>('');
+  const [lineasSecundariasInput, setLineasSecundariasInput] = useState<string>('');
   const [proveedorSeleccionado, setProveedorSeleccionado] = useState<'telegram' | 'callmebot' | 'meta' | 'webhook' | 'ultramsg'>('ultramsg');
   const [guardandoGateway, setGuardandoGateway] = useState<boolean>(false);
 
@@ -423,7 +423,7 @@ export const UserManagementModule: React.FC<UserManagementModuleProps> = ({
       const res = await verificarIntegridadVault();
       setAuditoriaResultado(res);
       if (res.exito) {
-        notificarExito(`✓ Integridad AES-256 validada en ${res.tiempoRespuestaMs}ms. Cero secretos expuestos.`);
+        notificarExito(`✓ Verificación de integridad completada en ${res.tiempoRespuestaMs}ms.`);
       }
     } catch (err: any) {
       setError(`Error al auditar bóveda: ${err.message}`);
@@ -580,7 +580,7 @@ export const UserManagementModule: React.FC<UserManagementModuleProps> = ({
   };
 
   const handleEliminar = async (id: string, nombreUser: string) => {
-    if (id === 'USR-ADMIN-01' || id === 'USR-DAVID-01' || nombreUser.toLowerCase().includes('david orjuela')) {
+    if (id === 'USR-ADMIN-01' || id === 'USR-DAVID-01') {
       notificarError('No es posible revocar al Super Administrador Principal de La Casa del Rey.');
       return;
     }
@@ -599,17 +599,19 @@ export const UserManagementModule: React.FC<UserManagementModuleProps> = ({
   };
 
   const abrirModalRestablecerClave = (u: Usuario) => {
-    const claveDefault = u.rol === 'Administrador' || u.rol === 'SuperAdmin' ? 'admin123' : 'caja123';
     setUsuarioParaRestablecerClave(u);
-    setNuevaClaveInput(claveDefault);
+    setNuevaClaveInput('');
   };
 
   const handleEjecutarRestablecimientoClave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!usuarioParaRestablecerClave) return;
     const u = usuarioParaRestablecerClave;
-    const claveDefault = u.rol === 'Administrador' || u.rol === 'SuperAdmin' ? 'admin123' : 'caja123';
-    const claveFinal = nuevaClaveInput.trim() || claveDefault;
+    const claveFinal = nuevaClaveInput.trim();
+    if (!claveFinal) {
+      notificarError('Debes ingresar una nueva contraseña de al menos 6 caracteres.');
+      return;
+    }
 
     const valPass = validarTextoSeguro(claveFinal, { campo: 'Contraseña', longitudMaxima: 128 });
     if (!valPass.esValido) {
@@ -1413,13 +1415,13 @@ export const UserManagementModule: React.FC<UserManagementModuleProps> = ({
                   >
                     <div className="flex items-center gap-3">
                       <div className={`w-9 h-9 rounded-lg flex items-center justify-center font-bold text-sm ${
-                        u.rol === 'SuperAdmin' || u.nombre.toLowerCase().includes('david orjuela')
+                        u.rol === 'SuperAdmin'
                           ? 'bg-[#FBEBE1] border border-[#7C571C] text-[#7C571C]'
                           : u.rol === 'Administrador'
                             ? 'bg-[#FBEBE1] border border-[#DFCBB5] text-[#7C571C]'
                             : 'bg-[#EBF7EE] border border-[#86EFAC] text-[#15803D]'
                       }`}>
-                        {u.rol === 'SuperAdmin' || u.nombre.toLowerCase().includes('david orjuela') ? (
+                        {u.rol === 'SuperAdmin' ? (
                           <VintageCrownIcon className="w-4 h-4 text-[#7C571C]" />
                         ) : u.rol === 'Administrador' ? (
                           <VintageCrownIcon className="w-4 h-4" />
@@ -1431,7 +1433,7 @@ export const UserManagementModule: React.FC<UserManagementModuleProps> = ({
                       <div>
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="font-bold text-[#221A14] text-xs">{u.nombre}</span>
-                          {u.rol === 'SuperAdmin' || u.nombre.toLowerCase().includes('david orjuela') ? (
+                          {u.rol === 'SuperAdmin' ? (
                             <span className="px-2 py-0.5 rounded text-[9px] font-bold uppercase bg-[#FBEBE1] text-[#7C571C] border border-[#7C571C] flex items-center gap-1">
                               <VintageCrownIcon className="w-2.5 h-2.5" />
                               SUPER ADMIN (ACCESO TOTAL)
@@ -1446,7 +1448,7 @@ export const UserManagementModule: React.FC<UserManagementModuleProps> = ({
                             </span>
                           )}
 
-                          {u.rol === 'SuperAdmin' || u.rol === 'Administrador' || u.nombre.toLowerCase().includes('david orjuela') ? (
+                          {u.rol === 'SuperAdmin' || u.rol === 'Administrador' ? (
                             <span className="px-2 py-0.5 rounded text-[9px] bg-[#FBEBE1] text-[#7C571C] border border-[#DFCBB5] font-bold flex items-center gap-1">
                               <Building2 className="w-2.5 h-2.5" />
                               3 Sedes (Consolidado)
@@ -1519,7 +1521,7 @@ export const UserManagementModule: React.FC<UserManagementModuleProps> = ({
                         <span>Clave</span>
                       </button>
 
-                      {u.id === 'USR-ADMIN-01' || u.id === 'USR-DAVID-01' || u.nombre.toLowerCase().includes('david orjuela') ? (
+                      {u.id === 'USR-ADMIN-01' || u.id === 'USR-DAVID-01' ? (
                         <span className="text-[10px] text-[#7C571C] font-bold px-2 py-1 bg-[#FBEBE1] rounded border border-[#DFCBB5]">
                           TITULAR
                         </span>
@@ -1881,8 +1883,8 @@ export const UserManagementModule: React.FC<UserManagementModuleProps> = ({
             <div className="bg-[#FFF8F5] border border-[#DFCBB5] rounded-xl p-4 shadow-sm flex items-start justify-between">
               <div className="space-y-1">
                 <span className="text-[#6F5A4B] font-bold uppercase tracking-wider block">Exposición Frontend</span>
-                <span className="font-serif text-lg font-bold text-emerald-800 block">0 Claves Visibles</span>
-                <span className="text-[11px] text-[#6F5A4B]">Sanitización estricta por capa de Vault</span>
+                <span className="font-serif text-lg font-bold text-emerald-800 block">Enmascarado</span>
+                <span className="text-[11px] text-[#6F5A4B]">Sanitización por capa de Vault</span>
               </div>
               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
                 <CheckCheck className="w-3 h-3" /> Sanitizado
@@ -2294,7 +2296,7 @@ export const UserManagementModule: React.FC<UserManagementModuleProps> = ({
                       Meta (WhatsApp) activó recientemente bloqueos automáticos masivos sobre los números (+34) que usa CallMeBot para evitar tráfico no oficial. Por eso sus bots actualmente no devuelven la API key.
                     </p>
                     <p className="mt-1 text-[11px] leading-relaxed font-bold text-[#15803D]">
-                      💡 Solución 100% Infalible: Activa el <strong>Bot Oficial de Telegram</strong> a continuación. Es gratuito de por vida, no depende de números de terceros, suena de inmediato en tu celular (+57 312 644 1665) y nunca es bloqueado por WhatsApp.
+                      💡 Opción recomendada: Activa el <strong>Bot de Telegram</strong> a continuación. Permite recibir notificaciones directas en tiempo real.
                     </p>
                   </div>
                 </div>
@@ -3887,16 +3889,6 @@ export const UserManagementModule: React.FC<UserManagementModuleProps> = ({
                   placeholder="Ingresa la nueva clave..."
                   className="w-full bg-[#FFFFFF] border border-[#DFCBB5] text-[#221A14] rounded-lg p-2.5 text-xs font-mono focus:outline-none focus:border-[#7C571C]"
                 />
-              </div>
-
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => setNuevaClaveInput(usuarioParaRestablecerClave.rol === 'Cajero' ? 'caja123' : 'admin123')}
-                  className="text-[10px] px-2.5 py-1 rounded bg-[#FBEBE1] hover:bg-[#F5E5DB] text-[#7C571C] border border-[#DFCBB5] font-bold cursor-pointer transition-colors"
-                >
-                  Usar clave por defecto ({usuarioParaRestablecerClave.rol === 'Cajero' ? 'caja123' : 'admin123'})
-                </button>
               </div>
 
               <div className="pt-2 flex items-center justify-end gap-2 border-t border-[#DFCBB5]">

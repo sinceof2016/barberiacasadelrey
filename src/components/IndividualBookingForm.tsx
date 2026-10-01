@@ -36,7 +36,9 @@ import { useColombiaClock, getColombiaDateTime, isSlotPassedInColombia } from '.
 import { sucursalesCasaDelRey } from '../services/localData';
 import { 
   CORTE_CABELLO_CEJAS_IMG, 
-  COMBO_CABELLO_BARBA_CEJAS_IMG 
+  CORTE_CABELLO_SRCSET,
+  COMBO_CABELLO_BARBA_CEJAS_IMG,
+  COMBO_CABELLO_SRCSET
 } from '../utils/assets';
 import { 
   BarberPoleRibbon,
@@ -695,6 +697,8 @@ export const IndividualBookingForm: React.FC<IndividualBookingFormProps> = ({
                       <div className="relative w-20 h-20 sm:w-24 sm:h-24 rounded-2xl overflow-hidden shrink-0 border border-[#DFCBB5] bg-[#FBEBE1]">
                         <img 
                           src={foto} 
+                          srcSet={s.id === 5 ? CORTE_CABELLO_SRCSET : s.id === 7 ? COMBO_CABELLO_SRCSET : undefined}
+                          sizes="(max-width: 640px) 80px, 96px"
                           alt={s.nombre}
                           className="w-full h-full object-cover"
                           loading="lazy"
@@ -713,7 +717,7 @@ export const IndividualBookingForm: React.FC<IndividualBookingFormProps> = ({
                         <div>
                           {esMasPedido && (
                             <span className="text-[10px] font-bold text-[#7C571C] uppercase tracking-wider mb-0.5 block font-mono">
-                              ★ N.° 1 EN RESERVAS
+                              ★ RECOMENDADO
                             </span>
                           )}
                           <h3 className="text-sm font-serif font-bold text-[#221A14] leading-snug truncate">
@@ -747,17 +751,11 @@ export const IndividualBookingForm: React.FC<IndividualBookingFormProps> = ({
                       </div>
                     </div>
 
-                    {/* Footer de la tarjeta con avatares */}
-                    <div className="mt-3 pt-2.5 border-t border-[#DFCBB5]/60 flex items-center gap-2">
-                      <div className="flex -space-x-2 overflow-hidden shrink-0">
-                        <img className="inline-block h-5 w-5 rounded-full ring-2 ring-[#FFF1E9] object-cover" src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=100&q=80" alt="Barbero" />
-                        <img className="inline-block h-5 w-5 rounded-full ring-2 ring-[#FFF1E9] object-cover" src="https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=100&q=80" alt="Barbero" />
-                        <img className="inline-block h-5 w-5 rounded-full ring-2 ring-[#FFF1E9] object-cover" src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=100&q=80" alt="Barbero" />
+                      {/* Footer de la tarjeta con información de disponibilidad */}
+                      <div className="mt-3 pt-2.5 border-t border-[#DFCBB5]/60 flex items-center justify-between gap-2 text-[11px] text-[#6F5A4B]">
+                        <span>Atención personalizada con toalla al vapor</span>
+                        <span className="font-semibold text-[#7C571C]">Todas las sedes</span>
                       </div>
-                      <span className="text-[11px] text-[#6F5A4B] truncate">
-                        446 clientes lo reservaron este mes
-                      </span>
-                    </div>
                   </div>
                 );
               })}

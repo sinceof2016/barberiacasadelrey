@@ -46,10 +46,12 @@ export function initUserSession(
   const expiresAt = now + expiryMinutes * 60 * 1000;
   const maxInactiveMs = inactivityMinutes * 60 * 1000;
 
+  const { password: _, ...usuarioLimpio } = (usuario || {}) as any;
+
   const sessionData: ActiveSessionData = {
     token: sessionToken,
     usuario: {
-      ...usuario,
+      ...usuarioLimpio,
       token: sessionToken,
       tokenExpiresAt: expiresAt,
     },
@@ -60,8 +62,8 @@ export function initUserSession(
   };
 
   try {
-    localStorage.setItem(SESSION_CONFIG.STORAGE_KEY, JSON.stringify(sessionData));
-    localStorage.setItem(SESSION_CONFIG.USER_STORAGE_KEY, JSON.stringify(sessionData.usuario));
+    sessionStorage.setItem(SESSION_CONFIG.STORAGE_KEY, JSON.stringify(sessionData));
+    sessionStorage.setItem(SESSION_CONFIG.USER_STORAGE_KEY, JSON.stringify(sessionData.usuario));
     sessionStorage.removeItem('cdr_manual_logout');
   } catch (err) {
     console.error('Error al guardar sesión activa:', err);
@@ -76,7 +78,7 @@ export function initUserSession(
  */
 export function getActiveSession(): ActiveSessionData | null {
   try {
-    const raw = localStorage.getItem(SESSION_CONFIG.STORAGE_KEY);
+    const raw = sessionStorage.getItem(SESSION_CONFIG.STORAGE_KEY);
     if (!raw) return null;
     return JSON.parse(raw);
   } catch {
@@ -139,7 +141,7 @@ export function recordUserActivity(): void {
 
   session.lastActivity = now;
   try {
-    localStorage.setItem(SESSION_CONFIG.STORAGE_KEY, JSON.stringify(session));
+    sessionStorage.setItem(SESSION_CONFIG.STORAGE_KEY, JSON.stringify(session));
   } catch {
     // Ignorar errores en almacenamiento
   }
@@ -152,8 +154,8 @@ export type TerminateSessionReason = 'timeout' | 'inactivity' | 'revoked' | 'man
  */
 export function terminateSession(reason: TerminateSessionReason = 'manual'): void {
   try {
-    localStorage.removeItem(SESSION_CONFIG.STORAGE_KEY);
-    localStorage.removeItem(SESSION_CONFIG.USER_STORAGE_KEY);
+    sessionStorage.removeItem(SESSION_CONFIG.STORAGE_KEY);
+    sessionStorage.removeItem(SESSION_CONFIG.USER_STORAGE_KEY);
     sessionStorage.setItem('cdr_manual_logout', 'true');
   } catch {
     // Ignorar errores

@@ -63,17 +63,6 @@ import {
 import { BottomNav } from './components/BottomNav';
 import { LOGO_CASA_DEL_REY, BG_BARBERIA, BG_BARBERIA_WEBP } from './utils/assets';
 
-const DAVID_ORJUELA_SUPERADMIN: Usuario = {
-  id: 'USR-DAVID-01',
-  nombre: 'David Orjuela',
-  email: 'orjueladavid32@gmail.com',
-  rol: 'SuperAdmin',
-  sucursalAsignada: 'todas',
-  puedeVerApi: true,
-  activo: true,
-  creadoEn: '2026-09-01T07:00:00.000Z'
-};
-
 export default function App() {
   const [servicios, setServicios] = useState<Servicio[]>([]);
   const [barberos, setBarberos] = useState<Barbero[]>([]);
@@ -97,14 +86,7 @@ export default function App() {
       const guardado = localStorage.getItem('casa_del_rey_usuario');
       if (guardado) {
         const u: Usuario = JSON.parse(guardado);
-        // Garantizar que David Orjuela siempre tenga rol SuperAdmin con acceso total y API visible
-        if (
-          u.email?.toLowerCase().includes('orjuela') ||
-          u.email?.toLowerCase().includes('david') ||
-          u.nombre?.toLowerCase().includes('david') ||
-          u.rol === 'SuperAdmin'
-        ) {
-          u.rol = 'SuperAdmin';
+        if (u.rol === 'SuperAdmin') {
           u.puedeVerApi = true;
           u.sucursalAsignada = 'todas';
         }
@@ -248,27 +230,6 @@ export default function App() {
     try {
       const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
         setGoogleUser(currentUser);
-        // Si el usuario de Google es David Orjuela (orjueladavid32@gmail.com), auto-activar su perfil SuperAdmin
-        if (currentUser?.email) {
-          const emailLower = currentUser.email.toLowerCase();
-          if (emailLower.includes('orjuela') || emailLower.includes('david')) {
-            setUsuario(prev => {
-              if (prev && prev.rol === 'SuperAdmin') return prev;
-              const davidUser: Usuario = {
-                id: 'USR-DAVID-01',
-                nombre: currentUser.displayName || 'David Orjuela',
-                email: currentUser.email,
-                rol: 'SuperAdmin',
-                sucursalAsignada: 'todas',
-                puedeVerApi: true,
-                activo: true,
-                creadoEn: '2026-09-01T07:00:00.000Z'
-              };
-              initUserSession(davidUser, (davidUser as any).token, 120, 30);
-              return davidUser;
-            });
-          }
-        }
       });
       return () => unsubscribe();
     } catch (err) {
@@ -303,10 +264,11 @@ export default function App() {
   const cargarDatos = async (cargarCitasPrivadas?: boolean) => {
     try {
       const debeCargarCitas = cargarCitasPrivadas !== undefined ? cargarCitasPrivadas : (!!usuario || !!auth.currentUser);
+      const sedeUsuario = usuario?.rol === 'Cajero' ? usuario.sucursalAsignada : undefined;
       const [dataServicios, dataBarberos, dataCitas] = await Promise.all([
         getServicios().catch(() => []),
         getBarberos().catch(() => []),
-        debeCargarCitas ? getAllCitas().catch(() => []) : Promise.resolve([]),
+        debeCargarCitas ? getAllCitas(sedeUsuario).catch(() => []) : Promise.resolve([]),
       ]);
       setServicios(dataServicios);
       setBarberos(dataBarberos);
@@ -541,6 +503,8 @@ export default function App() {
                       servicios={servicios}
                       barberos={barberos}
                       citas={citas}
+                      usuario={usuario}
+                      sucursalAsignada={usuario?.sucursalAsignada}
                       onDataUpdated={cargarDatos}
                       onNavegarRegistrarCorte={() => setActiveTab('registrar-corte')}
                     />

@@ -28,18 +28,47 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
 
+    // Administrador: Verificado exclusivamente por documento en /admins/{uid} o rol en /usuarios/{uid}
     function isAdmin() {
       return isSignedIn() && (
-        request.auth.token.email == 'orjueladavid32@gmail.com' ||
-        request.auth.token.email == 'david.orjuela@casadelrey.com' ||
-        request.auth.token.email == 'admin@casadelrey.com' ||
-        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid)) ||
+        (
+          exists(/databases/$(database)/documents/usuarios/$(request.auth.uid)) &&
+          get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.rol in ['SuperAdmin', 'Administrador']
+        )
       );
     }
 
-    // Ping / connection check
+    // Personal (Staff): Requiere documento de usuario con rol válido (SuperAdmin, Administrador, Cajero)
+    function isStaff() {
+      return isSignedIn() && (
+        isAdmin() ||
+        (
+          exists(/databases/$(database)/documents/usuarios/$(request.auth.uid)) &&
+          get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.rol in ['SuperAdmin', 'Administrador', 'Cajero']
+        )
+      );
+    }
+
+    // Consulta la sede asignada en el perfil del usuario autenticado
+    function userBranch() {
+      return get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.sucursalAsignada;
+    }
+
+    // Valida acceso a una sucursal: Admin y SuperAdmin tienen acceso global ('todas');
+    // Cajero solo tiene acceso si su sucursalAsignada coincide exactamente o es 'todas'.
+    function canAccessBranch(branchId) {
+      return isAdmin() || (
+        isStaff() &&
+        branchId is string &&
+        branchId.size() > 0 &&
+        (userBranch() == 'todas' || userBranch() == branchId)
+      );
+    }
+
+    // Ping / connection check (Solo personal autorizado)
     match /test/connection {
-      allow read: if true;
+      allow read: if isStaff();
     }
 
     // Barberos: Catálogo público con nombres, experiencia y disponibilidad
@@ -48,7 +77,7 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
-    // Helper de validación de datos para Citas (Individuales y Grupales)
+    // Helper de validación de estructura de datos para Citas
     function isValidCita(data) {
       return (
         (!('idReserva' in data) || isValidId(data.idReserva))
@@ -66,51 +95,80 @@ service cloud.firestore {
           (data.responsableNombre is string && data.responsableNombre.size() > 0 && data.responsableNombre.size() <= 120)
         )
         && (
-          (data.clienteTelefono is string && data.clienteTelefono.size() > 0 && data.clienteTelefono.size() <= 30) ||
-          (data.responsableTelefono is string && data.responsableTelefono.size() > 0 && data.responsableTelefono.size() <= 30)
+          (data.clienteTelefono is string && data.clienteTelefono.size() > 0 && data.clienteTelefono.size() <= 60) ||
+          (data.responsableTelefono is string && data.responsableTelefono.size() > 0 && data.responsableTelefono.size() <= 60)
         )
       );
     }
 
+    // Validación estricta para creación pública de citas (solo estados iniciales y campos autorizados)
+    function isValidCitaCreate(data) {
+      return isValidCita(data)
+        && (data.estado in ['Confirmada', 'En Espera', 'confirmada', 'en_espera'])
+        && (data.sucursalId is string && data.sucursalId.size() > 0)
+        && data.keys().hasOnly([
+          'idReserva', 'tipo', 'clienteNombre', 'clienteTelefono', 'clienteTelefonoEncrypted',
+          'clienteEmail', 'servicioId', 'servicio', 'servicioNombre', 'precio',
+          'barberoId', 'barberoNombre', 'sucursalId', 'sucursalNombre', 'fecha', 'hora',
+          'estado', 'metodoPago', 'corteId', 'responsableNombre', 'responsableTelefono',
+          'responsableTelefonoEncrypted', 'responsableEmail', 'totalPersonas', 'detalles',
+          'notas', 'notasEncrypted', 'creadoEn', 'fechaGuardado', 'fechaActualizacion',
+          'googleCalendarEventId', 'googleCalendarHtmlLink'
+        ]);
+    }
+
     // Citas: Row-Level Security (RLS)
     // - Un usuario anónimo puede consultar únicamente SU cita por ID específico (get) o crear una nueva reserva válida.
-    // - La lectura masiva (list) de citas está estrictamente reservada para personal autenticado (previene raspado de teléfonos de clientes).
+    // - La lectura masiva (list) de citas está estrictamente reservada para personal del negocio (isStaff / isAdmin) según su sede.
     match /citas/{citaId} {
       allow get: if isValidId(citaId);
-      allow list: if isSignedIn();
-      allow create: if isValidId(citaId) && isValidCita(incoming());
+      allow list: if isStaff() && canAccessBranch(resource.data.sucursalId);
+      allow create: if isValidId(citaId) && isValidCitaCreate(incoming());
       allow update: if isValidId(citaId) && (
         isAdmin() ||
-        (isSignedIn() && isValidCita(incoming())) ||
+        (isStaff() && isValidCita(incoming()) && canAccessBranch(existing().sucursalId) && canAccessBranch(incoming().sucursalId)) ||
         (!isSignedIn() && incoming().diff(existing()).affectedKeys().hasOnly(['estado']) && incoming().estado in ['Cancelada', 'cancelada'])
       );
       allow delete: if isAdmin();
     }
 
-    // Cortes Diarios: RLS estricto para colaboradores de barbería
+    // Cortes Diarios: RLS estricto para colaboradores de barbería con rol y sede verificada
     match /cortes_diarios/{corteId} {
-      allow get, list: if isSignedIn();
-      allow create: if isSignedIn()
+      allow get, list: if canAccessBranch(resource.data.sucursalId);
+      allow create: if isStaff()
         && isValidId(corteId)
         && incoming().clienteNombre is string && incoming().clienteNombre.size() <= 120
         && (incoming().barberoId is string || incoming().barberoId is number)
-        && incoming().precio is number && incoming().precio >= 0;
-      allow update, delete: if isAdmin();
-    }
-
-    // Caja y Arqueos diarios: RLS para personal de caja y gerencia
-    match /caja_arqueos/{fechaId} {
-      allow get, list: if isSignedIn();
-      allow create, update: if isSignedIn()
-        && isValidId(fechaId)
-        && incoming().baseInicial is number && incoming().baseInicial >= 0;
+        && incoming().precio is number && incoming().precio >= 0
+        && canAccessBranch(incoming().sucursalId);
+      allow update: if isAdmin() || (
+        isStaff() && canAccessBranch(existing().sucursalId) && canAccessBranch(incoming().sucursalId)
+      );
       allow delete: if isAdmin();
     }
 
-    // Gastos Operativos: RLS para administración y caja
+    // Caja y Arqueos diarios: RLS para personal de caja y gerencia con control por sede
+    match /caja_arqueos/{fechaId} {
+      allow get, list: if canAccessBranch(resource.data.sucursalId);
+      allow create: if isStaff()
+        && isValidId(fechaId)
+        && incoming().baseInicial is number && incoming().baseInicial >= 0
+        && canAccessBranch(incoming().sucursalId);
+      allow update: if isAdmin() || (
+        isStaff() && canAccessBranch(existing().sucursalId) && canAccessBranch(incoming().sucursalId)
+      );
+      allow delete: if isAdmin();
+    }
+
+    // Gastos Operativos: RLS para administración y caja con control por sede
     match /gastos/{gastoId} {
-      allow get, list: if isSignedIn();
-      allow create, update: if isSignedIn() && isValidId(gastoId);
+      allow get, list: if canAccessBranch(resource.data.sucursalId);
+      allow create: if isStaff()
+        && isValidId(gastoId)
+        && canAccessBranch(incoming().sucursalId);
+      allow update: if isAdmin() || (
+        isStaff() && canAccessBranch(existing().sucursalId) && canAccessBranch(incoming().sucursalId)
+      );
       allow delete: if isAdmin();
     }
 
@@ -124,7 +182,7 @@ service cloud.firestore {
     // Productos e Inventario de Barbería
     match /productos/{productoId} {
       allow read: if isValidId(productoId);
-      allow create, update: if isSignedIn()
+      allow create, update: if isStaff()
         && isValidId(productoId)
         && incoming().nombre is string && incoming().nombre.size() <= 120
         && incoming().precio is number && incoming().precio >= 0

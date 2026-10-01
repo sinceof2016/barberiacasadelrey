@@ -1,6 +1,6 @@
 import React from 'react';
 import { Users, MapPin, Sparkles, Scissors, Calendar } from 'lucide-react';
-import { HERITAGE_EMBLEM_LOGO } from '../utils/assets';
+import { HERITAGE_EMBLEM_LOGO, LOGO_SRCSET_WEBP } from '../utils/assets';
 
 interface HeroBannerProps {
   bookingType: 'individual' | 'grupal';
@@ -20,8 +20,12 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({
           <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full overflow-hidden border-2 border-[#C49756] bg-[#221A14] shadow-md shrink-0 flex items-center justify-center ring-2 ring-[#DFCBB5]/50">
             <img 
               src={HERITAGE_EMBLEM_LOGO} 
+              srcSet={LOGO_SRCSET_WEBP}
+              sizes="(max-width: 640px) 48px, 64px"
               alt="Emblema Oficial Barbería La Casa del Rey" 
               className="w-full h-full object-contain p-0.5 rounded-full"
+              width={64}
+              height={64}
               referrerPolicy="no-referrer"
             />
           </div>

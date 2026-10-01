@@ -23,7 +23,9 @@ import {
   actualizarEstadoCitaEnFirestore, 
   guardarCorteEnFirestore,
   obtenerCitasDeFirestore,
-  guardarArqueoEnFirestore
+  guardarArqueoEnFirestore,
+  guardarGastoEnFirestore,
+  auth
 } from './firebase';
 import {
   localGetSucursales,
@@ -359,12 +361,23 @@ export async function buscarCitas(criterio: string): Promise<Cita[]> {
   return data.citas || [];
 }
 
-export async function getAllCitas(): Promise<Cita[]> {
-  const res = await safeFetch(`${BASE_URL}/citas`);
+export async function getAllCitas(sucursalId?: string): Promise<Cita[]> {
+  // Guard de autenticación: El listado completo de citas contiene datos privados
+  // y solo debe ejecutarse cuando hay un usuario autenticado (Admin/Caja).
+  const usuarioSesion = typeof window !== 'undefined' ? localStorage.getItem('casa_del_rey_usuario') : null;
+  if (!usuarioSesion && !auth?.currentUser) {
+    return [];
+  }
+
+  const url = sucursalId && sucursalId !== 'todas'
+    ? `${BASE_URL}/citas?sucursalId=${encodeURIComponent(sucursalId)}`
+    : `${BASE_URL}/citas`;
+
+  const res = await safeFetch(url);
   if (!res || !res.ok) {
-    // Si estamos en entorno estático (GitHub Pages), consultar Firestore en tiempo real
+    // Si estamos en entorno estático (GitHub Pages), consultar Firestore con filtro de sucursal
     try {
-      const citasFirestore = await obtenerCitasDeFirestore();
+      const citasFirestore = await obtenerCitasDeFirestore(sucursalId);
       if (citasFirestore && citasFirestore.length > 0) {
         const local = localGetAllCitas();
         const map = new Map<string, Cita>();
@@ -374,12 +387,13 @@ export async function getAllCitas(): Promise<Cita[]> {
         });
         const combinadas = Array.from(map.values());
         localSaveCitas(combinadas);
-        return combinadas;
+        return sucursalId && sucursalId !== 'todas' ? combinadas.filter(c => c.sucursalId === sucursalId) : combinadas;
       }
     } catch (e) {
       console.warn('Fallback a almacenamiento local de citas:', e);
     }
-    return localGetAllCitas();
+    const todasLocal = localGetAllCitas();
+    return sucursalId && sucursalId !== 'todas' ? todasLocal.filter(c => c.sucursalId === sucursalId) : todasLocal;
   }
   const data = await res.json();
   return data.datos || localGetAllCitas();
@@ -564,7 +578,13 @@ export async function crearEgreso(payload: {
   if (!res || !res.ok) {
     return localCrearEgreso(payload);
   }
-  return await res.json();
+  const data = await res.json();
+  if (data.gasto) {
+    guardarGastoEnFirestore(data.gasto).catch((err) => {
+      console.warn('Sincronización gasto Firestore:', err?.message || err);
+    });
+  }
+  return data;
 }
 
 export async function eliminarEgreso(id: string): Promise<{ exito: boolean; mensaje: string }> {
@@ -891,11 +911,11 @@ export async function eliminarBarbero(id: number): Promise<Barbero[]> {
   return data.datos || localEliminarBarbero(id);
 }
 
-export async function restablecerClaveAdmin(nuevaClave: string = 'admin123'): Promise<{
+export async function restablecerClaveAdmin(nuevaClave: string): Promise<{
   exito: boolean;
   mensaje: string;
   email: string;
-  claveRestablecida: string;
+  claveRestablecida?: string;
 }> {
   const res = await safeFetch(`${BASE_URL}/auth/restablecer-admin`, {
     method: 'POST',

@@ -9,12 +9,10 @@
 
 const DEFAULT_SECRET_KEY = 
   (typeof process !== 'undefined' && process.env?.DATABASE_ENCRYPTION_KEY) ||
-  (typeof import.meta !== 'undefined' && import.meta.env?.VITE_DATABASE_ENCRYPTION_KEY) ||
   'CasaDelRey-DbAES256GCM-ProductionKey-2026-NIST-SP80038D';
 
 const DEFAULT_SALT = 
-  (typeof process !== 'undefined' && (process.env?.DATABASE_ENCRYPTION_SALT || process.env?.VITE_DATABASE_ENCRYPTION_SALT)) ||
-  (typeof import.meta !== 'undefined' && (import.meta.env?.VITE_DATABASE_ENCRYPTION_SALT || import.meta.env?.DATABASE_ENCRYPTION_SALT)) ||
+  (typeof process !== 'undefined' && process.env?.DATABASE_ENCRYPTION_SALT) ||
   'barberia-casa-del-rey-db-salt-secure-98214';
 
 /**

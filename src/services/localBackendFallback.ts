@@ -952,43 +952,31 @@ function asegurarUsuariosActualizados(usuarios: Usuario[]): Usuario[] {
   let modificado = false;
   const lista = [...usuarios];
 
-  // Asegurar que David Orjuela exista con acceso total a todas las opciones (incluida la API)
-  const davidExiste = lista.some(u => 
-    u.id === 'USR-DAVID-01' || 
-    u.email.toLowerCase() === 'orjueladavid32@gmail.com' ||
-    u.nombre.toLowerCase().includes('david orjuela')
-  );
+  // Asegurar que exista al menos un SuperAdmin en la lista
+  const superAdminExiste = lista.some(u => u.rol === 'SuperAdmin');
 
-  if (!davidExiste) {
+  if (!superAdminExiste) {
     lista.unshift({
-      id: 'USR-DAVID-01',
-      nombre: 'David Orjuela',
-      email: 'orjueladavid32@gmail.com',
-      password: 'Deivid17.',
+      id: 'USR-SUPERADMIN-01',
+      nombre: 'Super Administrador',
+      email: 'superadmin@casadelrey.com',
       rol: 'SuperAdmin',
       sucursalAsignada: 'todas',
       creadoEn: '2026-09-01T07:00:00.000Z',
       puedeVerApi: true
     });
     modificado = true;
-  } else {
-    // Asegurar que David tenga puedeVerApi: true
-    const david = lista.find(u => 
-      u.id === 'USR-DAVID-01' || 
-      u.email.toLowerCase() === 'orjueladavid32@gmail.com' ||
-      u.nombre.toLowerCase().includes('david orjuela')
-    );
-    if (david && (!david.puedeVerApi || david.rol !== 'SuperAdmin')) {
-      david.puedeVerApi = true;
-      david.rol = 'SuperAdmin';
-      modificado = true;
-    }
   }
 
-  // Asegurar que el Administrador estándar NO tenga acceso a la API (puedeVerApi: false)
+  // Asegurar que solo SuperAdmin tenga puedeVerApi: true
   lista.forEach(u => {
-    if (u.rol === 'Administrador' && !u.nombre.toLowerCase().includes('david orjuela')) {
-      if (u.puedeVerApi !== false) {
+    if (u.rol === 'SuperAdmin') {
+      if (!u.puedeVerApi) {
+        u.puedeVerApi = true;
+        modificado = true;
+      }
+    } else {
+      if (u.puedeVerApi) {
         u.puedeVerApi = false;
         modificado = true;
       }
@@ -1120,8 +1108,8 @@ export async function localLoginUsuario(email: string, password: string): Promis
       normEmail = 'caja@casadelrey.com';
     } else if (normInput === 'admin') {
       normEmail = 'admin@casadelrey.com';
-    } else if (normInput === 'david' || normInput === 'deivid' || normInput === 'david.orjuela') {
-      normEmail = 'orjueladavid32@gmail.com';
+    } else if (normInput === 'superadmin') {
+      normEmail = 'superadmin@casadelrey.com';
     } else {
       normEmail = `${normInput}@casadelrey.com`;
     }
@@ -1145,46 +1133,14 @@ export async function localLoginUsuario(email: string, password: string): Promis
     };
   }
 
-  // 2. Verificación especial para David Orjuela con credenciales conocidas
-  const esDavidEmail = normEmail === 'orjueladavid32@gmail.com' || normEmail === 'david.orjuela@casadelrey.com';
-  const esDavidPass = passLower === 'deivid17.' || 
-                      passLower === 'deivid17' || 
-                      passLower === 'deivid' ||
-                      trimPassword === 'Deivid17.' || 
-                      trimPassword === 'Deivid17';
-
-  if (esDavidEmail && esDavidPass) {
-    clearLocalLoginAttempts(normEmail);
-    const token = `sess_cdr_${Math.random().toString(36).substring(2)}_${Date.now()}`;
-    const tokenExpiresAt = Date.now() + (120 * 60 * 1000);
-    const davidUser: Usuario = {
-      id: 'USR-DAVID-01',
-      nombre: 'David Orjuela',
-      email: normEmail,
-      rol: 'SuperAdmin',
-      sucursalAsignada: 'todas',
-      puedeVerApi: true,
-      creadoEn: '2026-09-01T07:00:00.000Z',
-      token,
-      tokenExpiresAt
-    };
-    return {
-      exito: true,
-      mensaje: `Bienvenido Don David Orjuela. Acceso total concedido (SuperAdmin con API activa).`,
-      usuario: davidUser
-    };
-  }
-
-  // 3. Verificación contra usuarios dinámicos registrados
+  // 2. Verificación contra usuarios dinámicos registrados
   const usuariosRaw = getLocal<Usuario[]>(STORAGE_KEYS.USUARIOS, obtenerUsuariosSeguros());
   const usuarios = asegurarUsuariosActualizados(usuariosRaw);
   const u = usuarios.find(x => x.email.toLowerCase() === normEmail);
 
   if (u) {
     const storedPass = (u as any).password ? String((u as any).password) : '';
-    const passMatches = (storedPass && (storedPass === trimPassword || storedPass.toLowerCase() === passLower)) ||
-                        (u.rol === 'Cajero' && (passLower === 'caja123' || passLower === 'caja2026.' || passLower === 'caja2026')) ||
-                        (u.rol === 'Administrador' && (passLower === 'admin123' || passLower === 'admin2026.' || passLower === 'admin2026'));
+    const passMatches = storedPass && (storedPass === trimPassword || storedPass.toLowerCase() === passLower);
 
     if (passMatches) {
       clearLocalLoginAttempts(normEmail);
@@ -1196,7 +1152,7 @@ export async function localLoginUsuario(email: string, password: string): Promis
         email: u.email,
         rol: u.rol,
         sucursalAsignada: u.sucursalAsignada,
-        puedeVerApi: u.rol === 'SuperAdmin' || u.nombre.toLowerCase().includes('david orjuela'),
+        puedeVerApi: u.rol === 'SuperAdmin',
         creadoEn: u.creadoEn,
         token,
         tokenExpiresAt
@@ -1251,7 +1207,7 @@ export function localCrearUsuario(payload: {
     id: `USR-${Date.now().toString().slice(-6)}`,
     nombre: payload.nombre.trim(),
     email: payload.email.trim(),
-    password: payload.password?.trim() || 'caja123',
+    password: payload.password?.trim() || '',
     rol: payload.rol,
     sucursalAsignada: payload.rol === 'Administrador' ? 'todas' : (payload.sucursalAsignada || 'suc-chico'),
     creadoEn: new Date().toISOString(),

@@ -148,6 +148,8 @@ export const ServiceCatalog: React.FC<ServiceCatalogProps> = ({
             src={HERITAGE_BANNER_MASTER}
             alt="Maestros Afeitadores Barbería Tradicional"
             className="w-full h-full object-cover object-center transform scale-102 transition-transform duration-700 hover:scale-105"
+            loading="lazy"
+            decoding="async"
             referrerPolicy="no-referrer"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-[#221A14]/85 via-[#221A14]/30 to-transparent" />
